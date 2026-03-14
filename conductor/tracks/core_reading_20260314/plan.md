@@ -4,7 +4,7 @@
 Establish the foundation for storing and serving letter content.
 
 - [x] Task: Design and Implement Prisma Schema for Letters and Sections (ea0b0c6)
-- [ ] Task: Create Database Seed/Import Script (TypeScript/ts-node)
+- [x] Task: Create Database Seed/Import Script (TypeScript/ts-node) (55bf370)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Database' (Protocol in workflow.md)
 
 ## Phase 2: Core UI Scaffolding
