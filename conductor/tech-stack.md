@@ -20,3 +20,6 @@
 
 ## AI Integration
 - **OpenAI GPT-4 API:** For deep analysis of shareholder letters and financial concepts.
+
+## Testing Framework
+- **Vitest:** For unit and integration testing with >80% coverage target.

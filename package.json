@@ -6,20 +6,30 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.1",
+    "@prisma/client": "6.19.2",
     "next": "16.1.6",
+    "next-auth": "^4.24.13",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.0",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "typescript": "^5"
+    "prisma": "6.19.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5",
+    "vitest": "^4.1.0"
   }
 }
