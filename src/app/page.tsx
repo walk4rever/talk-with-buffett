@@ -44,6 +44,11 @@ export default async function Home() {
       <footer className="home-footer">
         <p>© 2026 Learn from Buffett. 仅供学习研究使用。</p>
         <p>数据源: Berkshire Hathaway Inc. 官方网站</p>
+        <div className="footer-links">
+          <Link href="/privacy-policy">隐私政策</Link>
+          <Link href="/terms-of-service">使用条款</Link>
+          <Link href="/contact">联系我们</Link>
+        </div>
       </footer>
     </div>
   );

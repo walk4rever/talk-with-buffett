@@ -1,0 +1,146 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String      @id @default(cuid())
+  name          String?
+  email         String?     @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  accounts      Account[]
+  highlights    Highlight[]
+  notes         Note[]
+  sessions      Session[]
+  threads       Thread[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Letter {
+  id        String    @id @default(cuid())
+  year      Int       @unique
+  title     String
+  url       String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  sections  Section[]
+}
+
+model Section {
+  id         String       @id @default(cuid())
+  letterId   String
+  order      Int
+  contentEn  String
+  contentZh  String?
+  hasTable   Boolean      @default(false)
+  hasImage   Boolean      @default(false)
+  imageUrl   String?
+  tableData  String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  aiAnalyses AiAnalysis[]
+  highlights Highlight[]
+  notes      Note[]
+  letter     Letter       @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  threads    Thread[]
+
+  @@unique([letterId, order])
+}
+
+model Highlight {
+  id        String   @id @default(cuid())
+  userId    String
+  sectionId String
+  text      String
+  color     String?
+  createdAt DateTime @default(now())
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  sectionId String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AiAnalysis {
+  id        String   @id @default(cuid())
+  sectionId String
+  analysis  String
+  createdAt DateTime @default(now())
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+model Thread {
+  id        String    @id @default(cuid())
+  userId    String
+  sectionId String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+  section   Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+}
+
+model ShareCard {
+  id        String   @id @default(cuid())
+  userId    String
+  sectionId String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+}
