@@ -137,12 +137,6 @@ body {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
-.section-actions {
-  margin-top: 1.5rem;
-  display: flex;
-  justify-content: flex-end;
-}
-
 .btn-deep-dive {
   background: linear-gradient(135deg, var(--primary), #a52a2a);
   color: white;
@@ -375,8 +369,32 @@ body {
   margin-bottom: 1.5rem;
 }
 
+/* ========== Section Card Layout ========== */
+/* Desktop: side-by-side */
+.section-card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.section-actions {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+
+.ai-analysis-pane {
+  grid-column: 1 / -1;
+}
+
 /* ========== Mobile optimizations ========== */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  .section-card {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    padding: 1.25rem;
+  }
+  
   .letter-title {
     font-size: 1.75rem;
   }
@@ -385,16 +403,14 @@ body {
     font-size: 1rem;
     line-height: 1.7;
     word-wrap: break-word;
+    border-bottom: 1px solid var(--secondary);
+    padding-bottom: 1rem;
   }
   
   .content-zh {
     font-size: 0.95rem;
     line-height: 1.7;
     word-wrap: break-word;
-  }
-  
-  .section-card {
-    padding: 1.25rem;
   }
   
   .year-grid {
@@ -417,6 +433,16 @@ body {
   
   .header-content {
     padding: 0.75rem;
+  }
+  
+  .user-name {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-title {
+    font-size: 2rem;
   }
 }
 

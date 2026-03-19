@@ -150,7 +150,7 @@ const SectionCard: React.FC<SectionCardProps> = ({ id, contentEn, contentZh, isP
     );
     
     let lastIndex = 0;
-    const elements: JSX.Element[] = [];
+    const elements: (React.ReactElement | string)[] = [];
     
     sortedHighlights.forEach(highlight => {
       const startIndex = text.indexOf(highlight.text, lastIndex);

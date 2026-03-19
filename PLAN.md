@@ -1,144 +1,187 @@
-# Implementation Plan: 穿越式阅读 MVP
+# Implementation Plan: 与巴菲特对话
+
+> 核心愿景：不只是读信，而是跟巴菲特坐在同一个房间里对话。
+> 实现路径：数据结构化 → 对话引擎 → 虚拟人物（渐进式，每步可验证）
 
 ## 已完成
+
 - [x] Prisma Schema（Letter, Section + 用户相关模型）(ea0b0c6)
 - [x] 数据导入脚本 prisma/seed.ts (55bf370)
 - [x] 单封信阅读页面（2024，硬编码）
 - [x] SectionCard 双语展示 + 高亮 + AI 分析
 - [x] NextAuth 认证（GitHub, Google）
 - [x] 数据管道（fetch → parse → translate，2020-2024 PDF 已下载，2024 已解析翻译）
+- [x] 主页改为年份列表 (32be0be)
+- [x] 动态信件页面 `/letters/[year]` (32be0be)
+- [x] P0/P1/P2 修复：移动端响应式、暗黑模式持久化、错误边界、页脚 (95c46a1)
 
-## Phase 1: 年份导航
-把硬编码的单封信页面拆成多年份可导航的结构。
+---
 
-- [ ] Task 1.1: 主页改为年份列表
-  - 改造 `src/app/page.tsx`：查询所有 Letter，按年份降序展示
-  - 每个年份卡片显示：年份、标题、段落数
-  - 点击跳转到 `/letters/[year]`
-  - **测试：** 列表渲染、空数据空状态
+## Phase 1: 全量数据结构化（知识库地基）
 
-- [ ] Task 1.2: 动态信件页面 `/letters/[year]`
-  - 新建 `src/app/letters/[year]/page.tsx`
-  - 将现有 `page.tsx` 的信件展示逻辑迁移过来
-  - 参数校验：year 不存在时返回 404
-  - **测试：** 正常渲染、year 不存在返回 404
+把 1965-2024 全部 59 封信件结构化入库，并增加主题/公司标注，为对话引擎提供知识基础。
 
-- [ ] Task 1.3: 补全 2020-2023 年数据
-  - 对已下载的 4 个年份 PDF 执行 parse + translate 管道
-  - 更新 seed.ts 导入所有年份
-  - 验证：5 个年份数据完整可读
+### Task 1.1: 扩展爬虫支持 1965-2019
 
-## Phase 2: 年度背景卡片（核心差异化 — 第一刀）
-每封信顶部展示那一年的市场环境，让用户"回到那个时代"。
+- 修改 `scripts/crawler/fetch_letters.py`，支持 1965-2019 全部信件 PDF 下载
+- 注意：早期信件格式不同（HTML vs PDF），需要适配
+- Berkshire 官方页面：https://www.berkshirehathaway.com/letters.html
+- **验证：** 59 个年份的 PDF/HTML 全部下载成功
 
-```
-  ┌─────────────────────────────────────────────┐
-  │  2024 Shareholder Letter                    │
-  ├─────────────────────────────────────────────┤
-  │  ┌─────────────────────────────────────┐    │
-  │  │ 📊 时代背景                  2024    │    │
-  │  │ S&P 500: +24.2%  BRK-A: $544→$690  │    │
-  │  │ • Fed 降息周期开启               │    │
-  │  │ • AI 浪潮推动科技股              │    │
-  │  └─────────────────────────────────────┘    │
-  │                                             │
-  │  [段落1 英文]                               │
-  │  [段落1 中文]                               │
-  │  ...                                        │
-  └─────────────────────────────────────────────┘
-```
+### Task 1.2: 扩展解析管道支持全量信件
 
-- [ ] Task 2.1: YearContext Prisma model + migration
-  - 新增 `YearContext` model：year(unique), spReturn, brkPriceStart, brkPriceEnd, events(JSON)
-  - 关联 Letter：`Letter` 添加可选 `yearContext` 关系
-  - 运行 `npx prisma migrate dev`
+- 修改 `scripts/crawler/parse_pdf.py`，适配不同年份的 PDF 格式差异
+- 早期信件可能是扫描件 → 需要 OCR（pdfplumber 或 tesseract）
+- **验证：** 59 个年份的 sections.json 全部生成
 
-- [ ] Task 2.2: 准备年度背景数据 + seed
-  - 整理 2020-2024 五年数据：标普500收益率、BRK-A 股价（年初/年末）、2-3 条大事件
-  - 数据来源：Yahoo Finance（股价）、手动整理（事件）
-  - 扩展 seed.ts：导入 YearContext 数据
+### Task 1.3: 全量 AI 翻译
 
-- [ ] Task 2.3: YearContextCard 组件
-  - 新建 `src/components/YearContextCard.tsx`
-  - 展示：标普收益率（绿涨红跌）、BRK-A 股价变化、年度大事件列表
-  - 纯展示 Server Component，数据通过 props 传入
-  - **测试：** props 渲染、数据缺失时不崩溃
+- 修改 `scripts/crawler/translate_sections.py`，批量翻译全部年份
+- 考虑 API 成本和速率限制，支持断点续传
+- **验证：** 59 个年份的 sections_zh.json 全部生成
 
-- [ ] Task 2.4: 信件页集成
-  - `/letters/[year]/page.tsx` 查询 YearContext 数据
-  - 有数据 → 渲染 YearContextCard；无数据 → 不渲染（不报错）
-  - **测试：** 有/无 YearContext 两种情况
+### Task 1.4: 扩展 Seed 脚本
 
-## Phase 3: 段落级公司上下文（第二刀）
-信中提到具体公司时，展示该公司当年的关键数据。
+- 修改 `prisma/seed.ts`，支持导入全部年份数据
+- **验证：** 数据库包含 59 个年份，总段落数完整
 
-```
-  ┌──────────────────────────────────┬──────────────────┐
-  │  "We purchased Occidental        │  📈 OXY          │
-  │   Petroleum shares..."           │  $57→$63 (+10.5%)│
-  │                                  │  石油天然气公司    │
-  │  "我们买入了西方石油的股份..."      │                  │
-  └──────────────────────────────────┴──────────────────┘
-  桌面端：右侧面板          移动端：折叠在段落下方
-```
+### Task 1.5: Schema 扩展 — 主题标签与公司提及
 
-- [ ] Task 3.1: CompanyData + EntityMention Prisma models + migration
-  - `CompanyData`: ticker(unique per year), name, year, priceStart, priceEnd, description
-  - `EntityMention`: sectionId(FK), companyTicker, 关联 Section
-  - 运行 migration
+- 新增 Prisma 模型：
+  - `Topic`：主题标签（insurance, technology, valuation...）
+  - `CompanyMention`：公司提及（ticker, companyName, sectionId）
+  - `SectionTopic`：段落-主题关联
+- 运行 `npx prisma migrate dev`
+- **测试：** 模型关系正确，查询可用
 
-- [ ] Task 3.2: 实体标注 + 公司数据 seed
-  - AI 一次性提取 2024 年各 section 提到的公司（公司名 + ticker）
-  - 整理对应公司的年度股价数据（Yahoo Finance）
-  - 扩展 seed.ts：用 `year + order` 查找已有 section，再创建 EntityMention 关联
-  - 先覆盖 2024 年（预计 10-15 家公司）
-  - **测试：** seed 后验证关联数据完整性
+### Task 1.6: AI 自动标注
 
-- [ ] Task 3.3: CompanyContext 组件
-  - 新建 `src/components/CompanyContext.tsx`
-  - 展示：公司名、ticker、股价变化（绿涨红跌）、一句话描述
-  - 使用 `dynamic(() => import(...))` 懒加载，避免 53 个段落同时 hydrate
-  - **测试：** props 渲染、懒加载行为
+- 新建脚本 `scripts/crawler/annotate_sections.py`
+- 用 AI 批量提取每个段落的：
+  - 提及的公司（公司名 + ticker）
+  - 主题标签（从预定义列表 + AI 自由标注）
+- 标注结果写入数据库
+- **验证：** 抽样检查标注质量
 
-- [ ] Task 3.4: SectionCard 集成
-  - 修改 `src/components/SectionCard.tsx`
-  - 接收 entity mentions 数据，有关联公司时渲染 CompanyContext
-  - 信件页面查询 EntityMention + CompanyData，按 section 分组后传入
-  - 移动端：折叠在段落下方；桌面端：右侧面板
-  - **测试：** 有/无关联公司两种渲染情况
+---
+
+## Phase 2: 对话引擎（灵魂）
+
+让用户能输入公司名或主题，与"巴菲特"文字对话。
+
+### Task 2.1: 主题时间线 API
+
+- 新建 `src/app/api/timeline/route.ts`
+- 输入：公司名或主题关键词
+- 输出：相关段落列表，按年份排序，含原文 + 翻译 + 来源
+- 基于 `CompanyMention` 和 `SectionTopic` 查询
+- **测试：** 查 "Apple" 返回正确段落；查 "insurance" 返回保险相关段落
+
+### Task 2.2: 主题时间线页面
+
+- 新建 `src/app/explore/page.tsx`
+- 搜索框 → 输入公司/主题 → 展示时间线
+- 时间线节点：年份、段落摘要、点击展开全文
+- **测试：** 搜索、空结果、时间线渲染
+
+### Task 2.3: RAG 对话接口
+
+- 新建 `src/app/api/chat/route.ts`
+- 流程：
+  1. 用户提问 → 提取关键词
+  2. 从数据库检索相关段落（向量搜索或关键词匹配）
+  3. 将段落作为上下文，AI 生成"巴菲特式"回答
+  4. 回答附带引用来源（年份/段落）
+- System prompt 定义巴菲特的说话风格、思考方式
+- **测试：** 回答质量、引用来源准确性
+
+### Task 2.4: 对话界面
+
+- 新建 `src/app/chat/page.tsx`
+- 多轮对话 UI（类 ChatGPT）
+- 每条回答显示引用来源，点击可跳转到原文段落
+- **测试：** 多轮对话、引用跳转
+
+---
+
+## Phase 3: 虚拟人（身体）
+
+给对话引擎加上视频和声音，让体验从"读文字"变成"面对面对话"。
+
+### Task 3.1: 虚拟人 API 选型与集成
+
+- 评估 HeyGen / D-ID / 开源方案（SadTalker）
+- 评估维度：质量、成本、API 稳定性、延迟
+- 选定后，写集成模块 `src/lib/avatar.ts`
+- **验证：** 输入文本 → 输出视频 MP4
+
+### Task 3.2: 声音方案
+
+- 评估 ElevenLabs / 其他 TTS 方案
+- 选定声音风格（老年美国男性，沉稳、幽默）
+- 写集成模块 `src/lib/voice.ts`
+- **验证：** 输入文本 → 输出音频 MP3
+
+### Task 3.3: 对话页面升级 — 视频模式
+
+- 扩展 `src/app/chat/page.tsx`
+- 用户提问 → AI 生成回答文本 → 生成音频 → 生成视频 → 播放
+- 流式体验：文字先出，视频随后
+- 降级方案：API 失败时回退到纯文字模式
+- **测试：** 完整流程、降级行为
+
+### Task 3.4: 打磨与优化
+
+- 视频生成延迟优化（预生成热门问题？缓存？）
+- 移动端适配
+- 成本控制（限制每用户每日对话次数？）
+
+---
 
 ## Phase 4: 打磨与质量
 
-- [ ] Task 4.1: 翻译质量修复
-  - 审查 2024 年 sections_zh.json，修复明显错误（如第1条标题被错误翻译）
-  - 短文本/标题类内容：跳过翻译或特殊处理
+### Task 4.1: 年度背景卡片
 
-- [ ] Task 4.2: 覆盖率审查
-  - 运行 `npm run test:coverage`
-  - 识别未覆盖路径，补充测试
-  - 目标 >80%
+- 新增 `YearContext` Prisma model
+- 整理 1965-2024 年度背景数据（标普500、BRK 股价、大事件）
+- 新建 `YearContextCard` 组件，集成到信件页面
+- **测试：** 有/无 YearContext 两种渲染
 
-- [ ] Task 4.3: 响应式与性能
-  - Lighthouse 跑信件页，LCP > 3s 时进一步优化
-  - 移动端 YearContextCard + CompanyContext 布局验证
-  - 图片/数据懒加载检查
+### Task 4.2: 段落级公司上下文
+
+- 新增 `CompanyData` Prisma model（公司年度股价数据）
+- 新建 `CompanyContext` 组件
+- 信中提到公司时，侧边栏展示该公司当年数据
+- **测试：** 有/无关联公司两种渲染
+
+### Task 4.3: 翻译质量修复
+
+- 审查早期信件翻译质量
+- 短文本/标题类内容特殊处理
+
+### Task 4.4: 覆盖率审查
+
+- 目标 >80% 测试覆盖率
+- 补充关键路径测试
+
+---
 
 ## 技术决策记录
 
 | # | 决策 | 理由 |
 |---|---|---|
-| D1 | 背景数据入 Prisma（非 JSON 文件） | 统一数据源，为后续持仓/跨年份功能打基础 |
-| D2 | EntityMention seed 用 `year + order` 查找 Section | section cuid 每次 reseed 会变，`year + order` 是唯一稳定标识 |
-| D3 | 测试内嵌各 Phase，非集中在最后 | 每个阶段有安全网，避免后期大面积回头改 |
-| D4 | CompanyContext 使用 dynamic import 懒加载 | 53 个段落 + CompanyContext 全量 hydrate 有性能风险 |
+| D1 | 数据先行，虚拟人后做 | 没有灵魂的身体是空壳 — 先结构化知识，再做对话 |
+| D2 | 渐进式三步走 | 每步都有可展示成果，随时可停，避免中途失去动力 |
+| D3 | RAG 而非 fine-tune | 可追溯来源，成本低，迭代快；fine-tune 是优化项 |
+| D4 | 虚拟人用 API 而非自建 | 业余项目优先用成熟方案，不造轮子 |
+| D5 | 主题/公司标注用 AI 自动提取 | 59 年信件手动标注不现实，AI 提取 + 抽样审查 |
 
 ## NOT in scope（明确延后）
 
 | 事项 | 理由 |
 |---|---|
-| SEC 13F 持仓变动数据 | 数据获取和解析复杂度高，MVP 后再做 |
-| 跨年份主题串联 | 依赖大量信件的实体标注积累，Phase 3 完成后再规划 |
-| 社交分享卡片 | 非核心差异化功能 |
-| 1965-2019 历史信件 | 先用 2020-2024 验证产品方向 |
-| 个人笔记功能 | Schema 已有 Note model，UI 延后 |
-| AI 分析接入真实 API | 当前存根够用，等产品验证后再投入 |
+| 视频/股东大会转录 | 数据获取和处理复杂度高，Phase 3 完成后再考虑 |
+| 自训练虚拟人模型 | API 方案足够，自训练 ROI 不高 |
+| 多语言支持（英语以外） | 先做好中英双语 |
+| 社交分享卡片 | 非核心功能 |
+| 向量数据库 | 先用关键词匹配，效果不够再上向量搜索 |

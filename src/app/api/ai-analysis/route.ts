@@ -1,5 +1,6 @@
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { aiAnalysisRatelimit, getClientIp } from "@/lib/ratelimit";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -8,6 +9,14 @@ export async function POST(req: Request) {
 
   if (!session || !session.user) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  // Apply rate limiting
+  const ip = getClientIp(req);
+  const { success, remaining } = await aiAnalysisRatelimit.limit(ip);
+
+  if (!success) {
+    return new NextResponse("Too Many Requests", { status: 429 });
   }
 
   const { sectionId } = await req.json();
@@ -59,6 +68,7 @@ As market dynamics shift, Buffett's "Margin of Safety" principle remains the bed
     return NextResponse.json(aiAnalysis);
   } catch (error) {
     console.error("Failed to generate AI analysis:", error);
+    // Don't expose internal error details to client
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

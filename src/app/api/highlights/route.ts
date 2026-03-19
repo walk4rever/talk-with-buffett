@@ -1,5 +1,6 @@
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { getClientIp, highlightsRatelimit } from "@/lib/ratelimit";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -8,6 +9,14 @@ export async function POST(req: Request) {
 
   if (!session || !session.user) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  // Apply rate limiting
+  const ip = getClientIp(req);
+  const { success } = await highlightsRatelimit.limit(ip);
+
+  if (!success) {
+    return new NextResponse("Too Many Requests", { status: 429 });
   }
 
   const { sectionId, text, color } = await req.json();
@@ -38,6 +47,14 @@ export async function GET(req: Request) {
 
   if (!session || !session.user) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  // Apply rate limiting
+  const ip = getClientIp(req);
+  const { success } = await highlightsRatelimit.limit(ip);
+
+  if (!success) {
+    return new NextResponse("Too Many Requests", { status: 429 });
   }
 
   const { searchParams } = new URL(req.url);
