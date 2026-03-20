@@ -76,11 +76,35 @@ async function importYear(year: number) {
 }
 
 async function main() {
-  // Add more years as they become available
-  const yearsToImport = [2024, 2023, 2022, 2021, 2020]
-  
-  for (const year of yearsToImport) {
+  const parsedDir = path.join(process.cwd(), 'data', 'parsed')
+  const allYears = fs.readdirSync(parsedDir)
+    .map(Number)
+    .filter(n => !isNaN(n))
+    .sort()
+
+  // Usage:
+  //   npx ts-node prisma/seed.ts --full
+  //   npx ts-node prisma/seed.ts --year 2024
+  const args = process.argv.slice(2)
+  const yearIdx = args.indexOf('--year')
+
+  if (yearIdx !== -1) {
+    const year = Number(args[yearIdx + 1])
+    if (isNaN(year)) {
+      console.error('Usage: --year <YYYY>')
+      process.exit(1)
+    }
+    if (!allYears.includes(year)) {
+      console.error(`No parsed data for ${year}. Available: ${allYears.join(', ')}`)
+      process.exit(1)
+    }
     await importYear(year)
+  } else {
+    // --full or no args → import everything
+    console.log(`Importing all ${allYears.length} years: ${allYears.join(', ')}`)
+    for (const year of allYears) {
+      await importYear(year)
+    }
   }
 }
 
