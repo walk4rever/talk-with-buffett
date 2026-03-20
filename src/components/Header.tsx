@@ -11,7 +11,7 @@ export function Header() {
     <header className="header">
       <div className="container header-content">
         <Link href="/" className="logo">
-          Learn from Buffett
+          Talk with Buffett
         </Link>
         <div className="nav-actions">
           <DarkModeToggle />

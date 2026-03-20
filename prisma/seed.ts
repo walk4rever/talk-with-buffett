@@ -6,27 +6,47 @@ const prisma = new PrismaClient()
 
 async function importYear(year: number) {
   console.log(`--- Importing data for year: ${year} ---`)
-  
-  const inputPath = path.join(process.cwd(), 'data', 'parsed', year.toString(), 'sections_zh.json')
-  
-  if (!fs.existsSync(inputPath)) {
-    console.warn(`[SKIP] No translated data found for ${year} at ${inputPath}`)
+
+  const yearDir = path.join(process.cwd(), 'data', 'parsed', year.toString())
+  const englishPath = path.join(yearDir, 'sections.json')
+  const chinesePath = path.join(yearDir, 'sections_zh.json')
+
+  if (!fs.existsSync(englishPath) && !fs.existsSync(chinesePath)) {
+    console.warn(`[SKIP] No parsed data found for ${year}`)
     return
   }
 
-  const sections = JSON.parse(fs.readFileSync(inputPath, 'utf-8'))
+  const englishSections = fs.existsSync(englishPath)
+    ? JSON.parse(fs.readFileSync(englishPath, 'utf-8'))
+    : []
+  const chineseSections = fs.existsSync(chinesePath)
+    ? JSON.parse(fs.readFileSync(chinesePath, 'utf-8'))
+    : []
+
+  const translatedByOrder = new Map<number, string>()
+  for (const section of chineseSections) {
+    if (section.content_zh) {
+      translatedByOrder.set(section.order, section.content_zh)
+    }
+  }
+
+  const sections = englishSections.length > 0 ? englishSections : chineseSections
 
   // 1. Create or Update the Letter entry
   const letter = await prisma.letter.upsert({
     where: { year },
     update: {
       title: `${year} Shareholder Letter`,
-      url: `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`
+      url: year <= 1999
+        ? `https://www.berkshirehathaway.com/letters/${year}.html`
+        : `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`
     },
     create: {
       year,
       title: `${year} Shareholder Letter`,
-      url: `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`
+      url: year <= 1999
+        ? `https://www.berkshirehathaway.com/letters/${year}.html`
+        : `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`
     }
   })
 
@@ -45,9 +65,9 @@ async function importYear(year: number) {
         letterId: letter.id,
         order: s.order,
         contentEn: s.content_en,
-        contentZh: s.content_zh,
+        contentZh: translatedByOrder.get(s.order) ?? s.content_zh ?? null,
         hasTable: s.type === 'table',
-        tableData: s.table_data ? JSON.stringify(s.table_data) : null,
+        tableData: s.tableData || s.table_data ? JSON.stringify(s.tableData || s.table_data) : null,
       }
     })
   }

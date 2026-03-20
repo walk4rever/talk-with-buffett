@@ -1,3 +1,5 @@
+> 🔒 内部文件，不对外公开。
+
 # TODOS — 当前工作队列
 
 > 对应 PLAN.md — 与巴菲特对话（渐进式三步走）
@@ -10,6 +12,26 @@
 - [x] **P0 修复** — 移动端响应式、AI 分析加载状态 (95c46a1)
 - [x] **P1 修复** — 暗黑模式持久化、高亮持久性 (95c46a1)
 - [x] **P2 修复** — 页脚信息、错误边界 (95c46a1)
+- [x] **UI 重设计** — 极简主页、双栏联动阅读、ChatDrawer、数字人模式框架
+- [x] **对话 API** — `/api/chat` 关键词检索 + RAG + 引用来源 + 每日限额
+
+---
+
+## 🔥 P0：部署前必须完成（基础设施迁移）
+
+### 数据库迁移：SQLite → Supabase PostgreSQL
+- [ ] 在 Supabase 创建项目（新加坡节点）
+- [ ] 修改 `DATABASE_URL` 指向 Supabase PostgreSQL
+- [ ] 运行 `npx prisma migrate deploy`
+- [ ] 重新 seed 数据，验证生产数据库可用
+
+### 认证重构：GitHub/Google → 手机号短信
+- [ ] 在阿里云开通短信服务，配置签名 + 模板
+- [ ] 新建 `src/app/api/auth/send-code/route.ts` — 发送验证码
+- [ ] 新建 `src/app/api/auth/verify-code/route.ts` — 校验并登录
+- [ ] 新建登录页 `src/app/login/page.tsx` — 手机号输入 + 验证码
+- [ ] 配置 NextAuth Credentials Provider 接手机号登录
+- [ ] 移除 GitHub / Google Provider
 
 ---
 
@@ -18,7 +40,7 @@
 ### 数据扩展
 - [ ] 修改 `fetch_letters.py` 支持 1965-2019 全部信件下载
 - [ ] 适配早期信件格式差异（HTML vs PDF vs 扫描件）
-- [ ] 修改 `parse_pdf.py` 适配不同年份 PDF 格式
+- [ ] 修改 `parse_pdf_sections.py` 适配不同年份 PDF 格式
 - [ ] 修改 `translate_sections.py` 批量翻译，支持断点续传
 - [ ] 修改 `prisma/seed.ts` 支持导入全部 59 个年份
 
@@ -29,7 +51,7 @@
 - [ ] 运行 `npx prisma migrate dev`
 
 ### AI 标注
-- [ ] 新建 `scripts/crawler/annotate_sections.py`
+- [ ] 新建 `scripts/parsing/annotate_sections.py`
 - [ ] AI 提取每段落提及的公司（公司名 + ticker）
 - [ ] AI 提取每段落的主题标签
 - [ ] 标注结果写入数据库

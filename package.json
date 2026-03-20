@@ -9,10 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "test:coverage": "vitest run --coverage",
+    "db:import": "ts-node scripts/db/import_sections.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

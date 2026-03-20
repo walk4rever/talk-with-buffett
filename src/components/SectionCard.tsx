@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import ReactMarkdown from "react-markdown";
 
 interface SectionCardProps {
   id: string;
@@ -21,10 +20,8 @@ interface Highlight {
 const SectionCard: React.FC<SectionCardProps> = ({ id, contentEn, contentZh, isPaid: isPaidProp }) => {
   const { data: session } = useSession();
   const isPaid = !!session || isPaidProp;
-  
+
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [analysis, setAnalysis] = useState<string | null>(null);
-  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
   const [selectedText, setSelectedText] = useState("");
@@ -108,37 +105,6 @@ const SectionCard: React.FC<SectionCardProps> = ({ id, contentEn, contentZh, isP
     }
   };
 
-  const handleDeepDive = async () => {
-    if (!isPaid) {
-      alert("Please login to access AI Deep Dives.");
-      return;
-    }
-    
-    setIsLoadingAnalysis(true);
-    setAnalysis(null); // Clear previous analysis
-    
-    try {
-      const res = await fetch("/api/ai-analysis", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sectionId: id }),
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setAnalysis(data.analysis);
-      } else {
-        const errorData = await res.json();
-        setAnalysis(`Error: ${errorData.error || 'Failed to generate analysis'}`);
-      }
-    } catch (err) {
-      console.error("Error generating analysis:", err);
-      setAnalysis("Error: Failed to generate analysis. Please try again later.");
-    } finally {
-      setIsLoadingAnalysis(false);
-    }
-  };
-
   // Simple highlighting implementation by wrapping text in spans
   // In a more robust implementation, we would use a library like 'react-highlight-words'
   const renderHighlightedContent = (text: string) => {
@@ -195,26 +161,7 @@ const SectionCard: React.FC<SectionCardProps> = ({ id, contentEn, contentZh, isP
           <div className="content-zh">{contentZh}</div>
         )}
         
-        <div className="section-actions">
-          <button 
-            className="btn-deep-dive" 
-            onClick={handleDeepDive}
-            disabled={isLoadingAnalysis}
-          >
-            {isLoadingAnalysis ? (
-              <>
-                <span className="loading-spinner"></span> Analyzing...
-              </>
-            ) : "AI Deep Dive ✨"}
-          </button>
-        </div>
       </div>
-
-      {analysis && (
-        <div className="ai-analysis-pane">
-          <ReactMarkdown>{analysis}</ReactMarkdown>
-        </div>
-      )}
 
       {showPopup && (
         <div 

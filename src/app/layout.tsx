@@ -5,8 +5,8 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Learn from Buffett",
-  description: "Study Warren Buffett's shareholder letters with AI and translations.",
+  title: "Talk with Buffett",
+  description: "与虚拟巴菲特对话 — 基于 1965–2024 年全部股东信的对话引擎。",
 };
 
 export default function RootLayout({

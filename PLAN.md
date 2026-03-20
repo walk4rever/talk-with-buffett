@@ -1,3 +1,5 @@
+> 🔒 内部文件，不对外公开。
+
 # Implementation Plan: 与巴菲特对话
 
 > 核心愿景：不只是读信，而是跟巴菲特坐在同一个房间里对话。
@@ -23,20 +25,20 @@
 
 ### Task 1.1: 扩展爬虫支持 1965-2019
 
-- 修改 `scripts/crawler/fetch_letters.py`，支持 1965-2019 全部信件 PDF 下载
+- 修改 `scripts/parsing/fetch_letters.py`，支持 1965-2019 全部信件 PDF 下载
 - 注意：早期信件格式不同（HTML vs PDF），需要适配
 - Berkshire 官方页面：https://www.berkshirehathaway.com/letters.html
 - **验证：** 59 个年份的 PDF/HTML 全部下载成功
 
 ### Task 1.2: 扩展解析管道支持全量信件
 
-- 修改 `scripts/crawler/parse_pdf.py`，适配不同年份的 PDF 格式差异
+- 修改 `scripts/parsing/parse_pdf_sections.py`，适配不同年份的 PDF 格式差异
 - 早期信件可能是扫描件 → 需要 OCR（pdfplumber 或 tesseract）
 - **验证：** 59 个年份的 sections.json 全部生成
 
 ### Task 1.3: 全量 AI 翻译
 
-- 修改 `scripts/crawler/translate_sections.py`，批量翻译全部年份
+- 修改 `scripts/parsing/translate_sections.py`，批量翻译全部年份
 - 考虑 API 成本和速率限制，支持断点续传
 - **验证：** 59 个年份的 sections_zh.json 全部生成
 
@@ -56,7 +58,7 @@
 
 ### Task 1.6: AI 自动标注
 
-- 新建脚本 `scripts/crawler/annotate_sections.py`
+- 新建脚本 `scripts/parsing/annotate_sections.py`
 - 用 AI 批量提取每个段落的：
   - 提及的公司（公司名 + ticker）
   - 主题标签（从预定义列表 + AI 自由标注）
@@ -175,6 +177,21 @@
 | D3 | RAG 而非 fine-tune | 可追溯来源，成本低，迭代快；fine-tune 是优化项 |
 | D4 | 虚拟人用 API 而非自建 | 业余项目优先用成熟方案，不造轮子 |
 | D5 | 主题/公司标注用 AI 自动提取 | 59 年信件手动标注不现实，AI 提取 + 抽样审查 |
+| D6 | 目标市场：中国为主 | 中文解读 + 原文对照是核心护城河，英文市场竞争激烈且优势不明显 |
+| D7 | 部署：Vercel 新加坡 region | 中国可达，无需备案，serverless 运维成本低；规模化后评估迁移阿里云 |
+| D8 | 数据库：Supabase PostgreSQL | Vercel serverless 不支持 SQLite；Prisma schema 迁移成本极低 |
+| D9 | 认证：手机号短信（阿里云短信） | GitHub/Google OAuth 在中国被封；手机号是国内最低摩擦的注册方式 |
+| D10 | 支付 MVP：LemonSqueezy | 无需营业执照，快速验证付费意愿；正式运营后迁移 Ping++（微信/支付宝）|
+
+## 基础设施迁移清单（开发 → 生产）
+
+| 层 | 当前 | 目标 | 优先级 |
+|---|---|---|---|
+| 数据库 | SQLite 本地文件 | Supabase PostgreSQL 新加坡 | **P0** 部署前必须 |
+| 认证 | GitHub / Google OAuth | 手机号 + 阿里云短信验证码 | **P0** 部署前必须 |
+| 限流 | 内存 Map（重启清零） | Upstash Redis 新加坡 | P1 |
+| 支付 | 无 | LemonSqueezy | P1 |
+| 日志监控 | 无 | Vercel Analytics + Sentry | P2 |
 
 ## NOT in scope（明确延后）
 
@@ -182,6 +199,8 @@
 |---|---|
 | 视频/股东大会转录 | 数据获取和处理复杂度高，Phase 3 完成后再考虑 |
 | 自训练虚拟人模型 | API 方案足够，自训练 ROI 不高 |
-| 多语言支持（英语以外） | 先做好中英双语 |
+| 英文版 / 多语言 | 先在中国市场跑通商业模式，再考虑出海 |
 | 社交分享卡片 | 非核心功能 |
 | 向量数据库 | 先用关键词匹配，效果不够再上向量搜索 |
+| 微信登录 | 需要公众号资质，个人开发者暂时做不了 |
+| Ping++ 支付 | 需要营业执照，MVP 阶段用 LemonSqueezy 代替 |

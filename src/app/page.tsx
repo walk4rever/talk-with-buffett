@@ -1,54 +1,46 @@
 import prisma from "@/lib/prisma";
 import Link from "next/link";
+import { HomeModeSelect } from "@/components/HomeModeSelect";
 
 export default async function Home() {
   const letters = await prisma.letter.findMany({
     orderBy: { year: "desc" },
-    include: {
-      _count: {
-        select: { sections: true },
-      },
-    },
+    include: { _count: { select: { sections: true } } },
   });
 
   return (
-    <div>
-      <header className="home-header">
-        <h1 className="home-title">Learn from Buffett</h1>
-        <p className="home-subtitle">
-          穿越式阅读巴菲特致股东信 — 回到那个时代，看见他做决策时的市场、持仓和世界。
+    <div className="home-wrap">
+      {/* Hero */}
+      <section className="hero">
+        <p className="hero-eyebrow">基于网络公开的巴菲特致合伙人 / 股东信 / 股东大会视频等</p>
+        <h1 className="hero-title">Talk with Buffett</h1>
+        <p className="hero-tagline">
+          不只是读信，而是与他坐在同一个房间里对话。
         </p>
-      </header>
+        <HomeModeSelect />
+      </section>
 
-      {letters.length === 0 ? (
-        <div className="empty-state">
-          <p>暂无信件数据</p>
-          <p className="empty-hint">请先运行 <code>npx prisma db seed</code> 导入数据</p>
-        </div>
-      ) : (
-        <div className="year-grid">
-          {letters.map((letter) => (
-            <Link
-              key={letter.id}
-              href={`/letters/${letter.year}`}
-              className="year-card"
-            >
-              <span className="year-number">{letter.year}</span>
-              <span className="year-title">{letter.title}</span>
-              <span className="year-meta">{letter._count.sections} 段</span>
-            </Link>
-          ))}
-        </div>
+      {/* Archive */}
+      {letters.length > 0 && (
+        <section className="archive">
+          <p className="archive-label">浏览原文</p>
+          <div className="archive-grid">
+            {letters.map((letter) => (
+              <Link
+                key={letter.id}
+                href={`/letters/${letter.year}`}
+                className="archive-item"
+                title={letter.title ?? undefined}
+              >
+                {letter.year}
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <footer className="home-footer">
-        <p>© 2026 Learn from Buffett. 仅供学习研究使用。</p>
-        <p>数据源: Berkshire Hathaway Inc. 官方网站</p>
-        <div className="footer-links">
-          <Link href="/privacy-policy">隐私政策</Link>
-          <Link href="/terms-of-service">使用条款</Link>
-          <Link href="/contact">联系我们</Link>
-        </div>
+        <p>© 2026 Talk with Buffett · 仅供学习研究使用</p>
       </footer>
     </div>
   );
