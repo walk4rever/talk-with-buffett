@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import DarkModeToggle from './DarkModeToggle';
 
@@ -23,9 +23,9 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <button onClick={() => signIn()} className="btn-primary">
-              Login
-            </button>
+            <Link href="/login" className="btn-primary">
+              登录 / 注册
+            </Link>
           )}
         </div>
       </div>
