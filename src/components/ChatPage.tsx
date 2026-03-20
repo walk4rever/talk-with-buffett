@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { WaitlistModal } from "@/components/WaitlistModal";
 
 type Mode = "text" | "avatar";
 
@@ -33,8 +34,7 @@ async function callChatAPI(messages: Message[]): Promise<Message> {
   });
 
   if (res.status === 429) {
-    const data = await res.json();
-    return { role: "assistant", content: data.error ?? "今日次数已用完，请明天再来。" };
+    return { role: "assistant", content: "__LIMIT_REACHED__" };
   }
 
   if (!res.ok) {
@@ -263,6 +263,27 @@ function MessageBubble({ msg }: { msg: Message }) {
     return (
       <div className="msg msg--user">
         <p className="msg-text">{msg.content}</p>
+      </div>
+    );
+  }
+
+  if (msg.content === "__LIMIT_REACHED__") {
+    return (
+      <div className="msg msg--assistant">
+        <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+        <div className="msg-body">
+          <p className="msg-text">今天的 5 次免费对话已用完。</p>
+          <WaitlistModal
+            source="chat_limit"
+            title="解锁无限对话"
+            desc="留下邮箱或微信，付费版上线时第一时间通知你。"
+            trigger={
+              <button className="waitlist-btn waitlist-btn--inline">
+                我想要更多 →
+              </button>
+            }
+          />
+        </div>
       </div>
     );
   }

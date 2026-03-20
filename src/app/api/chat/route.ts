@@ -6,30 +6,24 @@ const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
 const AI_MODEL = process.env.AI_MODEL!;
 
-// Free tier: 5 requests per day per IP (in-memory, resets on server restart)
-// Replace with Redis/DB for production
-const usageMap = new Map<string, { count: number; date: string }>();
 const FREE_DAILY_LIMIT = 5;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function checkAndIncrementUsage(ip: string): { allowed: boolean; remaining: number } {
-  const today = todayStr();
-  const entry = usageMap.get(ip);
+async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; remaining: number }> {
+  const date = todayStr();
 
-  if (!entry || entry.date !== today) {
-    usageMap.set(ip, { count: 1, date: today });
-    return { allowed: true, remaining: FREE_DAILY_LIMIT - 1 };
-  }
+  const entry = await prisma.chatUsage.upsert({
+    where: { ip_date: { ip, date } },
+    update: { count: { increment: 1 } },
+    create: { ip, date, count: 1 },
+  });
 
-  if (entry.count >= FREE_DAILY_LIMIT) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  entry.count += 1;
-  return { allowed: true, remaining: FREE_DAILY_LIMIT - entry.count };
+  const allowed = entry.count <= FREE_DAILY_LIMIT;
+  const remaining = Math.max(0, FREE_DAILY_LIMIT - entry.count);
+  return { allowed, remaining };
 }
 
 // ── Retrieval ──────────────────────────────────────────────────────────────
@@ -157,7 +151,7 @@ export async function POST(req: Request) {
   const ip = getClientIp(req);
 
   // Usage limit check
-  const { allowed, remaining } = checkAndIncrementUsage(ip);
+  const { allowed, remaining } = await checkAndIncrementUsage(ip);
   if (!allowed) {
     return NextResponse.json(
       { error: "今日免费次数已用完（5次/天），请明天再来或登录获取更多次数。" },

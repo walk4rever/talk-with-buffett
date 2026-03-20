@@ -9,6 +9,8 @@ interface Section {
   order: number;
   contentEn: string;
   contentZh: string | null;
+  hasTable?: boolean;
+  tableData?: string | null;
 }
 
 interface LetterReadingAreaProps {

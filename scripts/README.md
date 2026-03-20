@@ -41,10 +41,11 @@ Path: `scripts/db/`
 
 Used for loading parsed artifacts into the application database.
 
-- `import_sections.ts`: import parsed sections into Prisma/SQLite
+- `import_sections.ts`: import parsed sections into Prisma
 
 Naming rule:
 
+- database refresh should normally use `npx prisma db seed`
 - database write entrypoints use action-style names such as `import_sections.ts`
 
 ## Placement Rule

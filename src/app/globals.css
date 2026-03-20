@@ -494,6 +494,135 @@ body {
   margin: 0;
 }
 
+.home-footer-waitlist {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  color: var(--primary);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ========== Waitlist Modal ========== */
+
+.waitlist-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.waitlist-modal {
+  background: var(--background);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.waitlist-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.25rem;
+}
+
+.waitlist-title {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+
+.waitlist-desc {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0 0 1.25rem;
+  line-height: 1.6;
+}
+
+.waitlist-input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid var(--secondary);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: var(--background);
+  color: var(--foreground);
+  margin-bottom: 0.75rem;
+  box-sizing: border-box;
+}
+
+.waitlist-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.waitlist-submit {
+  width: 100%;
+  padding: 0.65rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.waitlist-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.waitlist-error {
+  font-size: 0.82rem;
+  color: #e53e3e;
+  margin: 0 0 0.5rem;
+}
+
+.waitlist-done {
+  text-align: center;
+  padding: 1rem 0;
+  color: var(--text-muted);
+}
+
+.waitlist-done-icon {
+  font-size: 2rem;
+  color: #38a169;
+  margin-bottom: 0.5rem;
+}
+
+.waitlist-btn {
+  padding: 0.5rem 1.25rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.waitlist-btn--inline {
+  margin-top: 0.75rem;
+  display: block;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
 /* ========== Letter page ========== */
 
 .letter-nav {

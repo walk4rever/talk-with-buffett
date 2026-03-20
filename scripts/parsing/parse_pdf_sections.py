@@ -211,6 +211,20 @@ def is_narrative_block(text):
     return word_count(compact) >= 18 and any(mark in compact for mark in (".", "?", "!"))
 
 
+def is_table_lead_block(text):
+    compact = collapse_text(text)
+    lower = compact.lower()
+    if not compact:
+        return False
+    if is_table_header_block(text):
+        return True
+    if compact.startswith("(") and compact.endswith(")"):
+        return True
+    if "employees" in lower or "written premium" in lower:
+        return True
+    return is_probable_title(text) and word_count(compact) <= 6
+
+
 def merge_table_group(blocks, start):
     """合并连续的表头/表体/表注 block"""
     group = []
@@ -226,7 +240,7 @@ def merge_table_group(blocks, start):
             continue
 
         if not seen_table_like:
-            if is_table_header_block(block) or word_count(block) <= 6:
+            if is_table_lead_block(block) or word_count(block) <= 6:
                 group.append(block)
                 i += 1
                 continue
@@ -251,7 +265,7 @@ def should_start_table_group(blocks, index):
     block = blocks[index]
     if is_table_block(block):
         return True
-    if not is_table_header_block(block):
+    if not is_table_lead_block(block):
         return False
 
     for look_ahead in range(index + 1, min(len(blocks), index + 8)):

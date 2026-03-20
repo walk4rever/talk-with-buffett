@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Parse Berkshire Hathaway shareholder letters (1977-1999) from HTML format.
-Output sections.json compatible with scripts/db/import_sections.ts
+Output sections.json compatible with the Prisma seed importer.
 """
 
 import json

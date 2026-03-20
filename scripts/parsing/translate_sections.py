@@ -23,7 +23,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 YEARS = [2020, 2021, 2022, 2023, 2024]
-MAX_BATCH_CHARS = 6000
+MAX_BATCH_CHARS = 4000
 API_TIMEOUT_SECONDS = 60
 
 client = OpenAI(
@@ -56,9 +56,6 @@ def build_batch_prompt(sections):
         content = s.get("content_en", "").strip()
         sec_type = s.get("type", "text")
 
-        # 表格跳过
-        if sec_type == "table":
-            continue
         if not content or content == "[TABLE DATA]":
             continue
 
@@ -81,8 +78,6 @@ def build_prompt_batches(sections, max_chars=MAX_BATCH_CHARS):
         content = s.get("content_en", "").strip()
         sec_type = s.get("type", "text")
 
-        if sec_type == "table":
-            continue
         if not content or content == "[TABLE DATA]":
             continue
 
@@ -207,8 +202,6 @@ def translate_letter_fallback(sections):
         content = s.get("content_en", "").strip()
         sec_type = s.get("type", "text")
 
-        if sec_type == "table":
-            continue
         if not content or content == "[TABLE DATA]":
             continue
 
@@ -239,26 +232,45 @@ def translate_letter(year):
     with open(input_path, "r", encoding="utf-8") as f:
         sections = json.load(f)
 
+    existing_by_order = {}
+    sections_to_translate = sections
+
     # 已翻译则跳过（全量完成才算）
     if os.path.exists(output_path):
         with open(output_path, "r", encoding="utf-8") as f:
             existing = json.load(f)
-        translated_count = sum(1 for s in existing if "content_zh" in s)
+        existing_by_order = {s.get("order"): s for s in existing}
+        translated_count = 0
+        for s in existing:
+            zh = s.get("content_zh")
+            en = s.get("content_en")
+            if not zh:
+                continue
+            if zh != en:
+                translated_count += 1
         if translated_count == len(sections):
             print(f"[{year}] ✅ 已全部翻译，跳过")
             return
         else:
-            print(f"[{year}] ⚠️ 已有 {translated_count}/{len(sections)} 段，重新全量翻译...")
+            sections_to_translate = []
+            for s in sections:
+                existing_section = existing_by_order.get(s["order"], {})
+                zh = existing_section.get("content_zh")
+                en = s.get("content_en")
+                if zh and zh != en:
+                    continue
+                sections_to_translate.append(s)
+            print(f"[{year}] ⚠️ 已有 {translated_count}/{len(sections)} 段，补翻剩余 {len(sections_to_translate)} 段...")
 
-    print(f"\n[{year}] 开始整封信批量翻译（共 {len(sections)} 段）...")
+    print(f"\n[{year}] 开始批量翻译（本次共 {len(sections_to_translate)} 段）...")
 
     # 第一步：批量翻译
-    translations = translate_letter_batch(year, sections)
+    translations = translate_letter_batch(year, sections_to_translate)
 
     # 第二步：批量失败则降级逐段
     if translations is None:
         print(f"  [降级] 批量翻译失败，改为逐段翻译...")
-        translations = translate_letter_fallback(sections)
+        translations = translate_letter_fallback(sections_to_translate)
 
     # 第三步：把译文写回 sections
     result_sections = []
@@ -269,12 +281,14 @@ def translate_letter(year):
 
         s = dict(s)  # 浅拷贝，不修改原始数据
 
+        existing_zh = existing_by_order.get(order, {}).get("content_zh")
+
         if sec_type == "table" and content == "[TABLE DATA]":
             s["content_zh"] = "[表格数据]"
-        elif sec_type == "table":
-            s["content_zh"] = content  # 表格保留原文
         elif order in translations:
             s["content_zh"] = translations[order]
+        elif existing_zh:
+            s["content_zh"] = existing_zh
         else:
             s["content_zh"] = content  # 翻译缺失则保留原文
             print(f"  ⚠️ 段落 {order} 无译文，保留原文")

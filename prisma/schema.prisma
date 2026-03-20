@@ -145,3 +145,20 @@ model ShareCard {
   imageUrl  String?
   createdAt DateTime @default(now())
 }
+
+model ChatUsage {
+  id        String   @id @default(cuid())
+  ip        String
+  date      String
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([ip, date])
+}
+
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  contact   String
+  source    String?
+  createdAt DateTime @default(now())
+}

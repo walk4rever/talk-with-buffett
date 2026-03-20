@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { HomeModeSelect } from "@/components/HomeModeSelect";
+import { WaitlistModal } from "@/components/WaitlistModal";
 
 export default async function Home() {
   const letters = await prisma.letter.findMany({
@@ -40,6 +41,12 @@ export default async function Home() {
       )}
 
       <footer className="home-footer">
+        <WaitlistModal
+          source="homepage"
+          title="想要更多？"
+          desc="留下邮箱或微信，付费版上线时第一时间通知你。"
+          trigger={<span className="home-footer-waitlist">加入候补名单 →</span>}
+        />
         <p>© 2026 Talk with Buffett · 仅供学习研究使用</p>
       </footer>
     </div>
