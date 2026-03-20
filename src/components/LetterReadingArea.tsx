@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { DualColumnReader } from "./DualColumnReader";
 import { ChatDrawer } from "./ChatDrawer";
 
@@ -54,6 +55,7 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
     <>
       {/* Sticky bar */}
       <div className="letter-bar">
+        <Link href="/" className="back-link">← 返回</Link>
         <span className="letter-bar-title">{year} 致股东信</span>
         <span className="letter-bar-meta">{sections.length} 段</span>
 

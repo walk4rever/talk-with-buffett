@@ -27,10 +27,6 @@ export default async function LetterPage({ params }: LetterPageProps) {
 
   return (
     <div className="letter-page">
-      <nav className="letter-nav">
-        <Link href="/" className="back-link">← 返回</Link>
-      </nav>
-
       <LetterReadingArea
         year={letter.year}
         sections={letter.sections}
