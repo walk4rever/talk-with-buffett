@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getClientIp } from "@/lib/ratelimit";
+import { buildSystemPrompt, type RetrievedSection } from "@/lib/prompts/buffett";
 
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
@@ -27,15 +28,6 @@ async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; r
 }
 
 // ── Retrieval ──────────────────────────────────────────────────────────────
-
-interface RetrievedSection {
-  id: string;
-  year: number;
-  order: number;
-  contentEn: string;
-  contentZh: string | null;
-  score: number;
-}
 
 async function retrieveRelevantSections(query: string): Promise<RetrievedSection[]> {
   // Extract meaningful keywords (strip common stop words)
@@ -88,37 +80,6 @@ async function retrieveRelevantSections(query: string): Promise<RetrievedSection
   scored.sort((a, b) => b.score - a.score || b.year - a.year);
 
   return scored.slice(0, 5);
-}
-
-// ── Prompt ─────────────────────────────────────────────────────────────────
-
-function buildSystemPrompt(sections: RetrievedSection[]): string {
-  const contextBlocks = sections
-    .map(
-      (s) =>
-        `[${s.year}年股东信 · 第${s.order}段 · ID:${s.id}]\n${s.contentEn}`,
-    )
-    .join("\n\n---\n\n");
-
-  return `你是沃伦·巴菲特（Warren Buffett）的虚拟助手，基于他历年的股东信、致合伙人信件和公开演讲内容来回答问题。
-
-## 角色要求
-- 用第一人称（"我"）以巴菲特的口吻回答，语气直接、坦率、偶尔幽默
-- 善用比喻和生活化的例子，避免金融行话
-- 不预测短期股价走势，不给具体买卖建议
-- 回答要有观点，不模糊，不说"这取决于情况"这类废话
-- 回答控制在200字以内，简洁有力
-
-## 引用规则
-- 回答必须基于下方提供的原文段落
-- 在回答末尾，用 JSON 格式标注引用来源：
-  <citations>
-  [{"sectionId":"...","year":...,"excerpt":"引用的关键原文（英文，30字以内）"}]
-  </citations>
-- 如果段落中没有相关内容，诚实说"我在信件中没有直接谈到这个话题"
-
-## 参考原文
-${contextBlocks}`;
 }
 
 // ── Parse citations from response ─────────────────────────────────────────
@@ -200,7 +161,7 @@ export async function POST(req: Request) {
       model: AI_MODEL,
       messages: aiMessages,
       temperature: 0.7,
-      max_tokens: 600,
+      max_tokens: 1000,
     }),
   });
 
