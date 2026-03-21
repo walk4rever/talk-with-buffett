@@ -7,7 +7,7 @@ const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
 const AI_MODEL = process.env.AI_MODEL!;
 
-const FREE_DAILY_LIMIT = 5;
+const FREE_DAILY_LIMIT = parseInt(process.env.FREE_DAILY_CHAT_LIMIT ?? "30", 10);
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -30,7 +30,6 @@ async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; r
 // ── Retrieval ──────────────────────────────────────────────────────────────
 
 async function retrieveRelevantSections(query: string): Promise<RetrievedSection[]> {
-  // Extract meaningful keywords (strip common stop words)
   const stopWords = new Set([
     "的", "了", "是", "在", "我", "你", "他", "她", "它", "们", "这", "那", "有",
     "和", "与", "或", "但", "如果", "什么", "怎么", "为什么", "how", "what", "why",
@@ -45,7 +44,6 @@ async function retrieveRelevantSections(query: string): Promise<RetrievedSection
 
   if (keywords.length === 0) return [];
 
-  // Score sections by how many keywords appear in them
   const sections = await prisma.section.findMany({
     where: {
       OR: keywords.flatMap((kw) => [
@@ -57,11 +55,9 @@ async function retrieveRelevantSections(query: string): Promise<RetrievedSection
     take: 50,
   });
 
-  // Score each section
   const scored: RetrievedSection[] = sections.map((s) => {
     const text = `${s.contentEn} ${s.contentZh ?? ""}`.toLowerCase();
     const score = keywords.reduce((acc, kw) => {
-      // Count occurrences for better ranking
       const matches = (text.match(new RegExp(kw, "g")) ?? []).length;
       return acc + matches;
     }, 0);
@@ -76,56 +72,20 @@ async function retrieveRelevantSections(query: string): Promise<RetrievedSection
     };
   });
 
-  // Sort by score desc, then by year desc (prefer recent letters for ties)
   scored.sort((a, b) => b.score - a.score || b.year - a.year);
-
   return scored.slice(0, 5);
 }
 
-// ── Parse citations from response ─────────────────────────────────────────
-
-interface Citation {
-  sectionId: string;
-  year: number;
-  excerpt: string;
-}
-
-function parseResponse(raw: string): { reply: string; citations: Citation[] } {
-  const citationMatch = raw.match(/<citations>([\s\S]*?)<\/citations>/);
-  const reply = raw.replace(/<citations>[\s\S]*?<\/citations>/, "").trim();
-
-  let citations: Citation[] = [];
-  if (citationMatch) {
-    try {
-      citations = JSON.parse(citationMatch[1].trim());
-    } catch {
-      // Malformed JSON — ignore citations rather than crash
-    }
-  }
-
-  return { reply, citations };
-}
-
-// ── Route handler ──────────────────────────────────────────────────────────
+// ── Route handler (SSE streaming) ─────────────────────────────────────────
 
 export async function POST(req: Request) {
   const ip = getClientIp(req);
-
-  // Usage limit check
-  const { allowed, remaining } = await checkAndIncrementUsage(ip);
-  if (!allowed) {
-    return NextResponse.json(
-      { error: "今日免费次数已用完（5次/天），请明天再来或登录获取更多次数。" },
-      { status: 429 },
-    );
-  }
 
   const body = await req.json().catch(() => null);
   if (!body?.messages || !Array.isArray(body.messages)) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 
-  // Last user message is the query for retrieval
   const lastUserMsg = [...body.messages].reverse().find(
     (m: { role: string }) => m.role === "user",
   );
@@ -133,15 +93,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
 
-  // Retrieve relevant sections
-  const sections = await retrieveRelevantSections(lastUserMsg.content);
+  // Parallel: usage check + retrieval
+  const [usage, sections] = await Promise.all([
+    checkAndIncrementUsage(ip),
+    retrieveRelevantSections(lastUserMsg.content),
+  ]);
 
-  // Build conversation for the AI
+  if (!usage.allowed) {
+    return NextResponse.json(
+      { error: `今日免费次数已用完（${FREE_DAILY_LIMIT}次/天），请明天再来或登录获取更多次数。` },
+      { status: 429 },
+    );
+  }
+
   const systemPrompt = buildSystemPrompt(sections);
 
   const aiMessages = [
     { role: "system", content: systemPrompt },
-    // Include prior conversation turns (skip system messages from client)
     ...body.messages
       .filter((m: { role: string }) => m.role !== "system")
       .map((m: { role: string; content: string }) => ({
@@ -150,7 +118,7 @@ export async function POST(req: Request) {
       })),
   ];
 
-  // Call AI
+  // Call AI with streaming
   const aiRes = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -162,6 +130,7 @@ export async function POST(req: Request) {
       messages: aiMessages,
       temperature: 0.7,
       max_tokens: 1000,
+      stream: true,
     }),
   });
 
@@ -174,14 +143,84 @@ export async function POST(req: Request) {
     );
   }
 
-  const aiData = await aiRes.json();
-  const rawContent: string =
-    aiData.choices?.[0]?.message?.content ?? "抱歉，我暂时无法回答这个问题。";
+  // Transform the upstream SSE stream into our own SSE stream.
+  // We forward text chunks as `event: delta` and, once the stream ends,
+  // parse citations from the accumulated text and emit `event: done`.
+  const encoder = new TextEncoder();
+  let fullText = "";
 
-  const { reply, citations } = parseResponse(rawContent);
+  const stream = new ReadableStream({
+    async start(controller) {
+      const reader = aiRes.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-  return NextResponse.json(
-    { reply, citations, remaining },
-    { status: 200 },
-  );
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          // Keep the last (possibly incomplete) line in the buffer
+          buffer = lines.pop() ?? "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith("data:")) continue;
+
+            const payload = trimmed.slice(5).trim();
+            if (payload === "[DONE]") continue;
+
+            try {
+              const json = JSON.parse(payload);
+              const delta = json.choices?.[0]?.delta?.content;
+              if (delta) {
+                fullText += delta;
+                controller.enqueue(
+                  encoder.encode(`event: delta\ndata: ${JSON.stringify(delta)}\n\n`),
+                );
+              }
+            } catch {
+              // Skip malformed SSE chunks
+            }
+          }
+        }
+
+        // Stream finished — extract citations from accumulated text
+        const citationMatch = fullText.match(/<citations>([\s\S]*?)<\/citations>/);
+        let citations: { sectionId: string; year: number; excerpt: string }[] = [];
+        if (citationMatch) {
+          try {
+            citations = JSON.parse(citationMatch[1].trim());
+          } catch {
+            // Malformed citation JSON — skip
+          }
+        }
+
+        controller.enqueue(
+          encoder.encode(
+            `event: done\ndata: ${JSON.stringify({ citations, remaining: usage.remaining })}\n\n`,
+          ),
+        );
+      } catch (err) {
+        console.error("Stream processing error:", err);
+        controller.enqueue(
+          encoder.encode(
+            `event: error\ndata: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`,
+          ),
+        );
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { WaitlistModal } from "@/components/WaitlistModal";
@@ -17,6 +17,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
+  streaming?: boolean;
 }
 
 const STARTERS = [
@@ -26,7 +27,18 @@ const STARTERS = [
   "你怎么看现在的 AI 公司？",
 ];
 
-async function callChatAPI(messages: Message[]): Promise<Message> {
+// ── SSE streaming client ─────────────────────────────────────────────────
+
+function stripCitationTags(text: string): string {
+  return text.replace(/<citations>[\s\S]*?<\/citations>/, "").trim();
+}
+
+async function streamChatAPI(
+  messages: Message[],
+  onDelta: (text: string) => void,
+  onDone: (citations: Citation[]) => void,
+  onError: (msg: string) => void,
+) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -34,19 +46,70 @@ async function callChatAPI(messages: Message[]): Promise<Message> {
   });
 
   if (res.status === 429) {
-    return { role: "assistant", content: "__LIMIT_REACHED__" };
+    const data = await res.json().catch(() => null);
+    onError("__LIMIT__" + (data?.error ?? "今日免费次数已用完，请明天再来。"));
+    return;
   }
 
   if (!res.ok) {
-    return { role: "assistant", content: "抱歉，服务暂时不可用，请稍后重试。" };
+    onError("抱歉，服务暂时不可用，请稍后重试。");
+    return;
   }
 
-  const data = await res.json();
-  return {
-    role: "assistant",
-    content: data.reply,
-    citations: data.citations ?? [],
-  };
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let currentEvent = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    // Keep the last (possibly incomplete) line in the buffer
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Empty line = end of SSE message (but we process event+data as they come)
+      if (!trimmed) {
+        currentEvent = "";
+        continue;
+      }
+
+      if (trimmed.startsWith("event: ")) {
+        currentEvent = trimmed.slice(7);
+        continue;
+      }
+
+      if (trimmed.startsWith("data: ")) {
+        const payload = trimmed.slice(6);
+
+        if (currentEvent === "delta") {
+          try {
+            const delta: string = JSON.parse(payload);
+            onDelta(delta);
+          } catch {
+            // skip malformed chunk
+          }
+        } else if (currentEvent === "done") {
+          try {
+            const data = JSON.parse(payload);
+            onDone(data.citations ?? []);
+          } catch {
+            onDone([]);
+          }
+        } else if (currentEvent === "error") {
+          onError("抱歉，服务暂时不可用，请稍后重试。");
+        }
+      }
+    }
+  }
+
+  // If we never got a "done" event (e.g. stream closed unexpectedly),
+  // finalize with no citations so the UI doesn't stay in loading state
 }
 
 export function ChatPage() {
@@ -64,6 +127,8 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sentInitialQ = useRef(false);
+  // Accumulate streaming text in a ref so callbacks always see the latest
+  const streamingTextRef = useRef("");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -78,28 +143,77 @@ export function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function send(text: string) {
+  const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
     const userMsg: Message = { role: "user", content: trimmed };
+
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+    streamingTextRef.current = "";
+
+    // Add a placeholder assistant message for streaming
+    const placeholderMsg: Message = { role: "assistant", content: "", streaming: true };
+    setMessages((prev) => [...prev, placeholderMsg]);
 
     const allMessages = [...messages, userMsg];
-    const reply = await callChatAPI(allMessages);
 
-    setLoading(false);
-    setMessages((prev) => [...prev, reply]);
+    await streamChatAPI(
+      allMessages,
+      // onDelta — append text to the last (streaming) message
+      (delta) => {
+        streamingTextRef.current += delta;
+        const currentText = streamingTextRef.current;
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          updated[updated.length - 1] = {
+            ...last,
+            content: stripCitationTags(currentText),
+          };
+          return updated;
+        });
+      },
+      // onDone — finalize the message with citations
+      (citations) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          updated[updated.length - 1] = {
+            ...last,
+            content: stripCitationTags(last.content),
+            citations,
+            streaming: false,
+          };
+          return updated;
+        });
+        setLoading(false);
 
-    if (mode === "avatar") {
-      setAvatarSpeaking(true);
-      setSubtitleText(reply.content);
-      await new Promise((r) => setTimeout(r, reply.content.length * 40));
-      setAvatarSpeaking(false);
-    }
-  }
+        if (mode === "avatar") {
+          const finalText = stripCitationTags(streamingTextRef.current);
+          setAvatarSpeaking(true);
+          setSubtitleText(finalText);
+          setTimeout(() => setAvatarSpeaking(false), finalText.length * 40);
+        }
+      },
+      // onError
+      (errorMsg) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            role: "assistant",
+            content: errorMsg,
+            streaming: false,
+          };
+          return updated;
+        });
+        setLoading(false);
+      },
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, loading, mode]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -218,6 +332,10 @@ function TextMode({
 }) {
   const isEmpty = messages.length === 0;
 
+  // Show thinking dots only while loading AND the last message has no content yet
+  const lastMsg = messages[messages.length - 1];
+  const showThinking = loading && (!lastMsg || lastMsg.role === "user" || lastMsg.content === "");
+
   return (
     <div className="text-mode">
       {isEmpty ? (
@@ -227,7 +345,7 @@ function TextMode({
           {messages.map((msg, i) => (
             <MessageBubble key={i} msg={msg} />
           ))}
-          {loading && <ThinkingBubble />}
+          {showThinking && <ThinkingBubble />}
           <div ref={messagesEndRef} />
         </div>
       )}
@@ -267,12 +385,13 @@ function MessageBubble({ msg }: { msg: Message }) {
     );
   }
 
-  if (msg.content === "__LIMIT_REACHED__") {
+  if (msg.content.startsWith("__LIMIT__")) {
+    const limitMsg = msg.content.slice(9);
     return (
       <div className="msg msg--assistant">
         <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
         <div className="msg-body">
-          <p className="msg-text">今天的 5 次免费对话已用完。</p>
+          <p className="msg-text">{limitMsg}</p>
           <WaitlistModal
             source="chat_limit"
             title="解锁无限对话"
@@ -323,19 +442,9 @@ function CitationCard({ citation }: { citation: Citation }) {
           <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
         </svg>
         <span className="citation-year">{citation.year} 年股东信</span>
-        {citation.sectionId && (
-          <Link
-            href={`/letters/${citation.year}`}
-            className="citation-link"
-          >
-            查看原文 →
-          </Link>
-        )}
-        {!citation.sectionId && (
-          <Link href={`/letters/${citation.year}`} className="citation-link">
-            查看原文 →
-          </Link>
-        )}
+        <Link href={`/letters/${citation.year}`} className="citation-link">
+          查看原文 →
+        </Link>
       </div>
       <blockquote className="citation-quote">"{citation.excerpt}"</blockquote>
     </div>
