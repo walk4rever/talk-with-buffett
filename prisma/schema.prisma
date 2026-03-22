@@ -18,10 +18,7 @@ model User {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   accounts      Account[]
-  highlights    Highlight[]
-  notes         Note[]
   sessions      Session[]
-  threads       Thread[]
 }
 
 model Account {
@@ -66,7 +63,6 @@ model Letter {
   contentMd String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  sections  Section[]
   chunks    Chunk[]
 }
 
@@ -84,87 +80,6 @@ model Chunk {
   letter       Letter                   @relation(fields: [letterId], references: [id], onDelete: Cascade)
 
   @@unique([letterId, order])
-}
-
-model Section {
-  id           String                   @id @default(cuid())
-  letterId     String
-  order        Int
-  contentEn    String
-  contentZh    String?
-  hasTable     Boolean                  @default(false)
-  hasImage     Boolean                  @default(false)
-  imageUrl     String?
-  tableData    String?
-  embedding    Unsupported("vector")?
-  searchVector Unsupported("tsvector")?
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
-  aiAnalyses   AiAnalysis[]
-  highlights   Highlight[]
-  notes        Note[]
-  letter       Letter                   @relation(fields: [letterId], references: [id], onDelete: Cascade)
-  threads      Thread[]
-
-  @@unique([letterId, order])
-}
-
-model Highlight {
-  id        String   @id @default(cuid())
-  userId    String
-  sectionId String
-  text      String
-  color     String?
-  createdAt DateTime @default(now())
-  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Note {
-  id        String   @id @default(cuid())
-  userId    String
-  sectionId String
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model AiAnalysis {
-  id        String   @id @default(cuid())
-  sectionId String
-  analysis  String
-  createdAt DateTime @default(now())
-  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-}
-
-model Thread {
-  id        String    @id @default(cuid())
-  userId    String
-  sectionId String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
-  section   Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Message {
-  id        String   @id @default(cuid())
-  threadId  String
-  role      String
-  content   String
-  createdAt DateTime @default(now())
-  thread    Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
-}
-
-model ShareCard {
-  id        String   @id @default(cuid())
-  userId    String
-  sectionId String
-  imageUrl  String?
-  createdAt DateTime @default(now())
 }
 
 model ChatUsage {
