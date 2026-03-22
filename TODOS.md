@@ -2,111 +2,95 @@
 
 # TODOS — 当前工作队列
 
-> 对应 PLAN.md — 与巴菲特对话（渐进式三步走）
 > 检索架构详见 DESIGN.md
 
 ## ✅ 已完成
 
-- [x] **主页改为年份列表** (Task 1.1 旧) (32be0be)
+- [x] **主页改为年份列表** (32be0be)
 - [x] **动态信件页面** `/letters/[year]` (32be0be)
 - [x] **数据验证** — seed 导入 2024 年 54 段，8 个测试全部通过
-- [x] **P0 修复** — 移动端响应式、AI 分析加载状态 (95c46a1)
-- [x] **P1 修复** — 暗黑模式持久化、高亮持久性 (95c46a1)
-- [x] **P2 修复** — 页脚信息、错误边界 (95c46a1)
-- [x] **UI 重设计** — 极简主页、双栏联动阅读、ChatDrawer、数字人模式框架
-- [x] **对话 API** — `/api/chat` 关键词检索 + RAG + 引用来源 + 每日限额
-- [x] **巴菲特人格 Prompt** — 提取到 `src/lib/prompts/buffett.ts`，思维框架 + 说话风格 (9567430)
-- [x] **SSE Streaming** — 对话逐字流式输出，感知延迟 ~10s → ~0.5s (e4bfaba)
-- [x] **可配置免费次数** — `FREE_DAILY_CHAT_LIMIT` 环境变量，默认 30 (e4bfaba)
+- [x] **P0 修复** — 移动端响应式、AI 分析加载状态
+- [x] **P1 修复** — 暗黑模式持久化、高亮持久性
+- [x] **P2 修复** — 页脚信息、错误边界
+- [x] **UI 设计** — 极简主页、阅读页、ChatDrawer、数字人模式框架
+- [x] **对话 API** — `/api/chat` 检索 + RAG + 引用来源 + 每日限额
+- [x] **巴菲特人格 Prompt** — `src/lib/prompts/buffett.ts`
+- [x] **SSE Streaming** — 对话逐字流式输出 (e4bfaba)
+- [x] **可配置免费次数** — `FREE_DAILY_CHAT_LIMIT` 环境变量
+- [x] **混合检索** — tsvector + pgvector (1024-dim HNSW)
+- [x] **Markdown 渲染** — 对话中 AI 回复用 react-markdown 渲染
+- [x] **字体升级** — Lora + Noto Serif SC + Inter
+- [x] **引用重构** — 后端主导引用 via [来源N] 标记，杜绝幻觉
 
 ---
 
-## 🔥 P0：混合检索系统
+## 🔥 P0：Markdown 数据重构
 
 > 详细设计见 DESIGN.md
 
-### 基础设施
-- [ ] Supabase 开启 pgvector 扩展（`CREATE EXTENSION vector`）
-- [ ] Section 表新增 `embedding` 字段（`vector(1536)`）
-- [ ] Section 表新增 `searchVector` 字段（`tsvector`，基于 `contentEn`）
-- [ ] 创建 HNSW 索引（embedding）和 GIN 索引（searchVector）
+### 1. 拉取数据
+- [ ] 从 GitHub pzponge/Yestoday 下载 60 个 markdown 文件（1965-2024）
+- [ ] 存放到 `data/letters/` 目录
+
+### 2. 数据库迁移
+- [ ] Letter 表新增 `contentMd` 字段（TEXT，存完整 markdown）
+- [ ] 新建 Chunk 表（替代 Section）：`id, letterId, order, title, contentEn, contentZh, embedding, searchVector`
 - [ ] Prisma migration
 
-### Embedding 生成
-- [ ] 新建 `scripts/generate-embeddings.ts`
-- [ ] 调用 AI API embedding 端点，为全量 Section 生成 embedding
-- [ ] 支持增量更新（跳过已有 embedding 的段落）
-- [ ] 运行脚本，验证全量生成完成
+### 3. 导入脚本
+- [ ] 新建 `scripts/import-markdown.ts`
+- [ ] 读取每个 md 文件 → 写入 `Letter.contentMd`
+- [ ] 按 `## / #` 标题切分，无标题的按段落切分
+- [ ] 分离中英文（CJK 字符检测）
+- [ ] 写入 Chunk 表
+- [ ] 对 `contentEn` 生成 embedding (1024-dim) + tsvector
 
-### 检索逻辑改造
-- [ ] 新建 `src/lib/search.ts` — 混合检索模块
-- [ ] 实现 Query 翻译（中文 → 英文，复用现有 AI API）
-- [ ] 实现向量检索路（query embedding → cosine similarity → top 10）
-- [ ] 实现关键词检索路（translated query → tsvector @@ plainto_tsquery → top 10）
-- [ ] 实现合并排序（score = 0.7 × vector + 0.3 × keyword → top 5）
-- [ ] 替换 `route.ts` 中的 `retrieveRelevantSections`
+### 4. 代码适配
+- [ ] `src/lib/search.ts` — Section → Chunk
+- [ ] `src/lib/prompts/buffett.ts` — Section → Chunk
+- [ ] `src/app/api/chat/route.ts` — Section → Chunk
+- [ ] 阅读页重构 — 从 `Letter.contentMd` 直接渲染 markdown
+- [ ] 去掉 DualColumnReader（取消双栏模式）
+- [ ] 保留单语过滤（EN / 中文模式：渲染时按段落语言过滤）
 
-### 验证
-- [ ] 对比测试：关键词匹配 vs 混合检索，用 10 个典型问题评估召回质量
-- [ ] 性能测试：混合检索延迟 < 200ms
+### 5. 清理
+- [ ] 删除 Section 表（migration）
+- [ ] 删除旧的 parse/translate 脚本
+- [ ] 删除 DualColumnReader 组件
 
----
-
-## 🔥 当前冲刺：Phase 1 — 全量数据结构化
-
-### 数据扩展
-- [ ] 修改 `fetch_letters.py` 支持 1965-2019 全部信件下载
-- [ ] 适配早期信件格式差异（HTML vs PDF vs 扫描件）
-- [ ] 修改 `parse_pdf_sections.py` 适配不同年份 PDF 格式
-- [ ] 批量翻译全部年份，支持断点续传
-- [ ] 修改 `prisma/seed.ts` 支持导入全部 59 个年份
-
-### Schema 扩展
-- [ ] 新增 `Topic` 模型（主题标签）
-- [ ] 新增 `CompanyMention` 模型（公司提及，关联 Section）
-- [ ] 新增 `SectionTopic` 模型（段落-主题关联）
-- [ ] 运行 `npx prisma migrate dev`
-
-### AI 标注
-- [ ] 新建 `scripts/parsing/annotate_sections.py`
-- [ ] AI 提取每段落提及的公司（公司名 + ticker）
-- [ ] AI 提取每段落的主题标签
-- [ ] 标注结果写入数据库
-- [ ] 抽样审查标注质量
+### 6. 验证
+- [ ] 阅读页展示正确（markdown 表格、标题、格式）
+- [ ] 对话检索正常（引用卡片出现）
+- [ ] 对比检索质量：准备 10 个测试问题，对比新旧方案召回率
 
 ---
 
-## 📋 后续 Phase（不在当前冲刺）
+## 📋 后续 Phase
 
-### Phase 2: 对话引擎 + 探索
-- [ ] 主题时间线 API（输入公司/主题 → 返回相关段落时间线）
-- [ ] 主题时间线页面 `/explore`（复用混合检索 + 年份分组展示）
+### Phase 2: 对话体验增强
+- [ ] 引用点击 → 分屏阅读 + 高亮（桌面分屏，移动端抽屉）
 - [ ] 对话记忆 — 多轮对话上下文优化
+- [ ] AI 无 [来源N] 标记时的降级策略
 
-### Phase 3: 虚拟人
+### Phase 3: 探索与发现
+- [ ] 主题时间线 API（公司/主题 → 相关段落时间线）
+- [ ] 探索页面 `/explore`（混合检索 + 年份分组）
+- [ ] AI 标注：公司提及 + 主题标签
+
+### Phase 4: 虚拟人
 - [ ] 虚拟人 API 选型（HeyGen / D-ID / 开源）
-- [ ] 声音方案选型（ElevenLabs / 其他）
+- [ ] 声音方案选型
 - [ ] 对话页面升级 — 视频模式
 - [ ] 延迟优化 + 成本控制
 
-### Phase 4: 打磨
-- [ ] 年度背景卡片（YearContext 模型 + 组件）
-- [ ] 段落级公司上下文面板
-- [ ] 翻译质量修复
+### Phase 5: 打磨
+- [ ] 年度背景卡片
 - [ ] 测试覆盖率 >80%
+- [ ] SEO 优化
 
 ---
 
 ## 🔍 待调研
 
-- [ ] 虚拟人 API 效果评估（HeyGen / D-ID 免费额度测试）
-- [ ] 声音克隆合规性（真实声音 vs 类似风格通用声音）
-- [ ] 早期信件（1965-1977）格式调研 — 是否需要 OCR
-- [x] ~~向量搜索 vs 关键词匹配 — 对话引擎检索方案~~ → 见 DESIGN.md，采用混合检索
-
----
-
-## QA 积压
-
-- [ ] 扩展年份导航 — 2020-2023 年信件翻译与导入
-- [ ] 优化浏览器返回按钮行为
+- [ ] 虚拟人 API 效果评估
+- [ ] 声音克隆合规性
