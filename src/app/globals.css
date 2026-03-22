@@ -788,7 +788,6 @@ body {
 .letter-bar-meta {
   font-size: 0.78rem;
   color: var(--text-muted);
-  flex: 1;
 }
 
 /* Reading controls */
@@ -844,9 +843,12 @@ body {
   margin: 0 0.4rem;
 }
 
-/* Reading mode toggle */
+/* Reading mode toggle — centered in bar */
 .reader-mode-group {
-  gap: 0.15rem !important;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin: 0 auto;
 }
 
 .reader-mode-btn {

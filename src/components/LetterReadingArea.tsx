@@ -70,6 +70,28 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
         <span className="letter-bar-title">{year} 致股东信</span>
         <span className="letter-bar-meta">{sections.length} 段</span>
 
+        {/* Reading mode — centered */}
+        <div className="reader-mode-group" title="阅读模式">
+          <button
+            className={`reader-mode-btn${readingMode === "dual" ? " reader-mode-btn--active" : ""}`}
+            onClick={() => changeReadingMode("dual")}
+          >
+            双栏
+          </button>
+          <button
+            className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
+            onClick={() => changeReadingMode("en")}
+          >
+            EN
+          </button>
+          <button
+            className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
+            onClick={() => changeReadingMode("zh")}
+          >
+            中文
+          </button>
+        </div>
+
         <div className="reader-controls">
           {/* Font size */}
           <div className="reader-ctrl-group" title="字体大小">
@@ -89,30 +111,6 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
               aria-label="放大字体"
             >
               A<sup>+</sup>
-            </button>
-          </div>
-
-          <div className="reader-ctrl-sep" />
-
-          {/* Reading mode */}
-          <div className="reader-ctrl-group reader-mode-group" title="阅读模式">
-            <button
-              className={`reader-mode-btn${readingMode === "dual" ? " reader-mode-btn--active" : ""}`}
-              onClick={() => changeReadingMode("dual")}
-            >
-              双栏
-            </button>
-            <button
-              className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
-              onClick={() => changeReadingMode("en")}
-            >
-              EN
-            </button>
-            <button
-              className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
-              onClick={() => changeReadingMode("zh")}
-            >
-              中文
             </button>
           </div>
 
