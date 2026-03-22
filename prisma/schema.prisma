@@ -69,22 +69,24 @@ model Letter {
 }
 
 model Section {
-  id         String       @id @default(cuid())
-  letterId   String
-  order      Int
-  contentEn  String
-  contentZh  String?
-  hasTable   Boolean      @default(false)
-  hasImage   Boolean      @default(false)
-  imageUrl   String?
-  tableData  String?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  aiAnalyses AiAnalysis[]
-  highlights Highlight[]
-  notes      Note[]
-  letter     Letter       @relation(fields: [letterId], references: [id], onDelete: Cascade)
-  threads    Thread[]
+  id           String                   @id @default(cuid())
+  letterId     String
+  order        Int
+  contentEn    String
+  contentZh    String?
+  hasTable     Boolean                  @default(false)
+  hasImage     Boolean                  @default(false)
+  imageUrl     String?
+  tableData    String?
+  embedding    Unsupported("vector")?
+  searchVector Unsupported("tsvector")?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  aiAnalyses   AiAnalysis[]
+  highlights   Highlight[]
+  notes        Note[]
+  letter       Letter                   @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  threads      Thread[]
 
   @@unique([letterId, order])
 }

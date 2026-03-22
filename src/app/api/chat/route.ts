@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getClientIp } from "@/lib/ratelimit";
-import { buildSystemPrompt, type RetrievedSection } from "@/lib/prompts/buffett";
+import { buildSystemPrompt } from "@/lib/prompts/buffett";
+import { searchSections } from "@/lib/search";
 
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
@@ -27,55 +28,6 @@ async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; r
   return { allowed, remaining };
 }
 
-// ── Retrieval ──────────────────────────────────────────────────────────────
-
-async function retrieveRelevantSections(query: string): Promise<RetrievedSection[]> {
-  const stopWords = new Set([
-    "的", "了", "是", "在", "我", "你", "他", "她", "它", "们", "这", "那", "有",
-    "和", "与", "或", "但", "如果", "什么", "怎么", "为什么", "how", "what", "why",
-    "the", "a", "an", "is", "are", "was", "were", "do", "does", "did", "you",
-    "i", "he", "she", "it", "we", "they", "and", "or", "but", "in", "on", "at",
-  ]);
-
-  const keywords = query
-    .toLowerCase()
-    .split(/[\s，。？！,?.!\-、]+/)
-    .filter((w) => w.length > 1 && !stopWords.has(w));
-
-  if (keywords.length === 0) return [];
-
-  const sections = await prisma.section.findMany({
-    where: {
-      OR: keywords.flatMap((kw) => [
-        { contentEn: { contains: kw } },
-        { contentZh: { contains: kw } },
-      ]),
-    },
-    include: { letter: { select: { year: true } } },
-    take: 50,
-  });
-
-  const scored: RetrievedSection[] = sections.map((s) => {
-    const text = `${s.contentEn} ${s.contentZh ?? ""}`.toLowerCase();
-    const score = keywords.reduce((acc, kw) => {
-      const matches = (text.match(new RegExp(kw, "g")) ?? []).length;
-      return acc + matches;
-    }, 0);
-
-    return {
-      id: s.id,
-      year: s.letter.year,
-      order: s.order,
-      contentEn: s.contentEn,
-      contentZh: s.contentZh,
-      score,
-    };
-  });
-
-  scored.sort((a, b) => b.score - a.score || b.year - a.year);
-  return scored.slice(0, 5);
-}
-
 // ── Route handler (SSE streaming) ─────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -93,10 +45,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
 
-  // Parallel: usage check + retrieval
+  // Parallel: usage check + hybrid search (translate → tsvector + pgvector)
   const [usage, sections] = await Promise.all([
     checkAndIncrementUsage(ip),
-    retrieveRelevantSections(lastUserMsg.content),
+    searchSections(lastUserMsg.content),
   ]);
 
   if (!usage.allowed) {
@@ -143,9 +95,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Transform the upstream SSE stream into our own SSE stream.
-  // We forward text chunks as `event: delta` and, once the stream ends,
-  // parse citations from the accumulated text and emit `event: done`.
   const encoder = new TextEncoder();
   let fullText = "";
 
@@ -162,7 +111,6 @@ export async function POST(req: Request) {
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
-          // Keep the last (possibly incomplete) line in the buffer
           buffer = lines.pop() ?? "";
 
           for (const line of lines) {
@@ -187,7 +135,6 @@ export async function POST(req: Request) {
           }
         }
 
-        // Stream finished — extract citations from accumulated text
         const citationMatch = fullText.match(/<citations>([\s\S]*?)<\/citations>/);
         let citations: { sectionId: string; year: number; excerpt: string }[] = [];
         if (citationMatch) {
