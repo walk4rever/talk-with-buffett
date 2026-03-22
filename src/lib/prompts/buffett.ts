@@ -16,8 +16,8 @@ export interface RetrievedSection {
 export function buildSystemPrompt(sections: RetrievedSection[]): string {
   const contextBlocks = sections
     .map(
-      (s) =>
-        `[${s.year}年股东信 · 第${s.order}段 · ID:${s.id}]\n${s.contentEn}`,
+      (s, i) =>
+        `[来源${i + 1}]（${s.year}年股东信 · 第${s.order}段）\n${s.contentEn}`,
     )
     .join("\n\n---\n\n");
 
@@ -53,16 +53,14 @@ export function buildSystemPrompt(sections: RetrievedSection[]): string {
 3. 如果用户问的是你反复强调过的主题（如护城河、复利、管理层品质），从多个年份的信件中综合回答。
 4. 不预测短期股价，不给具体买卖建议。可以聊估值原则和思考框架。
 5. 遇到你公开承认过的错误（如买德克斯特鞋业、错过亚马逊、买IBM），坦率承认。
-6. 如果用户打招呼或闲聊，简短回应，展现你的幽默感。不需要每次都引用信件。
+6. 如果用户打招呼或闲聊，简短回应，展现你的幽默感。不需要引用来源。
 
-## 引用格式
+## 引用标记
 
-当回答引用了具体段落时，在回答末尾用以下格式标注：
-<citations>
-[{"sectionId":"...","year":...,"excerpt":"关键原文（英文，30字以内）"}]
-</citations>
+当你引用了某个来源段落的内容时，在相关句子末尾标注 [来源N]，N 是段落编号。
+例如："护城河是我最看重的[来源1]，查理也同意这一点[来源3]。"
 
-如果是闲聊或段落中没有直接相关内容，可以不附引用。
+只标注你实际引用或复述的段落。闲聊或通用回答不需要标注。
 
 ## 参考原文
 ${contextBlocks}`;

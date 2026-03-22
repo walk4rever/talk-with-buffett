@@ -60,6 +60,11 @@ export async function POST(req: Request) {
 
   const systemPrompt = buildSystemPrompt(sections);
 
+  // Build a map from [来源N] → section data for citation resolution
+  const sectionMap = new Map(
+    sections.map((s, i) => [i + 1, s]),
+  );
+
   const aiMessages = [
     { role: "system", content: systemPrompt },
     ...body.messages
@@ -135,15 +140,26 @@ export async function POST(req: Request) {
           }
         }
 
-        const citationMatch = fullText.match(/<citations>([\s\S]*?)<\/citations>/);
-        let citations: { sectionId: string; year: number; excerpt: string }[] = [];
-        if (citationMatch) {
-          try {
-            citations = JSON.parse(citationMatch[1].trim());
-          } catch {
-            // Malformed citation JSON — skip
-          }
+        // Extract [来源N] markers and map to actual section data
+        const citationNums = new Set<number>();
+        const markerRegex = /\[来源(\d+)\]/g;
+        let match;
+        while ((match = markerRegex.exec(fullText)) !== null) {
+          citationNums.add(parseInt(match[1], 10));
         }
+
+        const citations = [...citationNums]
+          .sort((a, b) => a - b)
+          .map((n) => {
+            const s = sectionMap.get(n);
+            if (!s) return null;
+            return {
+              sectionId: s.id,
+              year: s.year,
+              excerpt: s.contentEn.slice(0, 80).trim() + (s.contentEn.length > 80 ? "…" : ""),
+            };
+          })
+          .filter(Boolean);
 
         controller.enqueue(
           encoder.encode(

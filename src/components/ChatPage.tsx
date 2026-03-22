@@ -31,17 +31,9 @@ const STARTERS = [
 
 // ── SSE streaming client ─────────────────────────────────────────────────
 
-function stripCitationTags(text: string, streaming = false): string {
-  // Strip complete <citations>...</citations> block
-  let cleaned = text.replace(/<citations>[\s\S]*?<\/citations>/, "");
-  // During streaming, also strip any trailing partial tag (e.g. "<citati", "<citations>[{...")
-  if (streaming) {
-    const partialIdx = cleaned.indexOf("<citation");
-    if (partialIdx !== -1) {
-      cleaned = cleaned.slice(0, partialIdx);
-    }
-  }
-  return cleaned.trim();
+function stripSourceMarkers(text: string): string {
+  // Remove [来源N] inline markers — citations are shown as cards below
+  return text.replace(/\[来源\d+\]/g, "").trim();
 }
 
 async function streamChatAPI(
@@ -182,7 +174,7 @@ export function ChatPage() {
           const last = updated[updated.length - 1];
           updated[updated.length - 1] = {
             ...last,
-            content: stripCitationTags(currentText, true),
+            content: stripSourceMarkers(currentText),
           };
           return updated;
         });
@@ -194,7 +186,7 @@ export function ChatPage() {
           const last = updated[updated.length - 1];
           updated[updated.length - 1] = {
             ...last,
-            content: stripCitationTags(last.content),
+            content: stripSourceMarkers(last.content),
             citations,
             streaming: false,
           };
@@ -203,7 +195,7 @@ export function ChatPage() {
         setLoading(false);
 
         if (mode === "avatar") {
-          const finalText = stripCitationTags(streamingTextRef.current);
+          const finalText = stripSourceMarkers(streamingTextRef.current);
           setAvatarSpeaking(true);
           setSubtitleText(finalText);
           setTimeout(() => setAvatarSpeaking(false), finalText.length * 40);
