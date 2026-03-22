@@ -21,72 +21,44 @@
 - [x] **Markdown 渲染** — 对话中 AI 回复用 react-markdown 渲染
 - [x] **字体升级** — Lora + Noto Serif SC + Inter
 - [x] **引用重构** — 后端主导引用 via [来源N] 标记，杜绝幻觉
+- [x] **Markdown 数据重构** — 60 封信 markdown 导入，1413 chunks，Chunk 替代 Section
+- [x] **阅读页重构** — 从 Letter.contentMd 直接渲染 markdown，取消双栏
+- [x] **代码清理** — 删除 Section 及所有依赖代码（-4800 行），旧脚本/数据清理
 
 ---
 
-## 🔥 P0：Markdown 数据重构
+## 🔧 近期任务
 
-> 详细设计见 DESIGN.md
-
-### 1. 拉取数据
-- [ ] 从 GitHub pzponge/Yestoday 下载 60 个 markdown 文件（1965-2024）
-- [ ] 存放到 `data/letters/` 目录
-
-### 2. 数据库迁移
-- [ ] Letter 表新增 `contentMd` 字段（TEXT，存完整 markdown）
-- [ ] 新建 Chunk 表（替代 Section）：`id, letterId, order, title, contentEn, contentZh, embedding, searchVector`
-- [ ] Prisma migration
-
-### 3. 导入脚本
-- [ ] 新建 `scripts/import-markdown.ts`
-- [ ] 读取每个 md 文件 → 写入 `Letter.contentMd`
-- [ ] 按 `## / #` 标题切分，无标题的按段落切分
-- [ ] 分离中英文（CJK 字符检测）
-- [ ] 写入 Chunk 表
-- [ ] 对 `contentEn` 生成 embedding (1024-dim) + tsvector
-
-### 4. 代码适配
-- [ ] `src/lib/search.ts` — Section → Chunk
-- [ ] `src/lib/prompts/buffett.ts` — Section → Chunk
-- [ ] `src/app/api/chat/route.ts` — Section → Chunk
-- [ ] 阅读页重构 — 从 `Letter.contentMd` 直接渲染 markdown
-- [ ] 去掉 DualColumnReader（取消双栏模式）
-- [ ] 保留单语过滤（EN / 中文模式：渲染时按段落语言过滤）
-
-### 5. 清理
-- [ ] 删除 Section 表（migration）
-- [ ] 删除旧的 parse/translate 脚本
-- [ ] 删除 DualColumnReader 组件
-
-### 6. 验证
-- [ ] 阅读页展示正确（markdown 表格、标题、格式）
-- [ ] 对话检索正常（引用卡片出现）
-- [ ] 对比检索质量：准备 10 个测试问题，对比新旧方案召回率
+- [ ] **线上 migration 部署** — 跑 `drop_section_tables`，验证 Vercel build 通过
+- [ ] **对话质量验收** — 准备 10 个测试问题，验证检索召回率 + 引用出现
+- [ ] **移动端体验打磨** — 阅读页、对话抽屉在手机上的交互细节
 
 ---
 
-## 📋 后续 Phase
+## Phase 2: 对话体验增强（核心竞争力）
 
-### Phase 2: 对话体验增强
-- [ ] 引用点击 → 分屏阅读 + 高亮（桌面分屏，移动端抽屉）
-- [ ] 对话记忆 — 多轮对话上下文优化
-- [ ] AI 无 [来源N] 标记时的降级策略
+- [ ] **引用点击 → 跳转原文** — 点击 [来源N] 跳到 `/letters/YEAR#chunk-id`，高亮对应段落
+- [ ] **多轮对话上下文** — 加入对话历史摘要，让追问更自然（当前每轮独立检索）
+- [ ] **首页对话入口** — 主页直接提问，不必先进信件页（HeroChatInput 已有框架）
+- [ ] **对话分享** — 生成分享链接或图片，适合社交传播
 
-### Phase 3: 探索与发现
-- [ ] 主题时间线 API（公司/主题 → 相关段落时间线）
-- [ ] 探索页面 `/explore`（混合检索 + 年份分组）
-- [ ] AI 标注：公司提及 + 主题标签
+## Phase 3: 内容探索
 
-### Phase 4: 虚拟人
-- [ ] 虚拟人 API 选型（HeyGen / D-ID / 开源）
-- [ ] 声音方案选型
-- [ ] 对话页面升级 — 视频模式
-- [ ] 延迟优化 + 成本控制
+- [ ] **主题时间线** — "巴菲特历年怎么看保险？" → 按年份展示相关段落
+- [ ] **探索页 `/explore`** — 搜索框 + 年份分组结果，不走对话，直接检索
+- [ ] **热门话题标签** — AI 预标注每个 chunk 的主题（保险、投资原则、收购等）
 
-### Phase 5: 打磨
-- [ ] 年度背景卡片
-- [ ] 测试覆盖率 >80%
-- [ ] SEO 优化
+## Phase 4: 虚拟人（差异化）
+
+- [ ] **API 选型** — HeyGen / D-ID / 开源方案评估
+- [ ] **声音方案** — TTS 选型，合规性确认
+- [ ] **视频对话模式** — 对话页面升级，延迟优化 + 成本控制
+
+## Phase 5: 打磨
+
+- [ ] **年度背景卡片** — 每封信配当年经济/市场背景摘要
+- [ ] **SEO 优化** — meta tags、结构化数据、sitemap
+- [ ] **测试覆盖率 >80%**
 
 ---
 
