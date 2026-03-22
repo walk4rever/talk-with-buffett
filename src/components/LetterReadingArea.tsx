@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { DualColumnReader } from "./DualColumnReader";
+import { SingleColumnReader } from "./SingleColumnReader";
 import { ChatDrawer } from "./ChatDrawer";
+
+type ReadingMode = "dual" | "en" | "zh";
 
 interface Section {
   id: string;
@@ -30,14 +33,22 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fontIdx, setFontIdx] = useState(DEFAULT_FONT);
   const [lineIdx, setLineIdx] = useState(DEFAULT_LINE);
+  const [readingMode, setReadingMode] = useState<ReadingMode>("dual");
 
   // Restore from localStorage on mount
   useEffect(() => {
     const f = localStorage.getItem("reader-font-idx");
     const l = localStorage.getItem("reader-line-idx");
+    const m = localStorage.getItem("reader-mode");
     if (f !== null) setFontIdx(Number(f));
     if (l !== null) setLineIdx(Number(l));
+    if (m !== null) setReadingMode(m as ReadingMode);
   }, []);
+
+  function changeReadingMode(mode: ReadingMode) {
+    setReadingMode(mode);
+    localStorage.setItem("reader-mode", mode);
+  }
 
   function changeFontIdx(next: number) {
     const clamped = Math.max(0, Math.min(FONT_SIZES.length - 1, next));
@@ -83,6 +94,30 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
 
           <div className="reader-ctrl-sep" />
 
+          {/* Reading mode */}
+          <div className="reader-ctrl-group reader-mode-group" title="阅读模式">
+            <button
+              className={`reader-mode-btn${readingMode === "dual" ? " reader-mode-btn--active" : ""}`}
+              onClick={() => changeReadingMode("dual")}
+            >
+              双栏
+            </button>
+            <button
+              className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
+              onClick={() => changeReadingMode("en")}
+            >
+              EN
+            </button>
+            <button
+              className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
+              onClick={() => changeReadingMode("zh")}
+            >
+              中文
+            </button>
+          </div>
+
+          <div className="reader-ctrl-sep" />
+
           {/* Line height */}
           <div className="reader-ctrl-group" title="行间距">
             <button
@@ -107,17 +142,28 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
       </div>
 
       {/* Column labels */}
-      <div className="reading-columns-header">
-        <span>英文原文</span>
-        <span>中文译文</span>
-      </div>
+      {readingMode === "dual" && (
+        <div className="reading-columns-header">
+          <span>英文原文</span>
+          <span>中文译文</span>
+        </div>
+      )}
 
-      {/* Dual-column reader */}
-      <DualColumnReader
-        sections={sections}
-        fontSize={FONT_SIZES[fontIdx]}
-        lineHeight={LINE_HEIGHTS[lineIdx]}
-      />
+      {/* Reader */}
+      {readingMode === "dual" ? (
+        <DualColumnReader
+          sections={sections}
+          fontSize={FONT_SIZES[fontIdx]}
+          lineHeight={LINE_HEIGHTS[lineIdx]}
+        />
+      ) : (
+        <SingleColumnReader
+          sections={sections}
+          language={readingMode}
+          fontSize={FONT_SIZES[fontIdx]}
+          lineHeight={LINE_HEIGHTS[lineIdx]}
+        />
+      )}
 
       {/* FAB */}
       <button

@@ -844,6 +844,53 @@ body {
   margin: 0 0.4rem;
 }
 
+/* Reading mode toggle */
+.reader-mode-group {
+  gap: 0.15rem !important;
+}
+
+.reader-mode-btn {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--secondary);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.reader-mode-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.reader-mode-btn--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* Single-column reader */
+.single-reader {
+  max-width: 720px;
+  margin: 0 auto;
+  height: calc(100dvh - 100px);
+  overflow-y: auto;
+  padding: 1rem 1.5rem 4rem;
+}
+
+.single-reader-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.single-reader .reader-para {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--secondary);
+}
+
 /* Column labels */
 .reading-columns-header {
   display: grid;
