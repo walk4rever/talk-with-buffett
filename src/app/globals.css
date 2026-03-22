@@ -5,8 +5,8 @@
   --secondary: #f5f5f5;
   --accent: #d4af37; /* Gold accent */
   --text-muted: #666666;
-  --font-serif: "Georgia", "Times New Roman", serif;
-  --font-sans: "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Lora", "Noto Serif SC", "Georgia", "Times New Roman", serif;
+  --font-sans: "Inter", "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 .dark {
@@ -1677,6 +1677,51 @@ body {
   background: var(--secondary);
   color: var(--foreground);
   border-radius: 2px 12px 12px 12px;
+}
+
+/* Markdown prose inside assistant bubbles */
+.msg-markdown p {
+  margin: 0 0 0.6em;
+}
+.msg-markdown p:last-child {
+  margin-bottom: 0;
+}
+.msg-markdown strong {
+  font-weight: 600;
+}
+.msg-markdown ul,
+.msg-markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+.msg-markdown li {
+  margin-bottom: 0.25em;
+}
+.msg-markdown blockquote {
+  margin: 0.5em 0;
+  padding: 0.3em 0.8em;
+  border-left: 3px solid var(--primary);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.msg-markdown code {
+  font-size: 0.85em;
+  background: rgba(0,0,0,0.06);
+  padding: 0.15em 0.35em;
+  border-radius: 3px;
+}
+.msg-markdown h1,
+.msg-markdown h2,
+.msg-markdown h3,
+.msg-markdown h4 {
+  margin: 0.6em 0 0.3em;
+  font-size: 1em;
+  font-weight: 600;
+}
+.msg-markdown hr {
+  border: none;
+  border-top: 1px solid var(--secondary);
+  margin: 0.6em 0;
 }
 
 /* Thinking animation */

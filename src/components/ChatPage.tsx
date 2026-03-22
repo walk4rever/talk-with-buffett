@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { WaitlistModal } from "@/components/WaitlistModal";
 
 type Mode = "text" | "avatar";
@@ -435,7 +437,9 @@ function MessageBubble({ msg }: { msg: Message }) {
         className="msg-avatar"
       />
       <div className="msg-body">
-        <p className="msg-text">{msg.content}</p>
+        <div className="msg-text msg-markdown">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+        </div>
         {msg.citations && msg.citations.length > 0 && (
           <div className="citations">
             {msg.citations.map((c, i) => (
