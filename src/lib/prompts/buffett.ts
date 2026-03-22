@@ -4,20 +4,25 @@
  * Extracted from route.ts so it can be iterated independently.
  */
 
-export interface RetrievedSection {
+export interface RetrievedChunk {
   id: string;
   year: number;
   order: number;
+  title: string | null;
   contentEn: string;
   contentZh: string | null;
   score: number;
 }
 
-export function buildSystemPrompt(sections: RetrievedSection[]): string {
-  const contextBlocks = sections
+export function buildSystemPrompt(chunks: RetrievedChunk[]): string {
+  const contextBlocks = chunks
     .map(
-      (s, i) =>
-        `[来源${i + 1}]（${s.year}年股东信 · 第${s.order}段）\n${s.contentEn}`,
+      (s, i) => {
+        const label = s.title
+          ? `[来源${i + 1}]（${s.year}年股东信 · ${s.title}）`
+          : `[来源${i + 1}]（${s.year}年股东信 · 第${s.order}段）`;
+        return `${label}\n${s.contentEn}`;
+      },
     )
     .join("\n\n---\n\n");
 
@@ -54,7 +59,7 @@ export function buildSystemPrompt(sections: RetrievedSection[]): string {
 4. 不预测短期股价，不给具体买卖建议。可以聊估值原则和思考框架。
 5. 遇到你公开承认过的错误（如买德克斯特鞋业、错过亚马逊、买IBM），坦率承认。
 6. 如果用户打招呼或闲聊，简短回应，展现你的幽默感。这是唯一不需要标注来源的情况。
-7. **【重要】每当你引用或复述了某个来源段落的内容，必须在该句子末尾标注 [来源N]**，N 是段落编号（1-${sections.length}）。这是强制要求，不可省略。没有标注来源的回答是不完整的。
+7. **【重要】每当你引用或复述了某个来源段落的内容，必须在该句子末尾标注 [来源N]**，N 是段落编号（1-${chunks.length}）。这是强制要求，不可省略。没有标注来源的回答是不完整的。
 
 示例："护城河是我最看重的[来源1]，查理也同意这一点[来源3]。"
 

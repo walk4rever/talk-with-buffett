@@ -63,9 +63,27 @@ model Letter {
   year      Int       @unique
   title     String
   url       String
+  contentMd String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sections  Section[]
+  chunks    Chunk[]
+}
+
+model Chunk {
+  id           String                   @id @default(cuid())
+  letterId     String
+  order        Int
+  title        String?
+  contentEn    String
+  contentZh    String?
+  embedding    Unsupported("vector")?
+  searchVector Unsupported("tsvector")?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  letter       Letter                   @relation(fields: [letterId], references: [id], onDelete: Cascade)
+
+  @@unique([letterId, order])
 }
 
 model Section {

@@ -3,7 +3,7 @@
  */
 
 import prisma from "@/lib/prisma";
-import type { RetrievedSection } from "@/lib/prompts/buffett";
+import type { RetrievedChunk } from "@/lib/prompts/buffett";
 
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
@@ -82,6 +82,7 @@ interface HybridResult {
   letterId: string;
   year: number;
   order: number;
+  title: string | null;
   contentEn: string;
   contentZh: string | null;
   vectorScore: number;
@@ -96,7 +97,7 @@ export async function hybridSearch(
   translatedQuery: string,
   queryEmbedding: number[],
   limit: number = 5,
-): Promise<RetrievedSection[]> {
+): Promise<RetrievedChunk[]> {
   // Single SQL query: run both searches, merge, and rank
   const results = await prisma.$queryRawUnsafe<HybridResult[]>(
     `
@@ -106,10 +107,11 @@ export async function hybridSearch(
         s."letterId",
         l."year",
         s."order",
+        s."title",
         s."contentEn",
         s."contentZh",
         1 - (s."embedding" <=> $1::vector) AS vector_score
-      FROM "Section" s
+      FROM "Chunk" s
       JOIN "Letter" l ON l."id" = s."letterId"
       WHERE s."embedding" IS NOT NULL
       ORDER BY s."embedding" <=> $1::vector
@@ -121,10 +123,11 @@ export async function hybridSearch(
         s."letterId",
         l."year",
         s."order",
+        s."title",
         s."contentEn",
         s."contentZh",
         ts_rank_cd(s."searchVector", plainto_tsquery('english', $2)) AS keyword_score
-      FROM "Section" s
+      FROM "Chunk" s
       JOIN "Letter" l ON l."id" = s."letterId"
       WHERE s."searchVector" @@ plainto_tsquery('english', $2)
       ORDER BY keyword_score DESC
@@ -135,6 +138,7 @@ export async function hybridSearch(
       COALESCE(v."letterId", k."letterId") AS "letterId",
       COALESCE(v."year", k."year") AS "year",
       COALESCE(v."order", k."order") AS "order",
+      COALESCE(v."title", k."title") AS "title",
       COALESCE(v."contentEn", k."contentEn") AS "contentEn",
       COALESCE(v."contentZh", k."contentZh") AS "contentZh",
       COALESCE(v.vector_score, 0) AS "vectorScore",
@@ -155,6 +159,7 @@ export async function hybridSearch(
     id: r.id,
     year: r.year,
     order: r.order,
+    title: r.title,
     contentEn: r.contentEn,
     contentZh: r.contentZh,
     score: r.finalScore,
@@ -163,7 +168,7 @@ export async function hybridSearch(
 
 // ── Main entry point ─────────────────────────────────────────────────────
 
-export async function searchSections(query: string): Promise<RetrievedSection[]> {
+export async function searchChunks(query: string): Promise<RetrievedChunk[]> {
   // Step 1: Translate query to English (for both tsvector and embedding)
   const translatedQuery = await translateQuery(query);
 
@@ -182,19 +187,20 @@ export async function searchSections(query: string): Promise<RetrievedSection[]>
 
 // ── Fallback: keyword-only search (if embedding API is down) ─────────────
 
-async function keywordOnlyFallback(query: string): Promise<RetrievedSection[]> {
+async function keywordOnlyFallback(query: string): Promise<RetrievedChunk[]> {
   const results = await prisma.$queryRawUnsafe<
-    { id: string; year: number; order: number; contentEn: string; contentZh: string | null; score: number }[]
+    { id: string; year: number; order: number; title: string | null; contentEn: string; contentZh: string | null; score: number }[]
   >(
     `
     SELECT
       s."id",
       l."year",
       s."order",
+      s."title",
       s."contentEn",
       s."contentZh",
       ts_rank_cd(s."searchVector", plainto_tsquery('english', $1)) AS score
-    FROM "Section" s
+    FROM "Chunk" s
     JOIN "Letter" l ON l."id" = s."letterId"
     WHERE s."searchVector" @@ plainto_tsquery('english', $1)
     ORDER BY score DESC

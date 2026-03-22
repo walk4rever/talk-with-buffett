@@ -6,7 +6,7 @@ import { WaitlistModal } from "@/components/WaitlistModal";
 export default async function Home() {
   const letters = await prisma.letter.findMany({
     orderBy: { year: "desc" },
-    include: { _count: { select: { sections: true } } },
+    include: { _count: { select: { chunks: true } } },
   });
 
   return (

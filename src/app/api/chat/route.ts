@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getClientIp } from "@/lib/ratelimit";
 import { buildSystemPrompt } from "@/lib/prompts/buffett";
-import { searchSections } from "@/lib/search";
+import { searchChunks } from "@/lib/search";
 
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
@@ -46,9 +46,9 @@ export async function POST(req: Request) {
   }
 
   // Parallel: usage check + hybrid search (translate → tsvector + pgvector)
-  const [usage, sections] = await Promise.all([
+  const [usage, chunks] = await Promise.all([
     checkAndIncrementUsage(ip),
-    searchSections(lastUserMsg.content),
+    searchChunks(lastUserMsg.content),
   ]);
 
   if (!usage.allowed) {
@@ -58,11 +58,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = buildSystemPrompt(sections);
+  const systemPrompt = buildSystemPrompt(chunks);
 
-  // Build a map from [来源N] → section data for citation resolution
-  const sectionMap = new Map(
-    sections.map((s, i) => [i + 1, s]),
+  // Build a map from [来源N] → chunk data for citation resolution
+  const chunkMap = new Map(
+    chunks.map((c, i) => [i + 1, c]),
   );
 
   const aiMessages = [
@@ -151,7 +151,7 @@ export async function POST(req: Request) {
         const citations = [...citationNums]
           .sort((a, b) => a - b)
           .map((n) => {
-            const s = sectionMap.get(n);
+            const s = chunkMap.get(n);
             if (!s) return null;
             return {
               sectionId: s.id,
