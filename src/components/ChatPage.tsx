@@ -29,8 +29,17 @@ const STARTERS = [
 
 // ── SSE streaming client ─────────────────────────────────────────────────
 
-function stripCitationTags(text: string): string {
-  return text.replace(/<citations>[\s\S]*?<\/citations>/, "").trim();
+function stripCitationTags(text: string, streaming = false): string {
+  // Strip complete <citations>...</citations> block
+  let cleaned = text.replace(/<citations>[\s\S]*?<\/citations>/, "");
+  // During streaming, also strip any trailing partial tag (e.g. "<citati", "<citations>[{...")
+  if (streaming) {
+    const partialIdx = cleaned.indexOf("<citation");
+    if (partialIdx !== -1) {
+      cleaned = cleaned.slice(0, partialIdx);
+    }
+  }
+  return cleaned.trim();
 }
 
 async function streamChatAPI(
@@ -171,7 +180,7 @@ export function ChatPage() {
           const last = updated[updated.length - 1];
           updated[updated.length - 1] = {
             ...last,
-            content: stripCitationTags(currentText),
+            content: stripCitationTags(currentText, true),
           };
           return updated;
         });
@@ -332,10 +341,6 @@ function TextMode({
 }) {
   const isEmpty = messages.length === 0;
 
-  // Show thinking dots only while loading AND the last message has no content yet
-  const lastMsg = messages[messages.length - 1];
-  const showThinking = loading && (!lastMsg || lastMsg.role === "user" || lastMsg.content === "");
-
   return (
     <div className="text-mode">
       {isEmpty ? (
@@ -345,7 +350,6 @@ function TextMode({
           {messages.map((msg, i) => (
             <MessageBubble key={i} msg={msg} />
           ))}
-          {showThinking && <ThinkingBubble />}
           <div ref={messagesEndRef} />
         </div>
       )}
@@ -407,6 +411,22 @@ function MessageBubble({ msg }: { msg: Message }) {
     );
   }
 
+  // Streaming placeholder with no content yet — show thinking dots
+  if (msg.streaming && !msg.content) {
+    return (
+      <div className="msg msg--assistant">
+        <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+        <div className="msg-body">
+          <div className="thinking-dots">
+            <span className="dot" />
+            <span className="dot" />
+            <span className="dot" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="msg msg--assistant">
       <img
@@ -447,21 +467,6 @@ function CitationCard({ citation }: { citation: Citation }) {
         </Link>
       </div>
       <blockquote className="citation-quote">"{citation.excerpt}"</blockquote>
-    </div>
-  );
-}
-
-function ThinkingBubble() {
-  return (
-    <div className="msg msg--assistant">
-      <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
-      <div className="msg-body">
-        <div className="thinking-dots">
-          <span className="dot" />
-          <span className="dot" />
-          <span className="dot" />
-        </div>
-      </div>
     </div>
   );
 }
