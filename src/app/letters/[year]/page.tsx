@@ -1,8 +1,5 @@
 import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { LetterReadingArea } from "@/components/LetterReadingArea";
 
 interface LetterPageProps {
@@ -17,20 +14,16 @@ export default async function LetterPage({ params }: LetterPageProps) {
 
   const letter = await prisma.letter.findUnique({
     where: { year },
-    include: { sections: { orderBy: { order: "asc" } } },
+    select: { year: true, contentMd: true },
   });
 
-  if (!letter) notFound();
-
-  const session = await getServerSession(authOptions);
-  const isPaid = !!session;
+  if (!letter || !letter.contentMd) notFound();
 
   return (
     <div className="letter-page">
       <LetterReadingArea
         year={letter.year}
-        sections={letter.sections}
-        isPaid={isPaid}
+        contentMd={letter.contentMd}
       />
 
       <footer className="letter-footer">

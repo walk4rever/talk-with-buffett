@@ -873,7 +873,77 @@ body {
   color: #fff;
 }
 
-/* Single-column reader */
+/* Markdown reader */
+.md-reader {
+  max-width: 780px;
+  margin: 0 auto;
+  height: calc(100dvh - 100px);
+  overflow-y: auto;
+  padding: 1rem 2rem 4rem;
+  font-family: var(--font-serif);
+  color: var(--foreground);
+}
+.md-reader h1,
+.md-reader h2,
+.md-reader h3 {
+  font-family: var(--font-serif);
+  margin: 1.8em 0 0.6em;
+  line-height: 1.3;
+}
+.md-reader h1 { font-size: 1.4em; }
+.md-reader h2 { font-size: 1.2em; }
+.md-reader h3 { font-size: 1.05em; }
+.md-reader p {
+  margin: 0.8em 0;
+}
+.md-reader blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--primary);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.md-reader table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.85em;
+  font-family: var(--font-sans);
+}
+.md-reader th,
+.md-reader td {
+  border: 1px solid var(--secondary);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+.md-reader th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+.md-reader strong {
+  font-weight: 600;
+}
+.md-reader em {
+  font-style: italic;
+}
+.md-reader hr {
+  border: none;
+  border-top: 1px solid var(--secondary);
+  margin: 2em 0;
+}
+.md-reader ul,
+.md-reader ol {
+  margin: 0.8em 0;
+  padding-left: 1.5em;
+}
+.md-reader code {
+  font-size: 0.85em;
+  background: rgba(0,0,0,0.05);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+}
+
+/* Legacy single-column reader (unused, kept for migration) */
 .single-reader {
   max-width: 720px;
   margin: 0 auto;

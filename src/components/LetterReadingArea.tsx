@@ -1,26 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { DualColumnReader } from "./DualColumnReader";
-import { SingleColumnReader } from "./SingleColumnReader";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChatDrawer } from "./ChatDrawer";
 
-type ReadingMode = "dual" | "en" | "zh";
-
-interface Section {
-  id: string;
-  order: number;
-  contentEn: string;
-  contentZh: string | null;
-  hasTable?: boolean;
-  tableData?: string | null;
-}
+type ReadingMode = "all" | "en" | "zh";
 
 interface LetterReadingAreaProps {
   year: number;
-  sections: Section[];
-  isPaid: boolean;
+  contentMd: string;
 }
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20];
@@ -29,11 +19,114 @@ const LINE_HEIGHTS = [1.5, 1.65, 1.8, 2.0, 2.2];
 const DEFAULT_FONT = 2;      // index → 16px
 const DEFAULT_LINE = 2;      // index → 1.8
 
-export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
+// ── CJK detection ──────────────────────────────────────────────────────────
+
+function isCJKLine(text: string): boolean {
+  const stripped = text.replace(/^[\s\-\*\d\.\(\)（）\[\]·>#]+/, "");
+  if (!stripped) return false;
+  const code = stripped.codePointAt(0) ?? 0;
+  return (
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0x3000 && code <= 0x303f)
+  );
+}
+
+// ── Strip metadata header ──────────────────────────────────────────────────
+
+function stripHeader(md: string): string {
+  const lines = md.split("\n");
+  let lastMetaLine = 0;
+  for (let i = 0; i < Math.min(lines.length, 30); i++) {
+    const t = lines[i].trim();
+    if (
+      t.startsWith("原文信息") ||
+      t.startsWith("- 标题") ||
+      t.startsWith("- 作者") ||
+      t.startsWith("- 发表") ||
+      t.startsWith("- 链接") ||
+      t.startsWith("- 中文") ||
+      t.startsWith("- 整理") ||
+      t.startsWith("- 修订") ||
+      t.startsWith("- 校译") ||
+      t.startsWith("- 校对") ||
+      t.startsWith("[^") ||
+      (t === "---" && i < 20) ||
+      t === ""
+    ) {
+      lastMetaLine = i;
+    }
+  }
+  return lines.slice(lastMetaLine + 1).join("\n").trim();
+}
+
+// ── Filter markdown by language ────────────────────────────────────────────
+
+function filterByLanguage(md: string, mode: ReadingMode): string {
+  if (mode === "all") return md;
+
+  const lines = md.split("\n");
+  const result: string[] = [];
+  let inTable = false;
+  let tableIsTarget = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Track table blocks — keep table with its header language
+    if (trimmed.startsWith("|") || trimmed.match(/^---[\s|:]+/)) {
+      if (!inTable) {
+        inTable = true;
+        // Table language determined by first cell content
+        tableIsTarget = mode === "en" ? !isCJKLine(trimmed) : isCJKLine(trimmed);
+      }
+      if (tableIsTarget) result.push(line);
+      continue;
+    } else {
+      inTable = false;
+    }
+
+    // Empty lines: keep for spacing
+    if (!trimmed) {
+      result.push(line);
+      continue;
+    }
+
+    // Headings: keep for both (they often have both languages)
+    if (trimmed.startsWith("#")) {
+      if (mode === "en") {
+        // Strip Chinese from heading like "# Insurance Operations 保险业务"
+        const cleaned = trimmed.replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+/g, "").trim();
+        result.push(cleaned);
+      } else {
+        // Keep Chinese part of heading, or full heading if no Chinese
+        const zhMatch = trimmed.match(/([\u4e00-\u9fff][\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\s·\-—]+)/);
+        if (zhMatch) {
+          const level = trimmed.match(/^#+/)?.[0] ?? "#";
+          result.push(`${level} ${zhMatch[1].trim()}`);
+        }
+      }
+      continue;
+    }
+
+    // Regular paragraphs: filter by language
+    const isZh = isCJKLine(trimmed);
+    if (mode === "en" && !isZh) result.push(line);
+    if (mode === "zh" && isZh) result.push(line);
+  }
+
+  // Clean up excessive blank lines
+  return result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// ── Component ──────────────────────────────────────────────────────────────
+
+export function LetterReadingArea({ year, contentMd }: LetterReadingAreaProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fontIdx, setFontIdx] = useState(DEFAULT_FONT);
   const [lineIdx, setLineIdx] = useState(DEFAULT_LINE);
-  const [readingMode, setReadingMode] = useState<ReadingMode>("dual");
+  const [readingMode, setReadingMode] = useState<ReadingMode>("all");
 
   // Restore from localStorage on mount
   useEffect(() => {
@@ -42,7 +135,9 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
     const m = localStorage.getItem("reader-mode");
     if (f !== null) setFontIdx(Number(f));
     if (l !== null) setLineIdx(Number(l));
-    if (m !== null) setReadingMode(m as ReadingMode);
+    if (m !== null && (m === "all" || m === "en" || m === "zh")) {
+      setReadingMode(m);
+    }
   }, []);
 
   function changeReadingMode(mode: ReadingMode) {
@@ -62,21 +157,23 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
     localStorage.setItem("reader-line-idx", String(clamped));
   }
 
+  const body = useMemo(() => stripHeader(contentMd), [contentMd]);
+  const filtered = useMemo(() => filterByLanguage(body, readingMode), [body, readingMode]);
+
   return (
     <>
       {/* Sticky bar */}
       <div className="letter-bar">
         <Link href="/" className="back-link">← 返回</Link>
         <span className="letter-bar-title">{year} 致股东信</span>
-        <span className="letter-bar-meta">{sections.length} 段</span>
 
         {/* Reading mode — centered */}
         <div className="reader-mode-group" title="阅读模式">
           <button
-            className={`reader-mode-btn${readingMode === "dual" ? " reader-mode-btn--active" : ""}`}
-            onClick={() => changeReadingMode("dual")}
+            className={`reader-mode-btn${readingMode === "all" ? " reader-mode-btn--active" : ""}`}
+            onClick={() => changeReadingMode("all")}
           >
-            双栏
+            中英
           </button>
           <button
             className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
@@ -139,29 +236,13 @@ export function LetterReadingArea({ year, sections }: LetterReadingAreaProps) {
         </div>
       </div>
 
-      {/* Column labels */}
-      {readingMode === "dual" && (
-        <div className="reading-columns-header">
-          <span>英文原文</span>
-          <span>中文译文</span>
-        </div>
-      )}
-
-      {/* Reader */}
-      {readingMode === "dual" ? (
-        <DualColumnReader
-          sections={sections}
-          fontSize={FONT_SIZES[fontIdx]}
-          lineHeight={LINE_HEIGHTS[lineIdx]}
-        />
-      ) : (
-        <SingleColumnReader
-          sections={sections}
-          language={readingMode}
-          fontSize={FONT_SIZES[fontIdx]}
-          lineHeight={LINE_HEIGHTS[lineIdx]}
-        />
-      )}
+      {/* Markdown reader */}
+      <div
+        className="md-reader"
+        style={{ fontSize: FONT_SIZES[fontIdx], lineHeight: LINE_HEIGHTS[lineIdx] }}
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{filtered}</ReactMarkdown>
+      </div>
 
       {/* FAB */}
       <button
