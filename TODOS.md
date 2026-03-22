@@ -3,6 +3,7 @@
 # TODOS — 当前工作队列
 
 > 对应 PLAN.md — 与巴菲特对话（渐进式三步走）
+> 检索架构详见 DESIGN.md
 
 ## ✅ 已完成
 
@@ -14,24 +15,40 @@
 - [x] **P2 修复** — 页脚信息、错误边界 (95c46a1)
 - [x] **UI 重设计** — 极简主页、双栏联动阅读、ChatDrawer、数字人模式框架
 - [x] **对话 API** — `/api/chat` 关键词检索 + RAG + 引用来源 + 每日限额
+- [x] **巴菲特人格 Prompt** — 提取到 `src/lib/prompts/buffett.ts`，思维框架 + 说话风格 (9567430)
+- [x] **SSE Streaming** — 对话逐字流式输出，感知延迟 ~10s → ~0.5s (e4bfaba)
+- [x] **可配置免费次数** — `FREE_DAILY_CHAT_LIMIT` 环境变量，默认 30 (e4bfaba)
 
 ---
 
-## 🔥 P0：部署前必须完成（基础设施迁移）
+## 🔥 P0：混合检索系统
 
-### 数据库迁移：SQLite → Supabase PostgreSQL
-- [ ] 在 Supabase 创建项目（新加坡节点）
-- [ ] 修改 `DATABASE_URL` 指向 Supabase PostgreSQL
-- [ ] 运行 `npx prisma migrate deploy`
-- [ ] 重新 seed 数据，验证生产数据库可用
+> 详细设计见 DESIGN.md
 
-### 认证重构：GitHub/Google → 手机号短信
-- [ ] 在阿里云开通短信服务，配置签名 + 模板
-- [ ] 新建 `src/app/api/auth/send-code/route.ts` — 发送验证码
-- [ ] 新建 `src/app/api/auth/verify-code/route.ts` — 校验并登录
-- [ ] 新建登录页 `src/app/login/page.tsx` — 手机号输入 + 验证码
-- [ ] 配置 NextAuth Credentials Provider 接手机号登录
-- [ ] 移除 GitHub / Google Provider
+### 基础设施
+- [ ] Supabase 开启 pgvector 扩展（`CREATE EXTENSION vector`）
+- [ ] Section 表新增 `embedding` 字段（`vector(1536)`）
+- [ ] Section 表新增 `searchVector` 字段（`tsvector`，基于 `contentEn`）
+- [ ] 创建 HNSW 索引（embedding）和 GIN 索引（searchVector）
+- [ ] Prisma migration
+
+### Embedding 生成
+- [ ] 新建 `scripts/generate-embeddings.ts`
+- [ ] 调用 AI API embedding 端点，为全量 Section 生成 embedding
+- [ ] 支持增量更新（跳过已有 embedding 的段落）
+- [ ] 运行脚本，验证全量生成完成
+
+### 检索逻辑改造
+- [ ] 新建 `src/lib/search.ts` — 混合检索模块
+- [ ] 实现 Query 翻译（中文 → 英文，复用现有 AI API）
+- [ ] 实现向量检索路（query embedding → cosine similarity → top 10）
+- [ ] 实现关键词检索路（translated query → tsvector @@ plainto_tsquery → top 10）
+- [ ] 实现合并排序（score = 0.7 × vector + 0.3 × keyword → top 5）
+- [ ] 替换 `route.ts` 中的 `retrieveRelevantSections`
+
+### 验证
+- [ ] 对比测试：关键词匹配 vs 混合检索，用 10 个典型问题评估召回质量
+- [ ] 性能测试：混合检索延迟 < 200ms
 
 ---
 
@@ -41,7 +58,7 @@
 - [ ] 修改 `fetch_letters.py` 支持 1965-2019 全部信件下载
 - [ ] 适配早期信件格式差异（HTML vs PDF vs 扫描件）
 - [ ] 修改 `parse_pdf_sections.py` 适配不同年份 PDF 格式
-- [ ] 修改 `translate_sections.py` 批量翻译，支持断点续传
+- [ ] 批量翻译全部年份，支持断点续传
 - [ ] 修改 `prisma/seed.ts` 支持导入全部 59 个年份
 
 ### Schema 扩展
@@ -61,11 +78,10 @@
 
 ## 📋 后续 Phase（不在当前冲刺）
 
-### Phase 2: 对话引擎
+### Phase 2: 对话引擎 + 探索
 - [ ] 主题时间线 API（输入公司/主题 → 返回相关段落时间线）
-- [ ] 主题时间线页面 `/explore`
-- [ ] RAG 对话接口（检索 + AI 生成巴菲特式回答 + 引用来源）
-- [ ] 对话界面 `/chat`
+- [ ] 主题时间线页面 `/explore`（复用混合检索 + 年份分组展示）
+- [ ] 对话记忆 — 多轮对话上下文优化
 
 ### Phase 3: 虚拟人
 - [ ] 虚拟人 API 选型（HeyGen / D-ID / 开源）
@@ -86,7 +102,7 @@
 - [ ] 虚拟人 API 效果评估（HeyGen / D-ID 免费额度测试）
 - [ ] 声音克隆合规性（真实声音 vs 类似风格通用声音）
 - [ ] 早期信件（1965-1977）格式调研 — 是否需要 OCR
-- [ ] 向量搜索 vs 关键词匹配 — 对话引擎检索方案
+- [x] ~~向量搜索 vs 关键词匹配 — 对话引擎检索方案~~ → 见 DESIGN.md，采用混合检索
 
 ---
 
