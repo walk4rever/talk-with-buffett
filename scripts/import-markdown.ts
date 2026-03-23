@@ -1,16 +1,17 @@
 /**
- * Import markdown letters from data/letters/ into the database.
+ * Import markdown sources into the database.
  *
- * 1. Reads each markdown file → stores full content in Letter.contentMd
- * 2. Splits by headings (# / ##) into chunks
- * 3. Separates Chinese / English paragraphs within each chunk
- * 4. Writes Chunk rows with tsvector (auto via trigger) and embedding
+ * Data lives under data/<type>/ where type is one of:
+ *   shareholder, partnership, annual_meeting
  *
- * Usage: npx tsx scripts/import-markdown.ts                    # all shareholder letters
- *        npx tsx scripts/import-markdown.ts 2025              # single year
- *        npx tsx scripts/import-markdown.ts --type partnership # all partnership letters
- *        npx tsx scripts/import-markdown.ts --type partnership 1965  # single year
- *        npx tsx scripts/import-markdown.ts --type annual_meeting --dir /path/to/meetings
+ * Usage:
+ *   npx tsx scripts/import-markdown.ts                                # all shareholder
+ *   npx tsx scripts/import-markdown.ts --type annual_meeting          # all annual_meeting
+ *   npx tsx scripts/import-markdown.ts --type partnership 1965        # partnership, single year
+ *   npx tsx scripts/import-markdown.ts --file data/shareholder/2025_Letter_to_Berkshire_Shareholders.md
+ *
+ * The --file flag imports a single markdown file. The type is inferred from
+ * its parent directory name (shareholder / partnership / annual_meeting).
  */
 
 import fs from "fs";
@@ -22,7 +23,7 @@ const prisma = new PrismaClient();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const LETTERS_DIR = path.join(__dirname, "..", "data", "letters");
+const DATA_DIR = path.join(__dirname, "..", "data");
 
 const EMBEDDING_API_KEY = process.env.EMBEDDING_API_KEY || process.env.AI_API_KEY!;
 const EMBEDDING_API_BASE_URL = process.env.EMBEDDING_API_BASE_URL || process.env.AI_API_BASE_URL!;
@@ -31,27 +32,21 @@ const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "doubao-embedding-large";
 // ── CJK detection ──────────────────────────────────────────────────────────
 
 function isCJK(text: string): boolean {
-  // Check if the first non-whitespace, non-punctuation character is CJK
   const stripped = text.replace(/^[\s\-\*\d\.\(\)（）\[\]·]+/, "");
   if (!stripped) return false;
   const code = stripped.codePointAt(0) ?? 0;
-  // CJK Unified Ideographs + common ranges
   return (
-    (code >= 0x4e00 && code <= 0x9fff) || // CJK Unified
-    (code >= 0x3400 && code <= 0x4dbf) || // CJK Extension A
-    (code >= 0xf900 && code <= 0xfaff) || // CJK Compat
-    (code >= 0x2e80 && code <= 0x2eff) || // CJK Radicals
-    (code >= 0x3000 && code <= 0x303f)    // CJK Symbols
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0x2e80 && code <= 0x2eff) ||
+    (code >= 0x3000 && code <= 0x303f)
   );
 }
 
 // ── Strip metadata header ──────────────────────────────────────────────────
 
 function stripHeader(md: string): string {
-  // Files start with "原文信息：" metadata block with "- 标题:", "- 作者:" etc.
-  // Some end with "---", some with "[^*]:", some go straight to content.
-  // Strategy: find the last metadata line (starting with "- " or "[^*]" or "---"),
-  // then skip to the next non-empty line.
   const lines = md.split("\n");
   let lastMetaLine = 0;
 
@@ -83,7 +78,7 @@ function stripHeader(md: string): string {
 
 interface RawChunk {
   title: string | null;
-  content: string; // full text including both languages
+  content: string;
 }
 
 function splitByHeadings(md: string): RawChunk[] {
@@ -97,16 +92,13 @@ function splitByHeadings(md: string): RawChunk[] {
   for (const line of lines) {
     const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
     if (headingMatch) {
-      // Save previous chunk
       if (currentLines.length > 0) {
         const content = currentLines.join("\n").trim();
         if (content) {
           chunks.push({ title: currentTitle, content });
         }
       }
-      // Extract English part of heading (before Chinese)
       const fullTitle = headingMatch[2].trim();
-      // Headings like "# Insurance Underwriting 保险承保业务" — take English part
       const parts = fullTitle.split(/\s+/);
       const enParts: string[] = [];
       for (const p of parts) {
@@ -120,7 +112,6 @@ function splitByHeadings(md: string): RawChunk[] {
     }
   }
 
-  // Last chunk
   if (currentLines.length > 0) {
     const content = currentLines.join("\n").trim();
     if (content) {
@@ -128,7 +119,6 @@ function splitByHeadings(md: string): RawChunk[] {
     }
   }
 
-  // If no headings were found, treat entire body as one chunk
   if (chunks.length === 0 && body.trim()) {
     chunks.push({ title: null, content: body.trim() });
   }
@@ -153,7 +143,6 @@ function separateLanguages(chunk: RawChunk): SeparatedChunk {
     const trimmed = para.trim();
     if (!trimmed) continue;
 
-    // Tables and footnotes: check first content line
     const firstContentLine = trimmed.split("\n").find(l => l.trim() && !l.trim().startsWith("|--") && !l.trim().startsWith("---"));
     const testText = firstContentLine || trimmed;
 
@@ -184,7 +173,6 @@ function splitLongChunks(chunks: SeparatedChunk[]): SeparatedChunk[] {
       continue;
     }
 
-    // Split English by paragraphs, keep Chinese aligned by count
     const enParas = chunk.contentEn.split(/\n\n+/);
     const zhParas = chunk.contentZh.split(/\n\n+/);
 
@@ -196,7 +184,6 @@ function splitLongChunks(chunks: SeparatedChunk[]): SeparatedChunk[] {
     for (let i = 0; i < enParas.length; i++) {
       const enPara = enParas[i];
       if (currentLen + enPara.length > MAX_CHARS && currentEn.length > 0) {
-        // Flush
         result.push({
           title: chunk.title ? `${chunk.title} (${++partNum})` : null,
           contentEn: currentEn.join("\n\n"),
@@ -234,7 +221,7 @@ async function getEmbedding(text: string): Promise<number[]> {
     },
     body: JSON.stringify({
       model: EMBEDDING_MODEL,
-      input: [{ type: "text", text: text.slice(0, 4000) }], // truncate for safety
+      input: [{ type: "text", text: text.slice(0, 4000) }],
       dimensions: 1024,
       encoding_format: "float",
     }),
@@ -249,144 +236,183 @@ async function getEmbedding(text: string): Promise<number[]> {
   return data.data.embedding;
 }
 
+// ── Source metadata ────────────────────────────────────────────────────────
+
+function getSourceMeta(sourceType: string, year: number, sourceDate: string | null) {
+  switch (sourceType) {
+    case "annual_meeting":
+      return {
+        title: `${year} Berkshire Hathaway Annual Meeting`,
+        url: `https://buffett.cnbc.com/${year}-berkshire-hathaway-annual-meeting/`,
+      };
+    case "partnership":
+      return {
+        title: `${year} Letter to Partners${sourceDate ? ` (${sourceDate})` : ""}`,
+        url: "https://theoraclesclassroom.com/wp-content/uploads/2020/05/Buffett-Partnership-Letters-1957-1970-High-Quality.pdf",
+      };
+    default:
+      return {
+        title: `${year} Letter to Berkshire Shareholders`,
+        url: `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`,
+      };
+  }
+}
+
+// ── Import a single file ───────────────────────────────────────────────────
+
+async function importFile(filePath: string, sourceType: string): Promise<{ chunks: number; failed: number }> {
+  const file = path.basename(filePath);
+  const yearMatch = file.match(/^(\d{4})/);
+  if (!yearMatch) {
+    console.error(`  Skipping ${file}: no year in filename`);
+    return { chunks: 0, failed: 0 };
+  }
+  const year = parseInt(yearMatch[1], 10);
+
+  // Partnership letters: extract date from YYYYMMDD filename
+  const dateMatch = file.match(/^(\d{4})(\d{2})(\d{2})?/);
+  const sourceDate = sourceType === "partnership" && dateMatch
+    ? `${dateMatch[1]}-${dateMatch[2]}${dateMatch[3] ? `-${dateMatch[3]}` : ""}`
+    : null;
+
+  const md = fs.readFileSync(filePath, "utf-8");
+
+  const rawChunks = splitByHeadings(md);
+  const separated = rawChunks.map(separateLanguages);
+  const chunks = splitLongChunks(separated);
+  const validChunks = chunks.filter(c => c.contentEn.trim().length > 20);
+
+  const label = sourceDate ? `${year} (${sourceDate})` : `${year}`;
+  console.log(`${label}: ${validChunks.length} chunks`);
+
+  // Upsert Source
+  const { title, url } = getSourceMeta(sourceType, year, sourceDate);
+
+  let source = await prisma.source.findFirst({
+    where: { year, type: sourceType, date: sourceDate },
+  });
+  if (source) {
+    source = await prisma.source.update({
+      where: { id: source.id },
+      data: { contentMd: md },
+    });
+  } else {
+    source = await prisma.source.create({
+      data: { year, type: sourceType, date: sourceDate, title, url, contentMd: md },
+    });
+  }
+
+  // Delete existing chunks (idempotent re-run)
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM "Chunk" WHERE "sourceId" = $1`,
+    source.id,
+  );
+
+  let totalFailed = 0;
+
+  for (let i = 0; i < validChunks.length; i++) {
+    const chunk = validChunks[i];
+
+    let embedding: number[] | null = null;
+    try {
+      embedding = await getEmbedding(chunk.contentEn);
+    } catch (err) {
+      console.error(`  Failed embedding for chunk ${i + 1}: ${err}`);
+      totalFailed++;
+    }
+
+    if (embedding) {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "Chunk" ("id", "sourceId", "order", "title", "contentEn", "contentZh", "embedding", "updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6::vector, NOW())`,
+        source.id,
+        i + 1,
+        chunk.title,
+        chunk.contentEn,
+        chunk.contentZh || null,
+        JSON.stringify(embedding),
+      );
+    } else {
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO "Chunk" ("id", "sourceId", "order", "title", "contentEn", "contentZh", "updatedAt")
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW())`,
+        source.id,
+        i + 1,
+        chunk.title,
+        chunk.contentEn,
+        chunk.contentZh || null,
+      );
+    }
+
+    // Rate limit: 100ms between embedding calls
+    if (embedding) await new Promise(r => setTimeout(r, 100));
+  }
+
+  return { chunks: validChunks.length, failed: totalFailed };
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  // Parse args: [--type partnership] [--dir /path] [year]
   const args = process.argv.slice(2);
   let sourceType = "shareholder";
   let yearArg: number | null = null;
-  let customDir: string | null = null;
+  let singleFile: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--type" && args[i + 1]) {
       sourceType = args[++i];
-    } else if (args[i] === "--dir" && args[i + 1]) {
-      customDir = args[++i];
+    } else if (args[i] === "--file" && args[i + 1]) {
+      singleFile = args[++i];
     } else if (/^\d{4}$/.test(args[i])) {
       yearArg = parseInt(args[i], 10);
     }
   }
 
-  const isPartnership = sourceType === "partnership";
-  const lettersDir = customDir
-    ? path.resolve(customDir)
-    : isPartnership
-      ? path.join(LETTERS_DIR, "partnership")
-      : LETTERS_DIR;
-
-  const files = fs.readdirSync(lettersDir)
-    .filter(f => f.endsWith(".md"))
-    .filter(f => !yearArg || f.startsWith(String(yearArg)))
-    .sort();
-
-  console.log(`Found ${files.length} ${sourceType} files${yearArg ? ` (year=${yearArg})` : ""}\n`);
-
-  let totalChunks = 0;
-  let totalFailed = 0;
-
-  for (const file of files) {
-    const yearMatch = file.match(/^(\d{4})/);
-    if (!yearMatch) continue;
-    const year = parseInt(yearMatch[1], 10);
-
-    // For partnership letters, extract date from filename (YYYYMMDD)
-    const dateMatch = file.match(/^(\d{4})(\d{2})(\d{2})?/);
-    const sourceDate = isPartnership && dateMatch
-      ? `${dateMatch[1]}-${dateMatch[2]}${dateMatch[3] ? `-${dateMatch[3]}` : ""}`
-      : null;
-
-    const md = fs.readFileSync(path.join(lettersDir, file), "utf-8");
-
-    // Split and separate
-    const rawChunks = splitByHeadings(md);
-    const separated = rawChunks.map(separateLanguages);
-    const chunks = splitLongChunks(separated);
-
-    // Filter out empty chunks
-    const validChunks = chunks.filter(c => c.contentEn.trim().length > 20);
-
-    const label = sourceDate ? `${year} (${sourceDate})` : `${year}`;
-    console.log(`${label}: ${validChunks.length} chunks`);
-
-    // Upsert Source with contentMd
-    let title: string;
-    let url: string;
-    if (sourceType === "annual_meeting") {
-      title = `${year} Berkshire Hathaway Annual Meeting`;
-      url = `https://buffett.cnbc.com/${year}-berkshire-hathaway-annual-meeting/`;
-    } else if (isPartnership) {
-      title = `${year} Letter to Partners${sourceDate ? ` (${sourceDate})` : ""}`;
-      url = "https://theoraclesclassroom.com/wp-content/uploads/2020/05/Buffett-Partnership-Letters-1957-1970-High-Quality.pdf";
-    } else {
-      title = `${year} Letter to Berkshire Shareholders`;
-      url = `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`;
+  // Single-file mode
+  if (singleFile) {
+    const resolved = path.resolve(singleFile);
+    if (!fs.existsSync(resolved)) {
+      console.error(`File not found: ${resolved}`);
+      process.exit(1);
     }
 
-    // findFirst + create/update because composite unique with nullable date
-    let source = await prisma.source.findFirst({
-      where: { year, type: sourceType, date: sourceDate },
-    });
-    if (source) {
-      source = await prisma.source.update({
-        where: { id: source.id },
-        data: { contentMd: md },
-      });
-    } else {
-      source = await prisma.source.create({
-        data: { year, type: sourceType, date: sourceDate, title, url, contentMd: md },
-      });
+    // Infer type from parent directory name
+    const parentDir = path.basename(path.dirname(resolved));
+    const inferredType = ["shareholder", "partnership", "annual_meeting"].includes(parentDir)
+      ? parentDir
+      : sourceType;
+
+    console.log(`Importing single file: ${resolved} (type=${inferredType})\n`);
+    const result = await importFile(resolved, inferredType);
+    console.log(`\nDone: ${result.chunks} chunks imported, ${result.failed} embedding failures`);
+  } else {
+    // Batch mode: import all .md files from data/<type>/
+    const dir = path.join(DATA_DIR, sourceType);
+    if (!fs.existsSync(dir)) {
+      console.error(`Directory not found: ${dir}`);
+      console.error(`Expected one of: data/shareholder, data/partnership, data/annual_meeting`);
+      process.exit(1);
     }
 
-    // Delete existing chunks for this source (idempotent re-run)
-    await prisma.$executeRawUnsafe(
-      `DELETE FROM "Chunk" WHERE "sourceId" = $1`,
-      source.id,
-    );
+    const files = fs.readdirSync(dir)
+      .filter(f => f.endsWith(".md"))
+      .filter(f => !yearArg || f.startsWith(String(yearArg)))
+      .sort();
 
-    // Insert chunks with embedding
-    for (let i = 0; i < validChunks.length; i++) {
-      const chunk = validChunks[i];
+    console.log(`Found ${files.length} ${sourceType} files${yearArg ? ` (year=${yearArg})` : ""}\n`);
 
-      let embedding: number[] | null = null;
-      try {
-        embedding = await getEmbedding(chunk.contentEn);
-      } catch (err) {
-        console.error(`  Failed embedding for chunk ${i + 1}: ${err}`);
-        totalFailed++;
-      }
+    let totalChunks = 0;
+    let totalFailed = 0;
 
-      if (embedding) {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "Chunk" ("id", "sourceId", "order", "title", "contentEn", "contentZh", "embedding", "updatedAt")
-           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6::vector, NOW())`,
-          source.id,
-          i + 1,
-          chunk.title,
-          chunk.contentEn,
-          chunk.contentZh || null,
-          JSON.stringify(embedding),
-        );
-      } else {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO "Chunk" ("id", "sourceId", "order", "title", "contentEn", "contentZh", "updatedAt")
-           VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW())`,
-          source.id,
-          i + 1,
-          chunk.title,
-          chunk.contentEn,
-          chunk.contentZh || null,
-        );
-      }
-
-      totalChunks++;
-
-      // Rate limit: 100ms between embedding calls
-      if (embedding) await new Promise(r => setTimeout(r, 100));
+    for (const file of files) {
+      const result = await importFile(path.join(dir, file), sourceType);
+      totalChunks += result.chunks;
+      totalFailed += result.failed;
     }
+
+    console.log(`\nDone: ${totalChunks} chunks imported, ${totalFailed} embedding failures`);
   }
-
-  console.log(`\nDone: ${totalChunks} chunks imported, ${totalFailed} embedding failures`);
 
   // Verify
   const stats = await prisma.$queryRawUnsafe<{ total: number; with_emb: number; with_sv: number }[]>(`

@@ -21,6 +21,12 @@ export default async function Home() {
 
   const partnershipYears = [...new Set(partnershipLetters.map((l) => l.year))];
 
+  const annualMeetings = await prisma.source.findMany({
+    where: { type: "annual_meeting" },
+    orderBy: { year: "desc" },
+    select: { id: true, year: true, title: true },
+  });
+
   return (
     <div className="home-wrap">
       {/* Hero */}
@@ -64,6 +70,25 @@ export default async function Home() {
                 className="archive-item"
               >
                 {year}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Annual Meetings */}
+      {annualMeetings.length > 0 && (
+        <section className="archive">
+          <p className="archive-label">股东大会 1985–2024</p>
+          <div className="archive-grid">
+            {annualMeetings.map((m) => (
+              <Link
+                key={m.id}
+                href={`/letters/annual_meeting/${m.year}`}
+                className="archive-item"
+                title={m.title ?? undefined}
+              >
+                {m.year}
               </Link>
             ))}
           </div>

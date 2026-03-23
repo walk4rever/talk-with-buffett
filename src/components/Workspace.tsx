@@ -172,16 +172,8 @@ function getInitialReadingMode(): ReadingMode {
   return "all";
 }
 
-function isCJKLine(text: string): boolean {
-  const stripped = text.replace(/^[\s\-\*\d\.\(\)（）\[\]·>#]+/, "");
-  if (!stripped) return false;
-  const code = stripped.codePointAt(0) ?? 0;
-  return (
-    (code >= 0x4e00 && code <= 0x9fff) ||
-    (code >= 0x3400 && code <= 0x4dbf) ||
-    (code >= 0xf900 && code <= 0xfaff) ||
-    (code >= 0x3000 && code <= 0x303f)
-  );
+function hasCJK(text: string): boolean {
+  return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text);
 }
 
 function stripHeader(md: string): string {
@@ -224,7 +216,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
     if (trimmed.startsWith("|") || trimmed.match(/^---[\s|:]+/)) {
       if (!inTable) {
         inTable = true;
-        tableIsTarget = mode === "en" ? !isCJKLine(trimmed) : isCJKLine(trimmed);
+        tableIsTarget = mode === "en" ? !hasCJK(trimmed) : hasCJK(trimmed);
       }
       if (tableIsTarget) result.push(line);
       continue;
@@ -252,12 +244,14 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
       continue;
     }
 
-    const isZh = isCJKLine(trimmed);
+    const isZh = hasCJK(trimmed);
     if (mode === "en" && !isZh) result.push(line);
     if (mode === "zh" && isZh) result.push(line);
   }
 
-  return result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const filtered = result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  if (!filtered && mode !== "en") return md;
+  return filtered;
 }
 
 export function Workspace() {
