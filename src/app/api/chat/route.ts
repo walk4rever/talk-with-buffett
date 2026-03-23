@@ -60,10 +60,13 @@ export async function POST(req: Request) {
 
   const systemPrompt = buildSystemPrompt(chunks);
 
-  // Build a map from [来源N] → chunk data for citation resolution
-  const chunkMap = new Map(
-    chunks.map((c, i) => [i + 1, c]),
-  );
+  // Build sources from search results (always shown, independent of AI output)
+  const sources = chunks.map((c) => ({
+    year: c.year,
+    title: c.title,
+    letterType: c.letterType,
+    excerpt: c.contentEn.slice(0, 120).trim() + (c.contentEn.length > 120 ? "…" : ""),
+  }));
 
   const aiMessages = [
     { role: "system", content: systemPrompt },
@@ -101,7 +104,6 @@ export async function POST(req: Request) {
   }
 
   const encoder = new TextEncoder();
-  let fullText = "";
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -129,7 +131,6 @@ export async function POST(req: Request) {
               const json = JSON.parse(payload);
               const delta = json.choices?.[0]?.delta?.content;
               if (delta) {
-                fullText += delta;
                 controller.enqueue(
                   encoder.encode(`event: delta\ndata: ${JSON.stringify(delta)}\n\n`),
                 );
@@ -140,30 +141,9 @@ export async function POST(req: Request) {
           }
         }
 
-        // Extract [来源N] markers and map to actual section data
-        const citationNums = new Set<number>();
-        const markerRegex = /\[来源(\d+)\]/g;
-        let match;
-        while ((match = markerRegex.exec(fullText)) !== null) {
-          citationNums.add(parseInt(match[1], 10));
-        }
-
-        const citations = [...citationNums]
-          .sort((a, b) => a - b)
-          .map((n) => {
-            const s = chunkMap.get(n);
-            if (!s) return null;
-            return {
-              sectionId: s.id,
-              year: s.year,
-              excerpt: s.contentEn.slice(0, 80).trim() + (s.contentEn.length > 80 ? "…" : ""),
-            };
-          })
-          .filter(Boolean);
-
         controller.enqueue(
           encoder.encode(
-            `event: done\ndata: ${JSON.stringify({ citations, remaining: usage.remaining })}\n\n`,
+            `event: done\ndata: ${JSON.stringify({ sources, remaining: usage.remaining })}\n\n`,
           ),
         );
       } catch (err) {

@@ -9,16 +9,17 @@ import { WaitlistModal } from "@/components/WaitlistModal";
 
 type Mode = "text" | "avatar";
 
-interface Citation {
+interface Source {
   year: number;
+  title: string | null;
+  letterType: string;
   excerpt: string;
-  sectionId?: string;
 }
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  citations?: Citation[];
+  sources?: Source[];
   streaming?: boolean;
 }
 
@@ -31,15 +32,10 @@ const STARTERS = [
 
 // ── SSE streaming client ─────────────────────────────────────────────────
 
-function stripSourceMarkers(text: string): string {
-  // Remove [来源N] inline markers — citations are shown as cards below
-  return text.replace(/\[来源\d+\]/g, "").trim();
-}
-
 async function streamChatAPI(
   messages: Message[],
   onDelta: (text: string) => void,
-  onDone: (citations: Citation[]) => void,
+  onDone: (sources: Source[]) => void,
   onError: (msg: string) => void,
 ) {
   const res = await fetch("/api/chat", {
@@ -100,7 +96,7 @@ async function streamChatAPI(
         } else if (currentEvent === "done") {
           try {
             const data = JSON.parse(payload);
-            onDone(data.citations ?? []);
+            onDone(data.sources ?? []);
           } catch {
             onDone([]);
           }
@@ -174,20 +170,19 @@ export function ChatPage() {
           const last = updated[updated.length - 1];
           updated[updated.length - 1] = {
             ...last,
-            content: stripSourceMarkers(currentText),
+            content: currentText,
           };
           return updated;
         });
       },
-      // onDone — finalize the message with citations
-      (citations) => {
+      // onDone — finalize the message with sources
+      (sources) => {
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
           updated[updated.length - 1] = {
             ...last,
-            content: stripSourceMarkers(last.content),
-            citations,
+            sources,
             streaming: false,
           };
           return updated;
@@ -195,7 +190,7 @@ export function ChatPage() {
         setLoading(false);
 
         if (mode === "avatar") {
-          const finalText = stripSourceMarkers(streamingTextRef.current);
+          const finalText = streamingTextRef.current;
           setAvatarSpeaking(true);
           setSubtitleText(finalText);
           setTimeout(() => setAvatarSpeaking(false), finalText.length * 40);
@@ -432,10 +427,11 @@ function MessageBubble({ msg }: { msg: Message }) {
         <div className="msg-text msg-markdown">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
         </div>
-        {msg.citations && msg.citations.length > 0 && (
-          <div className="citations">
-            {msg.citations.map((c, i) => (
-              <CitationCard key={i} citation={c} />
+        {msg.sources && msg.sources.length > 0 && (
+          <div className="sources">
+            <p className="sources-label">相关原文</p>
+            {msg.sources.map((s, i) => (
+              <SourceCard key={i} source={s} />
             ))}
           </div>
         )}
@@ -444,10 +440,13 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
-function CitationCard({ citation }: { citation: Citation }) {
+function SourceCard({ source }: { source: Source }) {
+  const letterLabel = source.letterType === "partnership" ? "合伙人信" : "股东信";
+  const linkType = source.letterType === "partnership" ? "partnership" : "shareholder";
+
   return (
-    <div className="citation-card">
-      <div className="citation-header">
+    <div className="source-card">
+      <div className="source-header">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
           <path
             d="M2 2h8v8H2z"
@@ -457,12 +456,15 @@ function CitationCard({ citation }: { citation: Citation }) {
           />
           <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
         </svg>
-        <span className="citation-year">{citation.year} 年{citation.year < 1965 ? "合伙人信" : "股东信"}</span>
-        <Link href={`/letters/${citation.year < 1965 ? "partnership" : "shareholder"}/${citation.year}`} className="citation-link">
-          查看原文 →
+        <span className="source-year">
+          {source.year} 年{letterLabel}
+          {source.title ? ` · ${source.title}` : ""}
+        </span>
+        <Link href={`/letters/${linkType}/${source.year}`} className="source-link">
+          查看 →
         </Link>
       </div>
-      <blockquote className="citation-quote">"{citation.excerpt}"</blockquote>
+      <blockquote className="source-quote">{source.excerpt}</blockquote>
     </div>
   );
 }
@@ -512,12 +514,12 @@ function AvatarMode({
         )}
       </div>
 
-      {/* Citation cards below stage */}
-      {lastMessage?.citations && lastMessage.citations.length > 0 && (
-        <div className="avatar-citations">
-          <p className="avatar-citations-label">引用来源</p>
-          {lastMessage.citations.map((c, i) => (
-            <CitationCard key={i} citation={c} />
+      {/* Source cards below stage */}
+      {lastMessage?.sources && lastMessage.sources.length > 0 && (
+        <div className="avatar-sources">
+          <p className="avatar-sources-label">相关原文</p>
+          {lastMessage.sources.map((s, i) => (
+            <SourceCard key={i} source={s} />
           ))}
         </div>
       )}
