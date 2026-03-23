@@ -12,7 +12,8 @@ export default async function LetterPage({ params }: LetterPageProps) {
   const { type, year: yearParam } = await params;
   const year = parseInt(yearParam, 10);
 
-  if (isNaN(year) || (type !== "shareholder" && type !== "partnership")) {
+  const validTypes = ["shareholder", "partnership", "annual_meeting"];
+  if (isNaN(year) || !validTypes.includes(type)) {
     notFound();
   }
 
@@ -46,20 +47,20 @@ export default async function LetterPage({ params }: LetterPageProps) {
     );
   }
 
-  // Shareholder: one letter per year
-  const letter = await prisma.source.findFirst({
-    where: { year, type: "shareholder" },
+  // Shareholder / annual_meeting: one source per year
+  const source = await prisma.source.findFirst({
+    where: { year, type },
     select: { year: true, contentMd: true },
   });
 
-  if (!letter || !letter.contentMd) notFound();
+  if (!source || !source.contentMd) notFound();
 
   return (
     <div className="letter-page">
       <LetterReadingArea
-        year={letter.year}
-        contentMd={letter.contentMd}
-        sourceType="shareholder"
+        year={source.year}
+        contentMd={source.contentMd}
+        sourceType={type}
       />
       <footer className="letter-footer">
         <hr />
