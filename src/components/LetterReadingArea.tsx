@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useMemo, type ComponentPropsWithoutRef } from "react";
+import {
+  isValidElement,
+  useState,
+  useMemo,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -14,25 +20,6 @@ interface LetterReadingAreaProps {
   contentMd: string;
   sourceType?: string;
 }
-
-const markdownComponents = {
-  table: (props: ComponentPropsWithoutRef<"table">) => (
-    <div className="md-table-wrap">
-      <table {...props} />
-    </div>
-  ),
-  a: (props: ComponentPropsWithoutRef<"a">) => {
-    const href = props.href ?? "";
-    const isExternal = /^https?:\/\//i.test(href);
-    return (
-      <a
-        {...props}
-        target={isExternal ? "_blank" : props.target}
-        rel={isExternal ? "noopener noreferrer" : props.rel}
-      />
-    );
-  },
-};
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20];
 const LINE_HEIGHTS = [1.5, 1.65, 1.8, 2.0, 2.2];
@@ -67,6 +54,64 @@ function getInitialReadingMode(): ReadingMode {
 
 function hasCJK(text: string): boolean {
   return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text);
+}
+
+function extractPlainText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (!node) return "";
+  if (Array.isArray(node)) return node.map(extractPlainText).join(" ");
+  if (isValidElement<{ children?: ReactNode }>(node)) return extractPlainText(node.props.children);
+  return "";
+}
+
+function joinClassNames(...names: Array<string | undefined>) {
+  return names.filter(Boolean).join(" ");
+}
+
+function mixedModeLangClass(children: ReactNode, readingMode: ReadingMode): string {
+  if (readingMode !== "all") return "";
+  const text = extractPlainText(children).trim();
+  if (!text) return "";
+  return hasCJK(text) ? "md-lang-block md-lang-zh" : "md-lang-block md-lang-en";
+}
+
+function createMarkdownComponents(readingMode: ReadingMode) {
+  return {
+    table: (props: ComponentPropsWithoutRef<"table">) => (
+      <div className="md-table-wrap">
+        <table {...props} />
+      </div>
+    ),
+    a: (props: ComponentPropsWithoutRef<"a">) => {
+      const href = props.href ?? "";
+      const isExternal = /^https?:\/\//i.test(href);
+      return (
+        <a
+          {...props}
+          target={isExternal ? "_blank" : props.target}
+          rel={isExternal ? "noopener noreferrer" : props.rel}
+        />
+      );
+    },
+    p: (props: ComponentPropsWithoutRef<"p">) => (
+      <p {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    h1: (props: ComponentPropsWithoutRef<"h1">) => (
+      <h1 {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    h2: (props: ComponentPropsWithoutRef<"h2">) => (
+      <h2 {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    h3: (props: ComponentPropsWithoutRef<"h3">) => (
+      <h3 {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    blockquote: (props: ComponentPropsWithoutRef<"blockquote">) => (
+      <blockquote
+        {...props}
+        className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))}
+      />
+    ),
+  };
 }
 
 // ── Strip metadata header ──────────────────────────────────────────────────
@@ -187,6 +232,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
 
   const body = useMemo(() => stripHeader(contentMd), [contentMd]);
   const filtered = useMemo(() => filterByLanguage(body, readingMode), [body, readingMode]);
+  const markdownComponents = useMemo(() => createMarkdownComponents(readingMode), [readingMode]);
 
   return (
     <>

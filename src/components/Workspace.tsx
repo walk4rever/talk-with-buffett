@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo, type ComponentPropsWithoutRef } from "react";
+import {
+  isValidElement,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -39,25 +48,6 @@ interface ReferenceItem extends ChatSource {
   firstSeenTurn: number;
   seenCount: number;
 }
-
-const markdownComponents = {
-  table: (props: ComponentPropsWithoutRef<"table">) => (
-    <div className="md-table-wrap">
-      <table {...props} />
-    </div>
-  ),
-  a: (props: ComponentPropsWithoutRef<"a">) => {
-    const href = props.href ?? "";
-    const isExternal = /^https?:\/\//i.test(href);
-    return (
-      <a
-        {...props}
-        target={isExternal ? "_blank" : props.target}
-        rel={isExternal ? "noopener noreferrer" : props.rel}
-      />
-    );
-  },
-};
 
 const messageMarkdownComponents = {
   table: (props: ComponentPropsWithoutRef<"table">) => (
@@ -176,6 +166,64 @@ function hasCJK(text: string): boolean {
   return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text);
 }
 
+function extractPlainText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (!node) return "";
+  if (Array.isArray(node)) return node.map(extractPlainText).join(" ");
+  if (isValidElement<{ children?: ReactNode }>(node)) return extractPlainText(node.props.children);
+  return "";
+}
+
+function joinClassNames(...names: Array<string | undefined>) {
+  return names.filter(Boolean).join(" ");
+}
+
+function mixedModeLangClass(children: ReactNode, readingMode: ReadingMode): string {
+  if (readingMode !== "all") return "";
+  const text = extractPlainText(children).trim();
+  if (!text) return "";
+  return hasCJK(text) ? "md-lang-block md-lang-zh" : "md-lang-block md-lang-en";
+}
+
+function createReaderMarkdownComponents(readingMode: ReadingMode) {
+  return {
+    table: (props: ComponentPropsWithoutRef<"table">) => (
+      <div className="md-table-wrap">
+        <table {...props} />
+      </div>
+    ),
+    a: (props: ComponentPropsWithoutRef<"a">) => {
+      const href = props.href ?? "";
+      const isExternal = /^https?:\/\//i.test(href);
+      return (
+        <a
+          {...props}
+          target={isExternal ? "_blank" : props.target}
+          rel={isExternal ? "noopener noreferrer" : props.rel}
+        />
+      );
+    },
+    p: (props: ComponentPropsWithoutRef<"p">) => (
+      <p {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    h1: (props: ComponentPropsWithoutRef<"h1">) => (
+      <h1 {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    h2: (props: ComponentPropsWithoutRef<"h2">) => (
+      <h2 {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    h3: (props: ComponentPropsWithoutRef<"h3">) => (
+      <h3 {...props} className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))} />
+    ),
+    blockquote: (props: ComponentPropsWithoutRef<"blockquote">) => (
+      <blockquote
+        {...props}
+        className={joinClassNames(props.className, mixedModeLangClass(props.children, readingMode))}
+      />
+    ),
+  };
+}
+
 function stripHeader(md: string): string {
   const lines = md.split("\n");
   let lastMetaLine = 0;
@@ -289,6 +337,10 @@ export function Workspace() {
     if (!canvasContent?.contentMd) return "";
     return filterByLanguage(stripHeader(canvasContent.contentMd), readingMode);
   }, [canvasContent, readingMode]);
+  const readerMarkdownComponents = useMemo(
+    () => createReaderMarkdownComponents(readingMode),
+    [readingMode],
+  );
 
   const canvasLoading =
     hasReader &&
@@ -558,7 +610,7 @@ export function Workspace() {
                   </div>
                 </div>
                 <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={readerMarkdownComponents}>
                     {filteredCanvasContent}
                   </ReactMarkdown>
                 </div>

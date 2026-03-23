@@ -870,6 +870,16 @@ body {
 .md-reader p {
   margin: 0.8em 0;
 }
+.md-reader .md-lang-block {
+  border-radius: 8px;
+  padding: 0.3em 0.5em;
+}
+.md-reader .md-lang-en {
+  background: color-mix(in srgb, #4f6d8a 9%, transparent);
+}
+.md-reader .md-lang-zh {
+  background: color-mix(in srgb, #b6743b 12%, transparent);
+}
 .md-reader a {
   color: var(--primary);
   text-underline-offset: 2px;
