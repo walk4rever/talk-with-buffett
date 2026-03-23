@@ -10,6 +10,7 @@
  *        npx tsx scripts/import-markdown.ts 2025              # single year
  *        npx tsx scripts/import-markdown.ts --type partnership # all partnership letters
  *        npx tsx scripts/import-markdown.ts --type partnership 1965  # single year
+ *        npx tsx scripts/import-markdown.ts --type annual_meeting --dir /path/to/meetings
  */
 
 import fs from "fs";
@@ -251,23 +252,28 @@ async function getEmbedding(text: string): Promise<number[]> {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  // Parse args: [--type partnership] [year]
+  // Parse args: [--type partnership] [--dir /path] [year]
   const args = process.argv.slice(2);
   let sourceType = "shareholder";
   let yearArg: number | null = null;
+  let customDir: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--type" && args[i + 1]) {
       sourceType = args[++i];
+    } else if (args[i] === "--dir" && args[i + 1]) {
+      customDir = args[++i];
     } else if (/^\d{4}$/.test(args[i])) {
       yearArg = parseInt(args[i], 10);
     }
   }
 
   const isPartnership = sourceType === "partnership";
-  const lettersDir = isPartnership
-    ? path.join(LETTERS_DIR, "partnership")
-    : LETTERS_DIR;
+  const lettersDir = customDir
+    ? path.resolve(customDir)
+    : isPartnership
+      ? path.join(LETTERS_DIR, "partnership")
+      : LETTERS_DIR;
 
   const files = fs.readdirSync(lettersDir)
     .filter(f => f.endsWith(".md"))
@@ -304,12 +310,18 @@ async function main() {
     console.log(`${label}: ${validChunks.length} chunks`);
 
     // Upsert Source with contentMd
-    const title = isPartnership
-      ? `${year} Letter to Partners${sourceDate ? ` (${sourceDate})` : ""}`
-      : `${year} Letter to Berkshire Shareholders`;
-    const url = isPartnership
-      ? "https://theoraclesclassroom.com/wp-content/uploads/2020/05/Buffett-Partnership-Letters-1957-1970-High-Quality.pdf"
-      : `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`;
+    let title: string;
+    let url: string;
+    if (sourceType === "annual_meeting") {
+      title = `${year} Berkshire Hathaway Annual Meeting`;
+      url = `https://buffett.cnbc.com/${year}-berkshire-hathaway-annual-meeting/`;
+    } else if (isPartnership) {
+      title = `${year} Letter to Partners${sourceDate ? ` (${sourceDate})` : ""}`;
+      url = "https://theoraclesclassroom.com/wp-content/uploads/2020/05/Buffett-Partnership-Letters-1957-1970-High-Quality.pdf";
+    } else {
+      title = `${year} Letter to Berkshire Shareholders`;
+      url = `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`;
+    }
 
     // findFirst + create/update because composite unique with nullable date
     let source = await prisma.source.findFirst({
