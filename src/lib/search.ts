@@ -1,5 +1,11 @@
 /**
- * Hybrid search: tsvector full-text + pgvector semantic, merged and ranked.
+ * Keyword-based search using tsvector full-text with temporal awareness.
+ *
+ * Flow: parseQuery() → QueryPlan → keywordSearch() → RetrievedChunk[]
+ *
+ * parseQuery extracts both search keywords (English) and temporal intent
+ * (order: asc / desc / relevance, optional year range) from the user question.
+ * keywordSearch runs a single tsvector scan with dynamic ORDER BY and year filters.
  */
 
 import prisma from "@/lib/prisma";
@@ -7,213 +13,169 @@ import type { RetrievedChunk } from "@/lib/prompts/buffett";
 
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
-
-const EMBEDDING_API_KEY = process.env.EMBEDDING_API_KEY ?? AI_API_KEY;
-const EMBEDDING_API_BASE_URL = process.env.EMBEDDING_API_BASE_URL ?? AI_API_BASE_URL;
-const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL ?? "doubao-embedding-large";
-
-// ── Query translation ────────────────────────────────────────────────────
-
 const AI_MODEL = process.env.AI_MODEL!;
 
-export async function translateQuery(query: string): Promise<string> {
-  const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${AI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Translate the user's question into English. If already in English, return as-is. " +
-            "Expand with synonyms useful for searching Warren Buffett's shareholder letters, partnership letters, published articles, interviews, and annual meeting transcripts. " +
-            "Output ONLY the translated/expanded query, nothing else.",
-        },
-        { role: "user", content: query },
-      ],
-      temperature: 0,
-      max_tokens: 200,
-    }),
-  });
+// ── Query plan ────────────────────────────────────────────────────────────
 
-  if (!res.ok) {
-    // Fallback: use original query
-    return query;
-  }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content?.trim() ?? query;
+export interface QueryPlan {
+  keywords: string;
+  order: "asc" | "desc" | "relevance";
+  yearFrom: number | null;
+  yearTo: number | null;
 }
 
-// ── Embedding ────────────────────────────────────────────────────────────
+// ── Parse query ───────────────────────────────────────────────────────────
 
-export async function getEmbedding(text: string): Promise<number[]> {
-  const res = await fetch(`${EMBEDDING_API_BASE_URL}/embeddings/multimodal`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${EMBEDDING_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input: [{ type: "text", text }],
-      dimensions: 1024,
-      encoding_format: "float",
-    }),
-  });
+const PARSE_SYSTEM = `You are a search query parser for Warren Buffett's writings database (shareholder letters 1965-2024, partnership letters 1957-1970, annual meetings 1994-2024).
 
-  if (!res.ok) {
-    throw new Error(`Embedding API error: ${res.status} ${await res.text()}`);
-  }
-
-  const data = await res.json();
-  // Multimodal API returns data.embedding (object), not data[0].embedding (array)
-  return data.data.embedding;
+Given the user question, output ONLY a JSON object with these exact fields:
+{
+  "keywords": string,         // English search terms for PostgreSQL websearch_to_tsquery. Use | between alternatives: "Progressive | Progressive Insurance". 1-3 key concepts max.
+  "order": "asc"|"desc"|"relevance",  // asc=first mention/history/changes over time, desc=latest/most recent, relevance=opinion/what does he think/how to
+  "yearFrom": number|null,    // lower year bound if mentioned ("after 2008"→2008, "1990s"→1990), else null
+  "yearTo": number|null       // upper year bound if mentioned ("before 2000"→2000, "1990s"→1999), else null
 }
 
-// ── Hybrid search ────────────────────────────────────────────────────────
+Examples:
+"最早提到前进保险是哪一年" → {"keywords":"Progressive | Progressive Insurance","order":"asc","yearFrom":null,"yearTo":null}
+"有没有提到过比特币" → {"keywords":"bitcoin | cryptocurrency","order":"asc","yearFrom":null,"yearTo":null}
+"历年对保险业务的看法变化" → {"keywords":"insurance business","order":"asc","yearFrom":null,"yearTo":null}
+"最近怎么看科技股" → {"keywords":"technology stocks | tech companies","order":"desc","yearFrom":2015,"yearTo":null}
+"2008年金融危机时说了什么" → {"keywords":"financial crisis | bank failure | recession","order":"relevance","yearFrom":2007,"yearTo":2010}
+"怎么看护城河" → {"keywords":"economic moat | competitive advantage","order":"relevance","yearFrom":null,"yearTo":null}
+"查理芒格去世后你说了什么" → {"keywords":"Charlie Munger death | Charlie Munger passed","order":"relevance","yearFrom":2023,"yearTo":2024}
 
-interface HybridResult {
-  id: string;
-  sourceId: string;
-  year: number;
-  order: number;
-  title: string | null;
-  sourceType: string;
-  contentEn: string;
-  contentZh: string | null;
-  vectorScore: number;
-  keywordScore: number;
-  finalScore: number;
-}
+Output ONLY valid JSON, no markdown, no explanation.`;
 
-const VECTOR_WEIGHT = 0.7;
-const KEYWORD_WEIGHT = 0.3;
-
-export async function hybridSearch(
-  translatedQuery: string,
-  queryEmbedding: number[],
-  limit: number = 5,
-): Promise<RetrievedChunk[]> {
-  // Single SQL query: run both searches, merge, and rank
-  const results = await prisma.$queryRawUnsafe<HybridResult[]>(
-    `
-    WITH vector_search AS (
-      SELECT
-        s."id",
-        s."sourceId",
-        l."year",
-        s."order",
-        s."title",
-        l."type" AS source_type,
-        s."contentEn",
-        s."contentZh",
-        1 - (s."embedding" <=> $1::vector) AS vector_score
-      FROM "Chunk" s
-      JOIN "Source" l ON l."id" = s."sourceId"
-      WHERE s."embedding" IS NOT NULL
-      ORDER BY s."embedding" <=> $1::vector
-      LIMIT 20
-    ),
-    keyword_search AS (
-      SELECT
-        s."id",
-        s."sourceId",
-        l."year",
-        s."order",
-        s."title",
-        l."type" AS source_type,
-        s."contentEn",
-        s."contentZh",
-        ts_rank_cd(s."searchVector", plainto_tsquery('english', $2)) AS keyword_score
-      FROM "Chunk" s
-      JOIN "Source" l ON l."id" = s."sourceId"
-      WHERE s."searchVector" @@ plainto_tsquery('english', $2)
-      ORDER BY keyword_score DESC
-      LIMIT 20
-    )
-    SELECT
-      COALESCE(v."id", k."id") AS "id",
-      COALESCE(v."sourceId", k."sourceId") AS "sourceId",
-      COALESCE(v."year", k."year") AS "year",
-      COALESCE(v."order", k."order") AS "order",
-      COALESCE(v."title", k."title") AS "title",
-      COALESCE(v.source_type, k.source_type) AS "sourceType",
-      COALESCE(v."contentEn", k."contentEn") AS "contentEn",
-      COALESCE(v."contentZh", k."contentZh") AS "contentZh",
-      COALESCE(v.vector_score, 0) AS "vectorScore",
-      COALESCE(k.keyword_score, 0) AS "keywordScore",
-      (${VECTOR_WEIGHT} * COALESCE(v.vector_score, 0)
-       + ${KEYWORD_WEIGHT} * COALESCE(k.keyword_score, 0)) AS "finalScore"
-    FROM vector_search v
-    FULL OUTER JOIN keyword_search k ON v."id" = k."id"
-    ORDER BY "finalScore" DESC
-    LIMIT $3
-    `,
-    JSON.stringify(queryEmbedding),
-    translatedQuery,
-    limit,
-  );
-
-  return results.map((r) => ({
-    id: r.id,
-    year: r.year,
-    order: r.order,
-    title: r.title,
-    sourceType: r.sourceType,
-    contentEn: r.contentEn,
-    contentZh: r.contentZh,
-    score: r.finalScore,
-  }));
-}
-
-// ── Main entry point ─────────────────────────────────────────────────────
-
-export async function searchChunks(query: string): Promise<RetrievedChunk[]> {
-  // Step 1: Translate query to English (for both tsvector and embedding)
-  const translatedQuery = await translateQuery(query);
-
-  // Step 2: Get query embedding
-  let queryEmbedding: number[];
+export async function parseQuery(query: string): Promise<QueryPlan> {
   try {
-    queryEmbedding = await getEmbedding(translatedQuery);
-  } catch (err) {
-    console.error("Embedding failed, falling back to keyword-only:", err);
-    return keywordOnlyFallback(translatedQuery);
-  }
+    const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${AI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: "system", content: PARSE_SYSTEM },
+          { role: "user", content: query },
+        ],
+        temperature: 0,
+        max_tokens: 150,
+      }),
+    });
 
-  // Step 3: Hybrid search
-  return hybridSearch(translatedQuery, queryEmbedding);
+    if (!res.ok) throw new Error(`API ${res.status}`);
+
+    const data = await res.json();
+    const text: string = data.choices?.[0]?.message?.content?.trim() ?? "";
+
+    // Strip optional ```json ... ``` wrapper
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("No JSON in response");
+
+    const plan = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+
+    const order = (["asc", "desc", "relevance"] as const).includes(plan.order as "asc" | "desc" | "relevance")
+      ? (plan.order as "asc" | "desc" | "relevance")
+      : "relevance";
+
+    return {
+      keywords: typeof plan.keywords === "string" && plan.keywords.trim()
+        ? plan.keywords.trim()
+        : query,
+      order,
+      yearFrom: typeof plan.yearFrom === "number" ? plan.yearFrom : null,
+      yearTo: typeof plan.yearTo === "number" ? plan.yearTo : null,
+    };
+  } catch {
+    // Fallback: use original query as-is with relevance ordering
+    return { keywords: query, order: "relevance", yearFrom: null, yearTo: null };
+  }
 }
 
-// ── Fallback: keyword-only search (if embedding API is down) ─────────────
+// ── Keyword search ────────────────────────────────────────────────────────
 
-async function keywordOnlyFallback(query: string): Promise<RetrievedChunk[]> {
-  const results = await prisma.$queryRawUnsafe<
-    { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number }[]
-  >(
-    `
-    SELECT
-      s."id",
-      l."year",
-      s."order",
-      s."title",
-      l."type" AS "sourceType",
-      s."contentEn",
-      s."contentZh",
-      ts_rank_cd(s."searchVector", plainto_tsquery('english', $1)) AS score
-    FROM "Chunk" s
-    JOIN "Source" l ON l."id" = s."sourceId"
-    WHERE s."searchVector" @@ plainto_tsquery('english', $1)
-    ORDER BY score DESC
-    LIMIT 5
-    `,
-    query,
-  );
+// Temporal queries use a lower threshold to avoid missing rare mentions.
+const THRESHOLD_TEMPORAL = 0.02;
+const THRESHOLD_RELEVANCE = 0.05;
+const LIMIT_TEMPORAL = 20;
+const LIMIT_RELEVANCE = 8;
 
-  return results;
+export async function keywordSearch(plan: QueryPlan): Promise<RetrievedChunk[]> {
+  const { keywords, order, yearFrom, yearTo } = plan;
+
+  const threshold = order === "relevance" ? THRESHOLD_RELEVANCE : THRESHOLD_TEMPORAL;
+  const limit = order === "relevance" ? LIMIT_RELEVANCE : LIMIT_TEMPORAL;
+
+  // ORDER BY is constructed from a validated enum — not from user input.
+  const orderClause =
+    order === "asc" ? `l."year" ASC, score DESC` :
+    order === "desc" ? `l."year" DESC, score DESC` :
+    `score DESC`;
+
+  try {
+    const results = await prisma.$queryRawUnsafe<
+      {
+        id: string;
+        year: number;
+        order: number;
+        title: string | null;
+        sourceType: string;
+        contentEn: string;
+        contentZh: string | null;
+        score: number;
+      }[]
+    >(
+      `
+      SELECT
+        s."id",
+        l."year",
+        s."order",
+        s."title",
+        l."type"       AS "sourceType",
+        s."contentEn",
+        s."contentZh",
+        ts_rank_cd(s."searchVector", websearch_to_tsquery('english', $1)) AS score
+      FROM "Chunk" s
+      JOIN "Source" l ON l."id" = s."sourceId"
+      WHERE s."searchVector" @@ websearch_to_tsquery('english', $1)
+        AND ts_rank_cd(s."searchVector", websearch_to_tsquery('english', $1)) > $2
+        AND ($3::int IS NULL OR l."year" >= $3)
+        AND ($4::int IS NULL OR l."year" <= $4)
+      ORDER BY ${orderClause}
+      LIMIT $5
+      `,
+      keywords,
+      threshold,
+      yearFrom ?? null,
+      yearTo ?? null,
+      limit,
+    );
+
+    return results.map((r) => ({
+      id: r.id,
+      year: r.year,
+      order: r.order,
+      title: r.title,
+      sourceType: r.sourceType,
+      contentEn: r.contentEn,
+      contentZh: r.contentZh,
+      score: r.score,
+    }));
+  } catch (err) {
+    console.error("keywordSearch error:", err);
+    return [];
+  }
+}
+
+// ── Main entry point ──────────────────────────────────────────────────────
+
+export async function searchChunks(
+  query: string,
+): Promise<{ chunks: RetrievedChunk[]; order: "asc" | "desc" | "relevance" }> {
+  const plan = await parseQuery(query);
+  const chunks = await keywordSearch(plan);
+  return { chunks, order: plan.order };
 }

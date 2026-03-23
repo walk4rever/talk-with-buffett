@@ -79,7 +79,8 @@ function canvasKey(type: string, year: number) {
 }
 
 function sourceKey(source: ChatSource) {
-  return `${source.sourceType}|${source.year}|${source.title ?? ""}|${source.excerpt}`;
+  if (source.chunkId) return source.chunkId;
+  return `${source.sourceType}|${source.year}|${source.title ?? ""}|${source.excerpt.slice(0, 60)}`;
 }
 
 function upsertReferences(prev: ReferenceItem[], incoming: ChatSource[], turn: number): ReferenceItem[] {
@@ -224,14 +225,30 @@ function createReaderMarkdownComponents(readingMode: ReadingMode) {
   };
 }
 
-function scrollToExcerpt(container: HTMLElement, excerpt: string) {
-  const query = excerpt.slice(0, 50).trim();
+function scrollToChunk(container: HTMLElement, title: string | null, excerpt: string) {
+  // Strategy 1: find heading by chunk title (most reliable — headings are unique anchors).
+  if (title && title.trim()) {
+    const words = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    const headings = container.querySelectorAll("h1, h2, h3, h4");
+    for (const h of Array.from(headings)) {
+      const hText = (h.textContent ?? "").toLowerCase();
+      if (words.length > 0 && words.every((w) => hText.includes(w))) {
+        h.scrollIntoView({ behavior: "smooth", block: "start" });
+        (h as HTMLElement).classList.add("canvas-highlight");
+        setTimeout(() => (h as HTMLElement).classList.remove("canvas-highlight"), 2000);
+        return;
+      }
+    }
+  }
+
+  // Strategy 2: text walk with first 100 chars of excerpt.
+  const query = excerpt.slice(0, 100).trim();
   if (!query) return;
 
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let node: Node | null;
   while ((node = walker.nextNode())) {
-    if ((node.textContent ?? "").includes(query)) {
+    if ((node.textContent ?? "").includes(query.slice(0, 60))) {
       const el = node.parentElement;
       if (!el) continue;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -327,6 +344,7 @@ export function Workspace() {
   const canvasType = params.get("source") ?? "";
   const canvasYear = parseInt(params.get("year") ?? "0", 10);
   const canvasExcerpt = params.get("q") ?? "";
+  const canvasTitle = params.get("t") ?? "";
   const hasReader = !!canvasType && canvasYear > 0;
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -395,8 +413,8 @@ export function Workspace() {
 
         requestAnimationFrame(() => {
           const savedPos = scrollPositions.get(key);
-          if (canvasExcerpt && canvasScrollRef.current) {
-            scrollToExcerpt(canvasScrollRef.current, canvasExcerpt);
+          if ((canvasTitle || canvasExcerpt) && canvasScrollRef.current) {
+            scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt);
           } else if (savedPos && canvasScrollRef.current) {
             canvasScrollRef.current.scrollTop = savedPos;
           } else if (canvasScrollRef.current) {
@@ -414,9 +432,10 @@ export function Workspace() {
   }, [hasReader, canvasType, canvasYear]);
 
   const openReader = useCallback(
-    (type: string, year: number, excerpt?: string) => {
-      const q = excerpt ? `&q=${encodeURIComponent(excerpt.slice(0, 80))}` : "";
-      router.push(`/workspace?source=${type}&year=${year}${q}`, { scroll: false });
+    (type: string, year: number, excerpt?: string, title?: string | null) => {
+      const q = excerpt ? `&q=${encodeURIComponent(excerpt.slice(0, 100))}` : "";
+      const t = title ? `&t=${encodeURIComponent(title)}` : "";
+      router.push(`/workspace?source=${type}&year=${year}${q}${t}`, { scroll: false });
       setMobilePanel("canvas");
     },
     [router],
@@ -714,7 +733,7 @@ function ReferenceList({
   onOpen,
 }: {
   items: ReferenceItem[];
-  onOpen: (type: string, year: number, excerpt?: string) => void;
+  onOpen: (type: string, year: number, excerpt?: string, title?: string | null) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -730,7 +749,7 @@ function ReferenceList({
         <button
           key={item.key}
           className="workspace-reference-item"
-          onClick={() => onOpen(item.sourceType, item.year, item.excerpt)}
+          onClick={() => onOpen(item.sourceType, item.year, item.excerpt, item.title)}
         >
           <div className="workspace-reference-meta">
             <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>

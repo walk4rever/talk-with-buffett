@@ -45,8 +45,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
 
-  // Parallel: usage check + hybrid search (translate → tsvector + pgvector)
-  const [usage, chunks] = await Promise.all([
+  // Parallel: usage check + keyword search (parseQuery → tsvector)
+  const [usage, { chunks, order }] = await Promise.all([
     checkAndIncrementUsage(ip),
     searchChunks(lastUserMsg.content),
   ]);
@@ -58,14 +58,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = buildSystemPrompt(chunks);
+  const systemPrompt = buildSystemPrompt(chunks, order);
 
   // Build sources from search results (always shown, independent of AI output)
   const sources = chunks.map((c) => ({
     year: c.year,
     title: c.title,
     sourceType: c.sourceType,
-    excerpt: c.contentEn.slice(0, 120).trim() + (c.contentEn.length > 120 ? "…" : ""),
+    chunkId: c.id,
+    excerpt: c.contentEn.slice(0, 150).trim() + (c.contentEn.length > 150 ? "…" : ""),
   }));
 
   const aiMessages = [

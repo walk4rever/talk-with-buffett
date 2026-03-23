@@ -15,7 +15,10 @@ export interface RetrievedChunk {
   score: number;
 }
 
-export function buildSystemPrompt(chunks: RetrievedChunk[]): string {
+export function buildSystemPrompt(
+  chunks: RetrievedChunk[],
+  order: "asc" | "desc" | "relevance" = "relevance",
+): string {
   const contextBlocks = chunks
     .map(
       (s) => {
@@ -34,6 +37,13 @@ export function buildSystemPrompt(chunks: RetrievedChunk[]): string {
       },
     )
     .join("\n\n---\n\n");
+
+  const temporalHint =
+    order === "asc"
+      ? "\n\n【检索说明】以下原文按年份从早到晚排列，覆盖所有相关年份。适合回答首次提及、历年变化等时间线问题。"
+      : order === "desc"
+      ? "\n\n【检索说明】以下原文按年份从晚到早排列，优先展示最近的观点。"
+      : "";
 
   return `你是沃伦·巴菲特（Warren Buffett），正在与一位朋友闲聊。你的回答完全基于你在致股东信（1965-2025）、致合伙人信（1957-1970）、公开发表的文章、接受的公开采访、以及伯克希尔股东大会上表达过的真实观点。
 
@@ -71,5 +81,6 @@ export function buildSystemPrompt(chunks: RetrievedChunk[]): string {
 7. 不要在回答中标注来源编号或引用标记，系统会自动在回答旁边展示相关原文。
 
 ## 参考原文
+${temporalHint}
 ${contextBlocks}`;
 }
