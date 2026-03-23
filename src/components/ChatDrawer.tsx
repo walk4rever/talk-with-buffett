@@ -51,15 +51,9 @@ async function streamChatAPI(
   const decoder = new TextDecoder();
   let buffer = "";
   let currentEvent = "";
+  let gotDone = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
+  function processLines(lines: string[]) {
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) { currentEvent = ""; continue; }
@@ -70,11 +64,32 @@ async function streamChatAPI(
           try { onDelta(JSON.parse(payload)); } catch { /* skip */ }
         } else if (currentEvent === "done") {
           try { onDone(JSON.parse(payload).sources ?? []); } catch { onDone([]); }
+          gotDone = true;
         } else if (currentEvent === "error") {
           onError("抱歉，服务暂时不可用，请稍后重试。");
         }
       }
     }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (value) {
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      processLines(lines);
+    }
+    if (done) {
+      if (buffer.trim()) {
+        processLines([buffer]);
+      }
+      break;
+    }
+  }
+
+  if (!gotDone) {
+    onDone([]);
   }
 }
 

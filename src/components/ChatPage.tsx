@@ -60,39 +60,17 @@ async function streamChatAPI(
   let buffer = "";
   let currentEvent = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  let gotDone = false;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    // Keep the last (possibly incomplete) line in the buffer
-    buffer = lines.pop() ?? "";
-
+  function processLines(lines: string[]) {
     for (const line of lines) {
       const trimmed = line.trim();
-
-      // Empty line = end of SSE message (but we process event+data as they come)
-      if (!trimmed) {
-        currentEvent = "";
-        continue;
-      }
-
-      if (trimmed.startsWith("event: ")) {
-        currentEvent = trimmed.slice(7);
-        continue;
-      }
-
+      if (!trimmed) { currentEvent = ""; continue; }
+      if (trimmed.startsWith("event: ")) { currentEvent = trimmed.slice(7); continue; }
       if (trimmed.startsWith("data: ")) {
         const payload = trimmed.slice(6);
-
         if (currentEvent === "delta") {
-          try {
-            const delta: string = JSON.parse(payload);
-            onDelta(delta);
-          } catch {
-            // skip malformed chunk
-          }
+          try { onDelta(JSON.parse(payload)); } catch { /* skip */ }
         } else if (currentEvent === "done") {
           try {
             const data = JSON.parse(payload);
@@ -100,6 +78,7 @@ async function streamChatAPI(
           } catch {
             onDone([]);
           }
+          gotDone = true;
         } else if (currentEvent === "error") {
           onError("抱歉，服务暂时不可用，请稍后重试。");
         }
@@ -107,8 +86,27 @@ async function streamChatAPI(
     }
   }
 
-  // If we never got a "done" event (e.g. stream closed unexpectedly),
-  // finalize with no citations so the UI doesn't stay in loading state
+  while (true) {
+    const { done, value } = await reader.read();
+    if (value) {
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      processLines(lines);
+    }
+    if (done) {
+      // Process any remaining data in the buffer
+      if (buffer.trim()) {
+        processLines([buffer]);
+      }
+      break;
+    }
+  }
+
+  // If stream closed without a "done" event, finalize so UI doesn't stay stuck
+  if (!gotDone) {
+    onDone([]);
+  }
 }
 
 export function ChatPage() {
