@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ChatDrawer } from "./ChatDrawer";
 
 type ReadingMode = "all" | "en" | "zh";
 
@@ -124,7 +124,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" }: LetterReadingAreaProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const router = useRouter();
   const [fontIdx, setFontIdx] = useState(DEFAULT_FONT);
   const [lineIdx, setLineIdx] = useState(DEFAULT_LINE);
   const [readingMode, setReadingMode] = useState<ReadingMode>("all");
@@ -247,10 +247,10 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{filtered}</ReactMarkdown>
       </div>
 
-      {/* FAB */}
+      {/* FAB → navigate to workspace with this source open */}
       <button
-        className={`chat-fab${drawerOpen ? " chat-fab--active" : ""}`}
-        onClick={() => setDrawerOpen((v) => !v)}
+        className="chat-fab"
+        onClick={() => router.push(`/workspace?source=${sourceType}&year=${year}`)}
         aria-label="与巴菲特对话"
         title="与巴菲特对话"
       >
@@ -262,8 +262,6 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
         />
         <span className="chat-fab-label">问问他</span>
       </button>
-
-      <ChatDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
   );
 }

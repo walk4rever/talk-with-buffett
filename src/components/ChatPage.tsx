@@ -447,8 +447,6 @@ function SourceCard({ source }: { source: Source }) {
     interview: "采访",
   };
   const typeLabel = typeLabels[source.sourceType] ?? source.sourceType;
-  const linkType = source.sourceType;
-
   return (
     <div className="source-card">
       <div className="source-header">
@@ -465,7 +463,7 @@ function SourceCard({ source }: { source: Source }) {
           {source.year} 年{typeLabel}
           {source.title ? ` · ${source.title}` : ""}
         </span>
-        <Link href={`/letters/${linkType}/${source.year}`} className="source-link">
+        <Link href={`/workspace?source=${source.sourceType}&year=${source.year}`} className="source-link">
           查看 →
         </Link>
       </div>
