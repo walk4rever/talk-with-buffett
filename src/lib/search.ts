@@ -30,7 +30,7 @@ export async function translateQuery(query: string): Promise<string> {
           role: "system",
           content:
             "Translate the user's question into English. If already in English, return as-is. " +
-            "Expand with synonyms useful for searching Warren Buffett's shareholder letters. " +
+            "Expand with synonyms useful for searching Warren Buffett's shareholder letters, partnership letters, published articles, interviews, and annual meeting transcripts. " +
             "Output ONLY the translated/expanded query, nothing else.",
         },
         { role: "user", content: query },
@@ -79,11 +79,11 @@ export async function getEmbedding(text: string): Promise<number[]> {
 
 interface HybridResult {
   id: string;
-  letterId: string;
+  sourceId: string;
   year: number;
   order: number;
   title: string | null;
-  letterType: string;
+  sourceType: string;
   contentEn: string;
   contentZh: string | null;
   vectorScore: number;
@@ -105,16 +105,16 @@ export async function hybridSearch(
     WITH vector_search AS (
       SELECT
         s."id",
-        s."letterId",
+        s."sourceId",
         l."year",
         s."order",
         s."title",
-        l."type" AS letter_type,
+        l."type" AS source_type,
         s."contentEn",
         s."contentZh",
         1 - (s."embedding" <=> $1::vector) AS vector_score
       FROM "Chunk" s
-      JOIN "Letter" l ON l."id" = s."letterId"
+      JOIN "Source" l ON l."id" = s."sourceId"
       WHERE s."embedding" IS NOT NULL
       ORDER BY s."embedding" <=> $1::vector
       LIMIT 20
@@ -122,27 +122,27 @@ export async function hybridSearch(
     keyword_search AS (
       SELECT
         s."id",
-        s."letterId",
+        s."sourceId",
         l."year",
         s."order",
         s."title",
-        l."type" AS letter_type,
+        l."type" AS source_type,
         s."contentEn",
         s."contentZh",
         ts_rank_cd(s."searchVector", plainto_tsquery('english', $2)) AS keyword_score
       FROM "Chunk" s
-      JOIN "Letter" l ON l."id" = s."letterId"
+      JOIN "Source" l ON l."id" = s."sourceId"
       WHERE s."searchVector" @@ plainto_tsquery('english', $2)
       ORDER BY keyword_score DESC
       LIMIT 20
     )
     SELECT
       COALESCE(v."id", k."id") AS "id",
-      COALESCE(v."letterId", k."letterId") AS "letterId",
+      COALESCE(v."sourceId", k."sourceId") AS "sourceId",
       COALESCE(v."year", k."year") AS "year",
       COALESCE(v."order", k."order") AS "order",
       COALESCE(v."title", k."title") AS "title",
-      COALESCE(v.letter_type, k.letter_type) AS "letterType",
+      COALESCE(v.source_type, k.source_type) AS "sourceType",
       COALESCE(v."contentEn", k."contentEn") AS "contentEn",
       COALESCE(v."contentZh", k."contentZh") AS "contentZh",
       COALESCE(v.vector_score, 0) AS "vectorScore",
@@ -164,7 +164,7 @@ export async function hybridSearch(
     year: r.year,
     order: r.order,
     title: r.title,
-    letterType: r.letterType,
+    sourceType: r.sourceType,
     contentEn: r.contentEn,
     contentZh: r.contentZh,
     score: r.finalScore,
@@ -194,7 +194,7 @@ export async function searchChunks(query: string): Promise<RetrievedChunk[]> {
 
 async function keywordOnlyFallback(query: string): Promise<RetrievedChunk[]> {
   const results = await prisma.$queryRawUnsafe<
-    { id: string; year: number; order: number; title: string | null; letterType: string; contentEn: string; contentZh: string | null; score: number }[]
+    { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number }[]
   >(
     `
     SELECT
@@ -202,12 +202,12 @@ async function keywordOnlyFallback(query: string): Promise<RetrievedChunk[]> {
       l."year",
       s."order",
       s."title",
-      l."type" AS "letterType",
+      l."type" AS "sourceType",
       s."contentEn",
       s."contentZh",
       ts_rank_cd(s."searchVector", plainto_tsquery('english', $1)) AS score
     FROM "Chunk" s
-    JOIN "Letter" l ON l."id" = s."letterId"
+    JOIN "Source" l ON l."id" = s."sourceId"
     WHERE s."searchVector" @@ plainto_tsquery('english', $1)
     ORDER BY score DESC
     LIMIT 5

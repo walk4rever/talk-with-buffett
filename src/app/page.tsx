@@ -4,14 +4,14 @@ import { HomeModeSelect } from "@/components/HomeModeSelect";
 import { WaitlistModal } from "@/components/WaitlistModal";
 
 export default async function Home() {
-  const shareholderLetters = await prisma.letter.findMany({
+  const shareholderLetters = await prisma.source.findMany({
     where: { type: "shareholder" },
     orderBy: { year: "desc" },
     select: { id: true, year: true, title: true },
   });
 
   // Partnership: group by year (multiple letters per year)
-  const partnershipLetters = await prisma.letter.findMany({
+  const partnershipLetters = await prisma.source.findMany({
     where: { type: "partnership" },
     orderBy: { year: "desc" },
     select: { id: true, year: true, title: true },

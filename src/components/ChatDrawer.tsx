@@ -8,7 +8,7 @@ import remarkGfm from "remark-gfm";
 interface Source {
   year: number;
   title: string | null;
-  letterType: string;
+  sourceType: string;
   excerpt: string;
 }
 
@@ -240,14 +240,21 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
 }
 
 function DrawerSourceCard({ source }: { source: Source }) {
-  const letterLabel = source.letterType === "partnership" ? "合伙人信" : "股东信";
-  const linkType = source.letterType === "partnership" ? "partnership" : "shareholder";
+  const typeLabels: Record<string, string> = {
+    shareholder: "股东信",
+    partnership: "合伙人信",
+    annual_meeting: "股东大会",
+    article: "文章",
+    interview: "采访",
+  };
+  const typeLabel = typeLabels[source.sourceType] ?? source.sourceType;
+  const linkType = source.sourceType;
 
   return (
     <div className="source-card">
       <div className="source-header">
         <span className="source-year">
-          {source.year} 年{letterLabel}
+          {source.year} 年{typeLabel}
           {source.title ? ` · ${source.title}` : ""}
         </span>
         <Link href={`/letters/${linkType}/${source.year}`} className="source-link">

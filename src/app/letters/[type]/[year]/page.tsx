@@ -16,7 +16,7 @@ export default async function LetterPage({ params }: LetterPageProps) {
 
   if (type === "partnership") {
     // Partnership: multiple letters per year, concatenate in date order
-    const letters = await prisma.letter.findMany({
+    const letters = await prisma.source.findMany({
       where: { year, type: "partnership" },
       orderBy: { date: "asc" },
       select: { year: true, date: true, title: true, contentMd: true },
@@ -34,7 +34,7 @@ export default async function LetterPage({ params }: LetterPageProps) {
         <LetterReadingArea
           year={year}
           contentMd={combinedMd}
-          letterType="partnership"
+          sourceType="partnership"
         />
         <footer className="letter-footer">
           <hr />
@@ -45,7 +45,7 @@ export default async function LetterPage({ params }: LetterPageProps) {
   }
 
   // Shareholder: one letter per year
-  const letter = await prisma.letter.findFirst({
+  const letter = await prisma.source.findFirst({
     where: { year, type: "shareholder" },
     select: { year: true, contentMd: true },
   });
@@ -57,7 +57,7 @@ export default async function LetterPage({ params }: LetterPageProps) {
       <LetterReadingArea
         year={letter.year}
         contentMd={letter.contentMd}
-        letterType="shareholder"
+        sourceType="shareholder"
       />
       <footer className="letter-footer">
         <hr />

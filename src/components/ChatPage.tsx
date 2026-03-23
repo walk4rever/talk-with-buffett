@@ -12,7 +12,7 @@ type Mode = "text" | "avatar";
 interface Source {
   year: number;
   title: string | null;
-  letterType: string;
+  sourceType: string;
   excerpt: string;
 }
 
@@ -439,8 +439,15 @@ function MessageBubble({ msg }: { msg: Message }) {
 }
 
 function SourceCard({ source }: { source: Source }) {
-  const letterLabel = source.letterType === "partnership" ? "合伙人信" : "股东信";
-  const linkType = source.letterType === "partnership" ? "partnership" : "shareholder";
+  const typeLabels: Record<string, string> = {
+    shareholder: "股东信",
+    partnership: "合伙人信",
+    annual_meeting: "股东大会",
+    article: "文章",
+    interview: "采访",
+  };
+  const typeLabel = typeLabels[source.sourceType] ?? source.sourceType;
+  const linkType = source.sourceType;
 
   return (
     <div className="source-card">
@@ -455,7 +462,7 @@ function SourceCard({ source }: { source: Source }) {
           <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
         </svg>
         <span className="source-year">
-          {source.year} 年{letterLabel}
+          {source.year} 年{typeLabel}
           {source.title ? ` · ${source.title}` : ""}
         </span>
         <Link href={`/letters/${linkType}/${source.year}`} className="source-link">

@@ -11,7 +11,7 @@ type ReadingMode = "all" | "en" | "zh";
 interface LetterReadingAreaProps {
   year: number;
   contentMd: string;
-  letterType?: "shareholder" | "partnership";
+  sourceType?: string;
 }
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20];
@@ -123,7 +123,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function LetterReadingArea({ year, contentMd, letterType = "shareholder" }: LetterReadingAreaProps) {
+export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" }: LetterReadingAreaProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [fontIdx, setFontIdx] = useState(DEFAULT_FONT);
   const [lineIdx, setLineIdx] = useState(DEFAULT_LINE);
@@ -167,7 +167,7 @@ export function LetterReadingArea({ year, contentMd, letterType = "shareholder" 
       <div className="letter-bar">
         <Link href="/" className="back-link">← 返回</Link>
         <span className="letter-bar-title">
-          {year} {letterType === "partnership" ? "致合伙人信" : "致股东信"}
+          {year} {{ shareholder: "致股东信", partnership: "致合伙人信", annual_meeting: "股东大会", article: "文章", interview: "采访" }[sourceType] ?? sourceType}
         </span>
 
         {/* Reading mode — centered */}

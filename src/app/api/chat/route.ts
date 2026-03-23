@@ -64,7 +64,7 @@ export async function POST(req: Request) {
   const sources = chunks.map((c) => ({
     year: c.year,
     title: c.title,
-    letterType: c.letterType,
+    sourceType: c.sourceType,
     excerpt: c.contentEn.slice(0, 120).trim() + (c.contentEn.length > 120 ? "…" : ""),
   }));
 

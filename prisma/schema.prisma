@@ -55,24 +55,27 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Letter {
-  id        String    @id @default(cuid())
-  year      Int
-  type      String    @default("shareholder")
-  date      String?
-  title     String
-  url       String
-  contentMd String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  chunks    Chunk[]
+model Source {
+  id           String    @id @default(cuid())
+  year         Int
+  type         String    @default("shareholder")
+  date         String?
+  title        String
+  url          String
+  contentMd    String?
+  videoUrl     String?
+  videoSource  String?
+  thumbnailUrl String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  chunks       Chunk[]
 
   @@unique([year, type, date])
 }
 
 model Chunk {
   id           String                   @id @default(cuid())
-  letterId     String
+  sourceId     String
   order        Int
   title        String?
   contentEn    String
@@ -81,9 +84,9 @@ model Chunk {
   searchVector Unsupported("tsvector")?
   createdAt    DateTime                 @default(now())
   updatedAt    DateTime                 @updatedAt
-  letter       Letter                   @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  source       Source                   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
-  @@unique([letterId, order])
+  @@unique([sourceId, order])
 }
 
 model ChatUsage {

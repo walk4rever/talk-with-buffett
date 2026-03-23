@@ -253,18 +253,18 @@ async function getEmbedding(text: string): Promise<number[]> {
 async function main() {
   // Parse args: [--type partnership] [year]
   const args = process.argv.slice(2);
-  let letterType = "shareholder";
+  let sourceType = "shareholder";
   let yearArg: number | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--type" && args[i + 1]) {
-      letterType = args[++i];
+      sourceType = args[++i];
     } else if (/^\d{4}$/.test(args[i])) {
       yearArg = parseInt(args[i], 10);
     }
   }
 
-  const isPartnership = letterType === "partnership";
+  const isPartnership = sourceType === "partnership";
   const lettersDir = isPartnership
     ? path.join(LETTERS_DIR, "partnership")
     : LETTERS_DIR;
@@ -274,7 +274,7 @@ async function main() {
     .filter(f => !yearArg || f.startsWith(String(yearArg)))
     .sort();
 
-  console.log(`Found ${files.length} ${letterType} files${yearArg ? ` (year=${yearArg})` : ""}\n`);
+  console.log(`Found ${files.length} ${sourceType} files${yearArg ? ` (year=${yearArg})` : ""}\n`);
 
   let totalChunks = 0;
   let totalFailed = 0;
@@ -286,7 +286,7 @@ async function main() {
 
     // For partnership letters, extract date from filename (YYYYMMDD)
     const dateMatch = file.match(/^(\d{4})(\d{2})(\d{2})?/);
-    const letterDate = isPartnership && dateMatch
+    const sourceDate = isPartnership && dateMatch
       ? `${dateMatch[1]}-${dateMatch[2]}${dateMatch[3] ? `-${dateMatch[3]}` : ""}`
       : null;
 
@@ -300,36 +300,36 @@ async function main() {
     // Filter out empty chunks
     const validChunks = chunks.filter(c => c.contentEn.trim().length > 20);
 
-    const label = letterDate ? `${year} (${letterDate})` : `${year}`;
+    const label = sourceDate ? `${year} (${sourceDate})` : `${year}`;
     console.log(`${label}: ${validChunks.length} chunks`);
 
-    // Upsert Letter with contentMd
+    // Upsert Source with contentMd
     const title = isPartnership
-      ? `${year} Letter to Partners${letterDate ? ` (${letterDate})` : ""}`
+      ? `${year} Letter to Partners${sourceDate ? ` (${sourceDate})` : ""}`
       : `${year} Letter to Berkshire Shareholders`;
     const url = isPartnership
       ? "https://theoraclesclassroom.com/wp-content/uploads/2020/05/Buffett-Partnership-Letters-1957-1970-High-Quality.pdf"
       : `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`;
 
     // findFirst + create/update because composite unique with nullable date
-    let letter = await prisma.letter.findFirst({
-      where: { year, type: letterType, date: letterDate },
+    let source = await prisma.source.findFirst({
+      where: { year, type: sourceType, date: sourceDate },
     });
-    if (letter) {
-      letter = await prisma.letter.update({
-        where: { id: letter.id },
+    if (source) {
+      source = await prisma.source.update({
+        where: { id: source.id },
         data: { contentMd: md },
       });
     } else {
-      letter = await prisma.letter.create({
-        data: { year, type: letterType, date: letterDate, title, url, contentMd: md },
+      source = await prisma.source.create({
+        data: { year, type: sourceType, date: sourceDate, title, url, contentMd: md },
       });
     }
 
-    // Delete existing chunks for this letter (idempotent re-run)
+    // Delete existing chunks for this source (idempotent re-run)
     await prisma.$executeRawUnsafe(
-      `DELETE FROM "Chunk" WHERE "letterId" = $1`,
-      letter.id,
+      `DELETE FROM "Chunk" WHERE "sourceId" = $1`,
+      source.id,
     );
 
     // Insert chunks with embedding
@@ -346,9 +346,9 @@ async function main() {
 
       if (embedding) {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO "Chunk" ("id", "letterId", "order", "title", "contentEn", "contentZh", "embedding", "updatedAt")
+          `INSERT INTO "Chunk" ("id", "sourceId", "order", "title", "contentEn", "contentZh", "embedding", "updatedAt")
            VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6::vector, NOW())`,
-          letter.id,
+          source.id,
           i + 1,
           chunk.title,
           chunk.contentEn,
@@ -357,9 +357,9 @@ async function main() {
         );
       } else {
         await prisma.$executeRawUnsafe(
-          `INSERT INTO "Chunk" ("id", "letterId", "order", "title", "contentEn", "contentZh", "updatedAt")
+          `INSERT INTO "Chunk" ("id", "sourceId", "order", "title", "contentEn", "contentZh", "updatedAt")
            VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, NOW())`,
-          letter.id,
+          source.id,
           i + 1,
           chunk.title,
           chunk.contentEn,
