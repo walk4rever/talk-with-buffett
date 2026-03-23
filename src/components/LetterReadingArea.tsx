@@ -21,6 +21,17 @@ const markdownComponents = {
       <table {...props} />
     </div>
   ),
+  a: (props: ComponentPropsWithoutRef<"a">) => {
+    const href = props.href ?? "";
+    const isExternal = /^https?:\/\//i.test(href);
+    return (
+      <a
+        {...props}
+        target={isExternal ? "_blank" : props.target}
+        rel={isExternal ? "noopener noreferrer" : props.rel}
+      />
+    );
+  },
 };
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20];
@@ -135,11 +146,13 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
         const cleaned = trimmed.replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+/g, "").trim();
         result.push(cleaned);
       } else {
-        // Keep Chinese part of heading, or full heading if no Chinese
+        // Keep Chinese part of heading; if no Chinese exists, keep the original heading.
         const zhMatch = trimmed.match(/([\u4e00-\u9fff][\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\s·\-—]+)/);
         if (zhMatch) {
           const level = trimmed.match(/^#+/)?.[0] ?? "#";
           result.push(`${level} ${zhMatch[1].trim()}`);
+        } else {
+          result.push(trimmed);
         }
       }
       continue;

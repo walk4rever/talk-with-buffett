@@ -847,6 +847,9 @@ body {
   padding: 1rem 2rem 4rem;
   font-family: var(--font-serif);
   color: var(--foreground);
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "liga" 1, "kern" 1;
+  overflow-wrap: anywhere;
 }
 
 .letter-page .md-reader {
@@ -866,6 +869,13 @@ body {
 .md-reader h3 { font-size: 1.05em; }
 .md-reader p {
   margin: 0.8em 0;
+}
+.md-reader a {
+  color: var(--primary);
+  text-underline-offset: 2px;
+}
+.md-reader a:hover {
+  opacity: 0.8;
 }
 .md-reader blockquote {
   margin: 1em 0;
@@ -920,6 +930,16 @@ body {
   padding: 0.15em 0.4em;
   border-radius: 3px;
 }
+.md-reader pre {
+  overflow-x: auto;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+}
+.md-reader pre code {
+  padding: 0;
+  background: transparent;
+}
 
 
 /* ========== Mobile optimizations ========== */
@@ -930,6 +950,10 @@ body {
 
   .container {
     padding: 1rem 0.5rem;
+  }
+
+  .md-reader {
+    padding: 0.75rem 1rem 3rem;
   }
   
   .header-content {
@@ -1548,6 +1572,7 @@ body {
   background: rgba(0,0,0,0.06);
   padding: 0.15em 0.35em;
   border-radius: 3px;
+  overflow-wrap: anywhere;
 }
 .msg-markdown h1,
 .msg-markdown h2,
@@ -1584,6 +1609,23 @@ body {
 
 .msg-markdown th {
   background: rgba(0, 0, 0, 0.04);
+}
+.msg-markdown a {
+  color: var(--primary);
+  text-underline-offset: 2px;
+}
+.msg-markdown a:hover {
+  opacity: 0.8;
+}
+.msg-markdown pre {
+  overflow-x: auto;
+  padding: 0.55rem 0.65rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.05);
+}
+.msg-markdown pre code {
+  padding: 0;
+  background: transparent;
 }
 .msg-markdown hr {
   border: none;

@@ -39,6 +39,17 @@ const messageMarkdownComponents = {
       <table {...props} />
     </div>
   ),
+  a: (props: ComponentPropsWithoutRef<"a">) => {
+    const href = props.href ?? "";
+    const isExternal = /^https?:\/\//i.test(href);
+    return (
+      <a
+        {...props}
+        target={isExternal ? "_blank" : props.target}
+        rel={isExternal ? "noopener noreferrer" : props.rel}
+      />
+    );
+  },
 };
 
 // ── SSE streaming client ─────────────────────────────────────────────────
