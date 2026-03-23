@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, type ComponentPropsWithoutRef } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type ComponentPropsWithoutRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,9 +20,10 @@ const STARTERS = [
   "什么样的生意你永远不会买？",
   "你怎么看现在的 AI 公司？",
 ];
+
 const WORKSPACE_CHAT_TRANSFER_KEY = "workspace-chat-transfer-v1";
 
-// ── Canvas content cache (scroll position + content) ─────────────────────
+type ReadingMode = "all" | "en" | "zh";
 
 interface CanvasContent {
   type: string;
@@ -31,6 +32,12 @@ interface CanvasContent {
   contentMd: string;
   videoUrl?: string | null;
   videoSource?: string | null;
+}
+
+interface ReferenceItem extends ChatSource {
+  key: string;
+  firstSeenTurn: number;
+  seenCount: number;
 }
 
 const markdownComponents = {
@@ -72,12 +79,110 @@ const messageMarkdownComponents = {
 };
 
 const scrollPositions = new Map<string, number>();
+let cachedTransfer:
+  | { messages: ChatMessage[]; refs: ReferenceItem[]; turns: number }
+  | null
+  | undefined;
 
 function canvasKey(type: string, year: number) {
   return `${type}:${year}`;
 }
 
-// ── Strip metadata header (shared with LetterReadingArea) ────────────────
+function sourceKey(source: ChatSource) {
+  return `${source.sourceType}|${source.year}|${source.title ?? ""}|${source.excerpt}`;
+}
+
+function upsertReferences(prev: ReferenceItem[], incoming: ChatSource[], turn: number): ReferenceItem[] {
+  const map = new Map(prev.map((r) => [r.key, r]));
+
+  for (const source of incoming) {
+    const key = sourceKey(source);
+    const existing = map.get(key);
+    if (existing) {
+      map.set(key, { ...existing, seenCount: existing.seenCount + 1 });
+    } else {
+      map.set(key, {
+        ...source,
+        key,
+        firstSeenTurn: turn,
+        seenCount: 1,
+      });
+    }
+  }
+
+  return [...map.values()].sort((a, b) => {
+    if (b.firstSeenTurn !== a.firstSeenTurn) return b.firstSeenTurn - a.firstSeenTurn;
+    return b.seenCount - a.seenCount;
+  });
+}
+
+function collectReferencesFromMessages(restored: ChatMessage[]): { refs: ReferenceItem[]; turns: number } {
+  let refs: ReferenceItem[] = [];
+  let turns = 0;
+
+  for (const msg of restored) {
+    if (msg.role === "assistant" && msg.sources && msg.sources.length > 0) {
+      turns += 1;
+      refs = upsertReferences(refs, msg.sources, turns);
+    }
+  }
+
+  return { refs, turns };
+}
+
+function readTransferFromSessionStorage() {
+  if (cachedTransfer !== undefined) return cachedTransfer;
+  if (typeof window === "undefined") {
+    cachedTransfer = null;
+    return cachedTransfer;
+  }
+
+  try {
+    const raw = sessionStorage.getItem(WORKSPACE_CHAT_TRANSFER_KEY);
+    if (!raw) {
+      cachedTransfer = null;
+      return cachedTransfer;
+    }
+
+    const parsed = JSON.parse(raw) as {
+      messages?: Array<{ role: string; content: string; sources?: ChatSource[] }>;
+    };
+
+    const restored = (parsed.messages ?? [])
+      .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        sources: m.sources,
+      }));
+
+    const { refs, turns } = collectReferencesFromMessages(restored);
+    cachedTransfer = { messages: restored, refs, turns };
+    return cachedTransfer;
+  } catch {
+    cachedTransfer = null;
+    return cachedTransfer;
+  }
+}
+
+function getInitialReadingMode(): ReadingMode {
+  if (typeof window === "undefined") return "all";
+  const saved = window.localStorage.getItem("reader-mode");
+  if (saved === "all" || saved === "en" || saved === "zh") return saved;
+  return "all";
+}
+
+function isCJKLine(text: string): boolean {
+  const stripped = text.replace(/^[\s\-\*\d\.\(\)（）\[\]·>#]+/, "");
+  if (!stripped) return false;
+  const code = stripped.codePointAt(0) ?? 0;
+  return (
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0x3000 && code <= 0x303f)
+  );
+}
 
 function stripHeader(md: string): string {
   const lines = md.split("\n");
@@ -105,109 +210,143 @@ function stripHeader(md: string): string {
   return lines.slice(lastMetaLine + 1).join("\n").trim();
 }
 
-// ── Main Workspace Component ─────────────────────────────────────────────
+function filterByLanguage(md: string, mode: ReadingMode): string {
+  if (mode === "all") return md;
+
+  const lines = md.split("\n");
+  const result: string[] = [];
+  let inTable = false;
+  let tableIsTarget = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("|") || trimmed.match(/^---[\s|:]+/)) {
+      if (!inTable) {
+        inTable = true;
+        tableIsTarget = mode === "en" ? !isCJKLine(trimmed) : isCJKLine(trimmed);
+      }
+      if (tableIsTarget) result.push(line);
+      continue;
+    } else {
+      inTable = false;
+    }
+
+    if (!trimmed) {
+      result.push(line);
+      continue;
+    }
+
+    if (trimmed.startsWith("#")) {
+      if (mode === "en") {
+        result.push(trimmed.replace(/[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+/g, "").trim());
+      } else {
+        const zhMatch = trimmed.match(/([\u4e00-\u9fff][\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\s·\-—]+)/);
+        if (zhMatch) {
+          const level = trimmed.match(/^#+/)?.[0] ?? "#";
+          result.push(`${level} ${zhMatch[1].trim()}`);
+        } else {
+          result.push(trimmed);
+        }
+      }
+      continue;
+    }
+
+    const isZh = isCJKLine(trimmed);
+    if (mode === "en" && !isZh) result.push(line);
+    if (mode === "zh" && isZh) result.push(line);
+  }
+
+  return result.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
 
 export function Workspace() {
   const params = useSearchParams();
   const router = useRouter();
 
-  // Canvas state from URL
   const canvasType = params.get("source") ?? "";
   const canvasYear = parseInt(params.get("year") ?? "0", 10);
-  const hasCanvas = !!canvasType && canvasYear > 0;
+  const hasReader = !!canvasType && canvasYear > 0;
 
-  // Chat state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const restored = readTransferFromSessionStorage();
+    return restored?.messages ?? [];
+  });
+  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>(() => {
+    const restored = readTransferFromSessionStorage();
+    return restored?.refs ?? [];
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [readingMode, setReadingMode] = useState<ReadingMode>(getInitialReadingMode);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingTextRef = useRef("");
+  const turnSeqRef = useRef(readTransferFromSessionStorage()?.turns ?? 0);
 
-  // Canvas state
   const [canvasContent, setCanvasContent] = useState<CanvasContent | null>(null);
-  const [canvasLoading, setCanvasLoading] = useState(false);
   const canvasScrollRef = useRef<HTMLDivElement>(null);
+  const prevReaderKeyRef = useRef<string>("");
 
-  // Mobile: which panel is active
   const [mobilePanel, setMobilePanel] = useState<"chat" | "canvas">(
-    hasCanvas ? "canvas" : "chat"
+    hasReader ? "canvas" : "chat",
   );
 
-  // Restore chat messages transferred from /chat (consume once).
+  const filteredCanvasContent = useMemo(() => {
+    if (!canvasContent?.contentMd) return "";
+    return filterByLanguage(stripHeader(canvasContent.contentMd), readingMode);
+  }, [canvasContent, readingMode]);
+
+  const canvasLoading =
+    hasReader &&
+    (!canvasContent || canvasContent.type !== canvasType || canvasContent.year !== canvasYear);
+
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(WORKSPACE_CHAT_TRANSFER_KEY);
-      if (!raw) return;
-
-      const parsed = JSON.parse(raw) as {
-        messages?: Array<{ role: string; content: string; sources?: ChatSource[] }>;
-      };
-
-      const restored = (parsed.messages ?? [])
-        .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
-        .map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-          sources: m.sources,
-        }));
-
-      if (restored.length > 0) {
-        setMessages(restored);
-      }
-
-      sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
-    } catch {
-      // Ignore parse/storage errors.
-    }
+    sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
   }, []);
 
-  // Auto-scroll messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Fetch canvas content when URL params change
   useEffect(() => {
-    if (!hasCanvas) {
-      setCanvasContent(null);
+    if (!hasReader) {
       return;
     }
 
-    // Save current scroll position before switching
-    if (canvasContent && canvasScrollRef.current) {
-      const key = canvasKey(canvasContent.type, canvasContent.year);
-      scrollPositions.set(key, canvasScrollRef.current.scrollTop);
+    if (prevReaderKeyRef.current && canvasScrollRef.current) {
+      scrollPositions.set(prevReaderKeyRef.current, canvasScrollRef.current.scrollTop);
     }
 
     let cancelled = false;
-    setCanvasLoading(true);
 
     fetch(`/api/source?type=${canvasType}&year=${canvasYear}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
         setCanvasContent(data);
-        setCanvasLoading(false);
 
-        // Restore scroll position
+        const key = canvasKey(canvasType, canvasYear);
+        prevReaderKeyRef.current = key;
+
         requestAnimationFrame(() => {
-          const key = canvasKey(canvasType, canvasYear);
           const savedPos = scrollPositions.get(key);
           if (savedPos && canvasScrollRef.current) {
             canvasScrollRef.current.scrollTop = savedPos;
+          } else if (canvasScrollRef.current) {
+            canvasScrollRef.current.scrollTop = 0;
           }
         });
       })
       .catch(() => {
-        if (!cancelled) setCanvasLoading(false);
+        if (!cancelled) setCanvasContent(null);
       });
 
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasType, canvasYear]);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasReader, canvasType, canvasYear]);
 
-  // Open a source in canvas
-  const openCanvas = useCallback(
+  const openReader = useCallback(
     (type: string, year: number) => {
       router.push(`/workspace?source=${type}&year=${year}`, { scroll: false });
       setMobilePanel("canvas");
@@ -215,18 +354,19 @@ export function Workspace() {
     [router],
   );
 
-  // Close canvas
-  const closeCanvas = useCallback(() => {
-    // Save scroll position
-    if (canvasContent && canvasScrollRef.current) {
-      const key = canvasKey(canvasContent.type, canvasContent.year);
-      scrollPositions.set(key, canvasScrollRef.current.scrollTop);
+  const closeReader = useCallback(() => {
+    if (hasReader && canvasScrollRef.current) {
+      scrollPositions.set(canvasKey(canvasType, canvasYear), canvasScrollRef.current.scrollTop);
     }
     router.push("/workspace", { scroll: false });
-    setMobilePanel("chat");
-  }, [router, canvasContent]);
+    setMobilePanel("canvas");
+  }, [router, hasReader, canvasType, canvasYear]);
 
-  // Send chat message
+  function changeReadingMode(mode: ReadingMode) {
+    setReadingMode(mode);
+    localStorage.setItem("reader-mode", mode);
+  }
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -267,6 +407,13 @@ export function Workspace() {
             };
             return updated;
           });
+
+          if (sources.length > 0) {
+            turnSeqRef.current += 1;
+            const turn = turnSeqRef.current;
+            setReferenceItems((prev) => upsertReferences(prev, sources, turn));
+          }
+
           setLoading(false);
         },
         (errorMsg) => {
@@ -292,9 +439,8 @@ export function Workspace() {
   }
 
   return (
-    <div className={`workspace${hasCanvas ? " workspace--split" : ""}`}>
-      {/* ── Chat Panel ── */}
-      <div className={`workspace-chat${mobilePanel !== "chat" && hasCanvas ? " workspace-panel--hidden-mobile" : ""}`}>
+    <div className="workspace workspace--split">
+      <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
         <div className="workspace-chat-header">
           <Link href="/" className="chat-back">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -303,14 +449,12 @@ export function Workspace() {
             返回
           </Link>
           <span className="workspace-chat-title">与巴菲特对话</span>
-          {hasCanvas && (
-            <button
-              className="workspace-mobile-toggle"
-              onClick={() => setMobilePanel("canvas")}
-            >
-              查看原文
-            </button>
-          )}
+          <button
+            className="workspace-mobile-toggle"
+            onClick={() => setMobilePanel("canvas")}
+          >
+            相关原文
+          </button>
         </div>
 
         <div className="workspace-chat-body">
@@ -319,7 +463,7 @@ export function Workspace() {
               <Image src="/buffett-avarta.png" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
               <h2 className="empty-chat-title">与巴菲特对话</h2>
               <p className="empty-chat-sub">
-                基于 1957–2025 年全部合伙人/股东信 · 每个回答标注来源
+                基于 1957–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧
               </p>
               <div className="starter-grid">
                 {STARTERS.map((s) => (
@@ -332,7 +476,7 @@ export function Workspace() {
           ) : (
             <div className="messages">
               {messages.map((msg, i) => (
-                <WorkspaceMessage key={i} msg={msg} onSourceClick={openCanvas} />
+                <WorkspaceMessage key={i} msg={msg} />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -367,54 +511,77 @@ export function Workspace() {
         </div>
       </div>
 
-      {/* ── Canvas Panel ── */}
-      {hasCanvas && (
-        <div className={`workspace-canvas${mobilePanel !== "canvas" ? " workspace-panel--hidden-mobile" : ""}`}>
-          <div className="workspace-canvas-header">
-            <button
-              className="workspace-mobile-toggle"
-              onClick={() => setMobilePanel("chat")}
-            >
-              ← 对话
-            </button>
-            <span className="workspace-canvas-title">
-              {canvasContent
+      <div className={`workspace-canvas${mobilePanel !== "canvas" ? " workspace-panel--hidden-mobile" : ""}`}>
+        <div className="workspace-canvas-header">
+          <button
+            className="workspace-mobile-toggle"
+            onClick={() => setMobilePanel("chat")}
+          >
+            ← 对话
+          </button>
+          <span className="workspace-canvas-title">
+            {hasReader
+              ? (canvasContent
                 ? `${canvasContent.year} ${getSourceTypeLabel(canvasContent.type)}`
-                : "加载中…"}
-            </span>
-            <button className="workspace-canvas-close" onClick={closeCanvas} aria-label="关闭">
-              ✕
+                : "加载中…")
+              : "相关原文"}
+          </span>
+          {hasReader ? (
+            <button className="workspace-canvas-close" onClick={closeReader} aria-label="关闭">
+              关闭
             </button>
-          </div>
+          ) : (
+            <span className="workspace-canvas-count">{referenceItems.length} 条</span>
+          )}
+        </div>
 
-          <div className="workspace-canvas-body" ref={canvasScrollRef}>
-            {canvasLoading ? (
+        <div className="workspace-canvas-body" ref={canvasScrollRef}>
+          {hasReader ? (
+            canvasLoading ? (
               <div className="workspace-canvas-loading">加载中…</div>
             ) : canvasContent ? (
-              <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {stripHeader(canvasContent.contentMd)}
-                </ReactMarkdown>
-              </div>
+              <>
+                <div className="workspace-reader-toolbar">
+                  <div className="reader-mode-group" title="阅读模式">
+                    <button
+                      className={`reader-mode-btn${readingMode === "all" ? " reader-mode-btn--active" : ""}`}
+                      onClick={() => changeReadingMode("all")}
+                    >
+                      中英
+                    </button>
+                    <button
+                      className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
+                      onClick={() => changeReadingMode("en")}
+                    >
+                      EN
+                    </button>
+                    <button
+                      className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
+                      onClick={() => changeReadingMode("zh")}
+                    >
+                      中文
+                    </button>
+                  </div>
+                </div>
+                <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {filteredCanvasContent}
+                  </ReactMarkdown>
+                </div>
+              </>
             ) : (
               <div className="workspace-canvas-loading">未找到内容</div>
-            )}
-          </div>
+            )
+          ) : (
+            <ReferenceList items={referenceItems} onOpen={openReader} />
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// ── Message Bubble with source click → Canvas ────────────────────────────
-
-function WorkspaceMessage({
-  msg,
-  onSourceClick,
-}: {
-  msg: ChatMessage;
-  onSourceClick: (type: string, year: number) => void;
-}) {
+function WorkspaceMessage({ msg }: { msg: ChatMessage }) {
   if (msg.role === "user") {
     return (
       <div className="msg msg--user">
@@ -467,47 +634,42 @@ function WorkspaceMessage({
             {msg.content}
           </ReactMarkdown>
         </div>
-        {msg.sources && msg.sources.length > 0 && (
-          <div className="sources">
-            <p className="sources-label">相关原文</p>
-            {msg.sources.map((s, i) => (
-              <WorkspaceSourceCard key={i} source={s} onClick={onSourceClick} />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-function WorkspaceSourceCard({
-  source,
-  onClick,
+function ReferenceList({
+  items,
+  onOpen,
 }: {
-  source: ChatSource;
-  onClick: (type: string, year: number) => void;
+  items: ReferenceItem[];
+  onOpen: (type: string, year: number) => void;
 }) {
-  const typeLabel = getSourceTypeLabel(source.sourceType);
+  if (items.length === 0) {
+    return (
+      <div className="workspace-reference-empty">
+        <p>对话开始后，相关原文会自动汇总在这里。</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="source-card">
-      <div className="source-header">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M2 2h8v8H2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-          <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-        <span className="source-year">
-          {source.year} 年{typeLabel}
-          {source.title ? ` · ${source.title}` : ""}
-        </span>
+    <div className="workspace-reference-list">
+      {items.map((item) => (
         <button
-          className="source-link"
-          onClick={() => onClick(source.sourceType, source.year)}
+          key={item.key}
+          className="workspace-reference-item"
+          onClick={() => onOpen(item.sourceType, item.year)}
         >
-          查看 →
+          <div className="workspace-reference-meta">
+            <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>
+            {item.seenCount > 1 ? <span>出现 {item.seenCount} 次</span> : <span>首次引用</span>}
+          </div>
+          {item.title ? <h4 className="workspace-reference-title">{item.title}</h4> : null}
+          <p className="workspace-reference-excerpt">{item.excerpt}</p>
         </button>
-      </div>
-      <blockquote className="source-quote">{source.excerpt}</blockquote>
+      ))}
     </div>
   );
 }

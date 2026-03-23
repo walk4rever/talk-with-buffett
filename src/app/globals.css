@@ -1977,6 +1977,12 @@ body {
   color: var(--foreground);
 }
 
+.workspace-canvas-count {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .workspace-canvas-body {
   flex: 1;
   overflow-y: auto;
@@ -1988,6 +1994,70 @@ body {
 .md-reader--canvas {
   padding: 0;
   max-width: none;
+}
+
+.workspace-reader-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.workspace-reference-empty {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem;
+}
+
+.workspace-reference-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.workspace-reference-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--secondary);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--background);
+  padding: 0.75rem 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.workspace-reference-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--secondary));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.workspace-reference-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-bottom: 0.45rem;
+}
+
+.workspace-reference-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.88rem;
+  font-family: var(--font-serif);
+  color: var(--foreground);
+}
+
+.workspace-reference-excerpt {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--text-muted);
 }
 
 .workspace-canvas-loading {
