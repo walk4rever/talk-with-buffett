@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ComponentPropsWithoutRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -32,6 +32,14 @@ const STARTERS = [
 ];
 
 const WORKSPACE_CHAT_TRANSFER_KEY = "workspace-chat-transfer-v1";
+
+const messageMarkdownComponents = {
+  table: (props: ComponentPropsWithoutRef<"table">) => (
+    <div className="msg-table-wrap">
+      <table {...props} />
+    </div>
+  ),
+};
 
 // ── SSE streaming client ─────────────────────────────────────────────────
 
@@ -455,7 +463,9 @@ function MessageBubble({
       />
       <div className="msg-body">
         <div className="msg-text msg-markdown">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={messageMarkdownComponents}>
+            {msg.content}
+          </ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && (
           <div className="sources">

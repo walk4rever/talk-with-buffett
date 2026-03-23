@@ -1,4 +1,5 @@
 :root {
+  --header-height: 57px;
   --background: #ffffff;
   --foreground: #171717;
   --primary: #8b0000; /* Buffett red-ish */
@@ -41,6 +42,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
+  min-height: var(--header-height);
 }
 
 .header-content {
@@ -738,7 +740,7 @@ body {
   margin-bottom: 0.5rem;
   border-bottom: 1px solid var(--secondary);
   position: sticky;
-  top: 45px;
+  top: var(--header-height);
   z-index: 50;
   background: var(--background);
 }
@@ -841,11 +843,16 @@ body {
 .md-reader {
   max-width: 780px;
   margin: 0 auto;
-  height: calc(100dvh - 100px);
-  overflow-y: auto;
+  width: 100%;
   padding: 1rem 2rem 4rem;
   font-family: var(--font-serif);
   color: var(--foreground);
+}
+
+.letter-page .md-reader {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .md-reader h1,
 .md-reader h2,
@@ -867,10 +874,17 @@ body {
   color: var(--text-muted);
   font-style: italic;
 }
+.md-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
 .md-reader table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
-  margin: 1em 0;
+  margin: 0;
   font-size: 0.85em;
   font-family: var(--font-sans);
 }
@@ -984,6 +998,9 @@ body {
 
 .letter-page {
   padding-top: 0;
+  min-height: calc(100dvh - var(--header-height));
+  display: flex;
+  flex-direction: column;
 }
 
 /* FAB */
@@ -1290,7 +1307,7 @@ body {
 /* Escape the .container padding to go full-bleed */
 .chat-page {
   margin: -0.75rem -2rem 0;
-  height: calc(100dvh - 57px);
+  height: calc(100dvh - var(--header-height));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1537,8 +1554,36 @@ body {
 .msg-markdown h3,
 .msg-markdown h4 {
   margin: 0.6em 0 0.3em;
-  font-size: 1em;
   font-weight: 600;
+}
+.msg-markdown h1 { font-size: 1.05em; }
+.msg-markdown h2 { font-size: 1em; }
+.msg-markdown h3,
+.msg-markdown h4 { font-size: 0.95em; }
+
+.msg-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
+.msg-markdown table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.82em;
+  font-family: var(--font-sans);
+}
+
+.msg-markdown th,
+.msg-markdown td {
+  border: 1px solid var(--secondary);
+  padding: 0.3em 0.5em;
+  text-align: left;
+}
+
+.msg-markdown th {
+  background: rgba(0, 0, 0, 0.04);
 }
 .msg-markdown hr {
   border: none;
@@ -1896,6 +1941,11 @@ body {
   padding: 2rem 2.5rem;
   scrollbar-width: thin;
   scrollbar-color: var(--secondary) transparent;
+}
+
+.md-reader--canvas {
+  padding: 0;
+  max-width: none;
 }
 
 .workspace-canvas-loading {

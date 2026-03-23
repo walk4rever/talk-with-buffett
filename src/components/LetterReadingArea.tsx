@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ComponentPropsWithoutRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,14 @@ interface LetterReadingAreaProps {
   contentMd: string;
   sourceType?: string;
 }
+
+const markdownComponents = {
+  table: (props: ComponentPropsWithoutRef<"table">) => (
+    <div className="md-table-wrap">
+      <table {...props} />
+    </div>
+  ),
+};
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20];
 const LINE_HEIGHTS = [1.5, 1.65, 1.8, 2.0, 2.2];
@@ -258,7 +266,9 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
         className="md-reader"
         style={{ fontSize: FONT_SIZES[fontIdx], lineHeight: LINE_HEIGHTS[lineIdx] }}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{filtered}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+          {filtered}
+        </ReactMarkdown>
       </div>
 
       {/* FAB → navigate to workspace with this source open */}

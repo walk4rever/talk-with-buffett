@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ComponentPropsWithoutRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -32,6 +32,22 @@ interface CanvasContent {
   videoUrl?: string | null;
   videoSource?: string | null;
 }
+
+const markdownComponents = {
+  table: (props: ComponentPropsWithoutRef<"table">) => (
+    <div className="md-table-wrap">
+      <table {...props} />
+    </div>
+  ),
+};
+
+const messageMarkdownComponents = {
+  table: (props: ComponentPropsWithoutRef<"table">) => (
+    <div className="msg-table-wrap">
+      <table {...props} />
+    </div>
+  ),
+};
 
 const scrollPositions = new Map<string, number>();
 
@@ -353,8 +369,8 @@ export function Workspace() {
             {canvasLoading ? (
               <div className="workspace-canvas-loading">加载中…</div>
             ) : canvasContent ? (
-              <div className="md-reader" style={{ fontSize: 16, lineHeight: 1.8 }}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                   {stripHeader(canvasContent.contentMd)}
                 </ReactMarkdown>
               </div>
@@ -425,7 +441,9 @@ function WorkspaceMessage({
       <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
       <div className="msg-body">
         <div className="msg-text msg-markdown">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={messageMarkdownComponents}>
+            {msg.content}
+          </ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && (
           <div className="sources">
