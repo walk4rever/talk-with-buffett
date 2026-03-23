@@ -224,6 +224,24 @@ function createReaderMarkdownComponents(readingMode: ReadingMode) {
   };
 }
 
+function scrollToExcerpt(container: HTMLElement, excerpt: string) {
+  const query = excerpt.slice(0, 50).trim();
+  if (!query) return;
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if ((node.textContent ?? "").includes(query)) {
+      const el = node.parentElement;
+      if (!el) continue;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("canvas-highlight");
+      setTimeout(() => el.classList.remove("canvas-highlight"), 2000);
+      return;
+    }
+  }
+}
+
 function stripHeader(md: string): string {
   const lines = md.split("\n");
   let lastMetaLine = 0;
@@ -308,6 +326,7 @@ export function Workspace() {
 
   const canvasType = params.get("source") ?? "";
   const canvasYear = parseInt(params.get("year") ?? "0", 10);
+  const canvasExcerpt = params.get("q") ?? "";
   const hasReader = !!canvasType && canvasYear > 0;
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -376,7 +395,9 @@ export function Workspace() {
 
         requestAnimationFrame(() => {
           const savedPos = scrollPositions.get(key);
-          if (savedPos && canvasScrollRef.current) {
+          if (canvasExcerpt && canvasScrollRef.current) {
+            scrollToExcerpt(canvasScrollRef.current, canvasExcerpt);
+          } else if (savedPos && canvasScrollRef.current) {
             canvasScrollRef.current.scrollTop = savedPos;
           } else if (canvasScrollRef.current) {
             canvasScrollRef.current.scrollTop = 0;
@@ -393,8 +414,9 @@ export function Workspace() {
   }, [hasReader, canvasType, canvasYear]);
 
   const openReader = useCallback(
-    (type: string, year: number) => {
-      router.push(`/workspace?source=${type}&year=${year}`, { scroll: false });
+    (type: string, year: number, excerpt?: string) => {
+      const q = excerpt ? `&q=${encodeURIComponent(excerpt.slice(0, 80))}` : "";
+      router.push(`/workspace?source=${type}&year=${year}${q}`, { scroll: false });
       setMobilePanel("canvas");
     },
     [router],
@@ -690,7 +712,7 @@ function ReferenceList({
   onOpen,
 }: {
   items: ReferenceItem[];
-  onOpen: (type: string, year: number) => void;
+  onOpen: (type: string, year: number, excerpt?: string) => void;
 }) {
   if (items.length === 0) {
     return (
@@ -706,7 +728,7 @@ function ReferenceList({
         <button
           key={item.key}
           className="workspace-reference-item"
-          onClick={() => onOpen(item.sourceType, item.year)}
+          onClick={() => onOpen(item.sourceType, item.year, item.excerpt)}
         >
           <div className="workspace-reference-meta">
             <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>

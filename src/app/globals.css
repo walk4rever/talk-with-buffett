@@ -2123,3 +2123,14 @@ body {
     display: inline-flex;
   }
 }
+
+/* ── Canvas excerpt highlight ── */
+@keyframes canvas-highlight-fade {
+  0%   { background: rgba(212, 175, 55, 0.35); }
+  100% { background: transparent; }
+}
+
+.canvas-highlight {
+  border-radius: 3px;
+  animation: canvas-highlight-fade 2s ease-out forwards;
+}
