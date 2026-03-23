@@ -1971,26 +1971,32 @@ body.layout-no-header {
   flex: 1;
   font-family: var(--font-serif);
   font-size: 0.95rem;
-  text-align: center;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .workspace-canvas-close {
-  border: none;
-  background: none;
-  font-size: 1.1rem;
+  border: 1px solid var(--secondary);
+  background: var(--background);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
+  padding: 0;
   border-radius: 6px;
-  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .workspace-canvas-close:hover {
   background: var(--secondary);
   color: var(--foreground);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--secondary));
 }
 
 .workspace-canvas-count {
@@ -2017,6 +2023,11 @@ body.layout-no-header {
   align-items: center;
   justify-content: center;
   margin-bottom: 1rem;
+}
+
+.workspace-reader-mode-inline {
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .workspace-reference-empty {
@@ -2129,6 +2140,20 @@ body.layout-no-header {
 
   .workspace-mobile-toggle {
     display: inline-flex;
+  }
+
+  .workspace-canvas-header {
+    gap: 0.5rem;
+  }
+
+  .workspace-canvas-title {
+    min-width: 0;
+    font-size: 0.86rem;
+  }
+
+  .workspace-reader-mode-inline .reader-mode-btn {
+    padding: 0.12rem 0.32rem;
+    font-size: 0.66rem;
   }
 }
 

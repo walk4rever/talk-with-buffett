@@ -595,8 +595,32 @@ export function Workspace() {
               : "相关原文"}
           </span>
           {hasReader ? (
+            <div className="reader-mode-group workspace-reader-mode-inline" title="阅读模式">
+              <button
+                className={`reader-mode-btn${readingMode === "all" ? " reader-mode-btn--active" : ""}`}
+                onClick={() => changeReadingMode("all")}
+              >
+                中英
+              </button>
+              <button
+                className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
+                onClick={() => changeReadingMode("en")}
+              >
+                EN
+              </button>
+              <button
+                className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
+                onClick={() => changeReadingMode("zh")}
+              >
+                中文
+              </button>
+            </div>
+          ) : null}
+          {hasReader ? (
             <button className="workspace-canvas-close" onClick={closeReader} aria-label="关闭">
-              关闭
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
             </button>
           ) : (
             <span className="workspace-canvas-count">{referenceItems.length} 条</span>
@@ -609,28 +633,6 @@ export function Workspace() {
               <div className="workspace-canvas-loading">加载中…</div>
             ) : canvasContent ? (
               <>
-                <div className="workspace-reader-toolbar">
-                  <div className="reader-mode-group" title="阅读模式">
-                    <button
-                      className={`reader-mode-btn${readingMode === "all" ? " reader-mode-btn--active" : ""}`}
-                      onClick={() => changeReadingMode("all")}
-                    >
-                      中英
-                    </button>
-                    <button
-                      className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
-                      onClick={() => changeReadingMode("en")}
-                    >
-                      EN
-                    </button>
-                    <button
-                      className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
-                      onClick={() => changeReadingMode("zh")}
-                    >
-                      中文
-                    </button>
-                  </div>
-                </div>
                 <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={readerMarkdownComponents}>
                     {filteredCanvasContent}
