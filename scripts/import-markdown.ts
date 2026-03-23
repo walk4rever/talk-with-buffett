@@ -6,7 +6,10 @@
  * 3. Separates Chinese / English paragraphs within each chunk
  * 4. Writes Chunk rows with tsvector (auto via trigger) and embedding
  *
- * Usage: npx tsx scripts/import-markdown.ts
+ * Usage: npx tsx scripts/import-markdown.ts                    # all shareholder letters
+ *        npx tsx scripts/import-markdown.ts 2025              # single year
+ *        npx tsx scripts/import-markdown.ts --type partnership # all partnership letters
+ *        npx tsx scripts/import-markdown.ts --type partnership 1965  # single year
  */
 
 import fs from "fs";
@@ -248,11 +251,30 @@ async function getEmbedding(text: string): Promise<number[]> {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  const files = fs.readdirSync(LETTERS_DIR)
+  // Parse args: [--type partnership] [year]
+  const args = process.argv.slice(2);
+  let letterType = "shareholder";
+  let yearArg: number | null = null;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--type" && args[i + 1]) {
+      letterType = args[++i];
+    } else if (/^\d{4}$/.test(args[i])) {
+      yearArg = parseInt(args[i], 10);
+    }
+  }
+
+  const isPartnership = letterType === "partnership";
+  const lettersDir = isPartnership
+    ? path.join(LETTERS_DIR, "partnership")
+    : LETTERS_DIR;
+
+  const files = fs.readdirSync(lettersDir)
     .filter(f => f.endsWith(".md"))
+    .filter(f => !yearArg || f.startsWith(String(yearArg)))
     .sort();
 
-  console.log(`Found ${files.length} markdown files\n`);
+  console.log(`Found ${files.length} ${letterType} files${yearArg ? ` (year=${yearArg})` : ""}\n`);
 
   let totalChunks = 0;
   let totalFailed = 0;
@@ -262,7 +284,13 @@ async function main() {
     if (!yearMatch) continue;
     const year = parseInt(yearMatch[1], 10);
 
-    const md = fs.readFileSync(path.join(LETTERS_DIR, file), "utf-8");
+    // For partnership letters, extract date from filename (YYYYMMDD)
+    const dateMatch = file.match(/^(\d{4})(\d{2})(\d{2})?/);
+    const letterDate = isPartnership && dateMatch
+      ? `${dateMatch[1]}-${dateMatch[2]}${dateMatch[3] ? `-${dateMatch[3]}` : ""}`
+      : null;
+
+    const md = fs.readFileSync(path.join(lettersDir, file), "utf-8");
 
     // Split and separate
     const rawChunks = splitByHeadings(md);
@@ -272,19 +300,31 @@ async function main() {
     // Filter out empty chunks
     const validChunks = chunks.filter(c => c.contentEn.trim().length > 20);
 
-    console.log(`${year}: ${validChunks.length} chunks`);
+    const label = letterDate ? `${year} (${letterDate})` : `${year}`;
+    console.log(`${label}: ${validChunks.length} chunks`);
 
     // Upsert Letter with contentMd
-    const letter = await prisma.letter.upsert({
-      where: { year },
-      update: { contentMd: md },
-      create: {
-        year,
-        title: `${year} Letter to Berkshire Shareholders`,
-        url: `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`,
-        contentMd: md,
-      },
+    const title = isPartnership
+      ? `${year} Letter to Partners${letterDate ? ` (${letterDate})` : ""}`
+      : `${year} Letter to Berkshire Shareholders`;
+    const url = isPartnership
+      ? "https://theoraclesclassroom.com/wp-content/uploads/2020/05/Buffett-Partnership-Letters-1957-1970-High-Quality.pdf"
+      : `https://www.berkshirehathaway.com/letters/${year}ltr.pdf`;
+
+    // findFirst + create/update because composite unique with nullable date
+    let letter = await prisma.letter.findFirst({
+      where: { year, type: letterType, date: letterDate },
     });
+    if (letter) {
+      letter = await prisma.letter.update({
+        where: { id: letter.id },
+        data: { contentMd: md },
+      });
+    } else {
+      letter = await prisma.letter.create({
+        data: { year, type: letterType, date: letterDate, title, url, contentMd: md },
+      });
+    }
 
     // Delete existing chunks for this letter (idempotent re-run)
     await prisma.$executeRawUnsafe(

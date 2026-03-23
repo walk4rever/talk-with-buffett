@@ -4,10 +4,20 @@ import { HomeModeSelect } from "@/components/HomeModeSelect";
 import { WaitlistModal } from "@/components/WaitlistModal";
 
 export default async function Home() {
-  const letters = await prisma.letter.findMany({
+  const shareholderLetters = await prisma.letter.findMany({
+    where: { type: "shareholder" },
     orderBy: { year: "desc" },
-    include: { _count: { select: { chunks: true } } },
+    select: { id: true, year: true, title: true },
   });
+
+  // Partnership: group by year (multiple letters per year)
+  const partnershipLetters = await prisma.letter.findMany({
+    where: { type: "partnership" },
+    orderBy: { year: "desc" },
+    select: { id: true, year: true, title: true },
+  });
+
+  const partnershipYears = [...new Set(partnershipLetters.map((l) => l.year))];
 
   return (
     <div className="home-wrap">
@@ -21,19 +31,37 @@ export default async function Home() {
         <HomeModeSelect />
       </section>
 
-      {/* Archive */}
-      {letters.length > 0 && (
+      {/* Shareholder Letters */}
+      {shareholderLetters.length > 0 && (
         <section className="archive">
-          <p className="archive-label">浏览原文</p>
+          <p className="archive-label">致股东信 1965–2025</p>
           <div className="archive-grid">
-            {letters.map((letter) => (
+            {shareholderLetters.map((letter) => (
               <Link
                 key={letter.id}
-                href={`/letters/${letter.year}`}
+                href={`/letters/shareholder/${letter.year}`}
                 className="archive-item"
                 title={letter.title ?? undefined}
               >
                 {letter.year}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Partnership Letters */}
+      {partnershipYears.length > 0 && (
+        <section className="archive">
+          <p className="archive-label">致合伙人信 1957–1970</p>
+          <div className="archive-grid">
+            {partnershipYears.map((year) => (
+              <Link
+                key={year}
+                href={`/letters/partnership/${year}`}
+                className="archive-item"
+              >
+                {year}
               </Link>
             ))}
           </div>

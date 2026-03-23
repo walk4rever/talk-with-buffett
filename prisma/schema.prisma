@@ -57,13 +57,17 @@ model VerificationToken {
 
 model Letter {
   id        String    @id @default(cuid())
-  year      Int       @unique
+  year      Int
+  type      String    @default("shareholder")
+  date      String?
   title     String
   url       String
   contentMd String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   chunks    Chunk[]
+
+  @@unique([year, type, date])
 }
 
 model Chunk {
