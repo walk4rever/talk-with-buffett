@@ -10,9 +10,9 @@
 
 | 内容类型 | 英文标识 | 状态 | 数据源 | 数量 |
 |---------|---------|------|--------|------|
-| 股东信 | `shareholder` | ✅ 已有 | [Yestoday](https://github.com/pzponge/Yestoday) | 60 篇（1965-2024） |
-| 合伙人信 | `partnership` | ✅ 已有 | Yestoday | ~30 篇（1957-1970） |
-| 股东大会 | `annual_meeting` | 🆕 待导入 | Yestoday | 34 篇（1985-2024） |
+| 股东信 | `shareholder` | ✅ 已有 | [Yestoday](https://github.com/pzponge/Yestoday) | 61 篇（1965-2025） |
+| 合伙人信 | `partnership` | ✅ 已有 | Yestoday | 33 篇（1957-1970） |
+| 股东大会 | `annual_meeting` | ✅ 已有 | Yestoday | 34 篇（1985-2024），2556 chunks |
 | 公开文章 | `article` | 🆕 待收集 | Fortune 等刊物 | ~10-20 篇 |
 | 公开采访 | `interview` | 🆕 待收集 | CNBC/Bloomberg 等 | 待定 |
 
@@ -84,13 +84,13 @@ Chunk（不变）
 
 ### 独立页面（入口）
 
-| 路由 | 用途 | 保留 |
+| 路由 | 用途 | 状态 |
 |------|------|------|
 | `/chat` | 全屏文本对话 | ✅ |
 | `/letters/shareholder/2024` | 股东信阅读 | ✅ |
 | `/letters/partnership/1965` | 合伙人信阅读 | ✅ |
+| `/letters/annual_meeting/2008` | 股东大会阅读 | ✅ |
 | `/articles/[slug]` | 文章阅读 | 🆕 |
-| `/videos/annual-meeting/[year]` | 股东大会视频 + 转录 | 🆕 |
 | `/videos/interview/[id]` | 采访视频 + 转录 | 🆕 |
 
 独立页面是用户的入口，提供沉浸式阅读/观看/对话体验。
@@ -171,7 +171,7 @@ interview     → "2023年CNBC采访 · Becky Quick"
 **方案**：tsvector + GIN（内置）、pgvector + HNSW（内置扩展），不引入外部搜索引擎或向量数据库。
 
 **理由**：
-- 数据量小（现有 ~500 chunks，加上大会转录预计 ~3000-5000），PostgreSQL 完全能处理
+- 数据量小（当前 ~4200 chunks），PostgreSQL 完全能处理
 - Supabase Free 方案即支持 pgvector
 - 一条 SQL 同时跑两路检索，架构简单
 - 迁移阿里云 RDS PostgreSQL 时零代码改动
@@ -409,24 +409,27 @@ PostHog 额外提供（无需开发）：
 目标：完整的对话+阅读体验 + 数据追踪 + 支付链路，可以交给真实用户使用。
 
 ```
-Phase A：数据模型重构（Letter → Source）
+Phase A：数据模型重构（Letter → Source）          ✅ v0.13.0
   ├─ Prisma schema 重命名 + 新增字段
   ├─ 代码全量替换（search.ts, prompts, API, 页面）
   ├─ import 脚本适配
   └─ 验证：现有功能不受影响
 
-Phase B：股东大会数据导入（1994-2024）
-  ├─ 导入 31 篇大会转录（复用 import 脚本）
+Phase B：股东大会数据导入                         ✅ v0.15.0–v0.16.1
+  ├─ 导入 34 篇大会转录（1985-2024，2556 chunks）
   ├─ 首页大会分区
   ├─ 大会阅读页（复用 LetterReadingArea）
+  ├─ data/ 目录重组为 shareholder/partnership/annual_meeting/
+  ├─ import 脚本重写：按 data/<type>/ 约定 + --file 单文件导入
   └─ 验证：检索覆盖大会内容
 
-Phase C：统一工作区
+Phase C：统一工作区                               ✅ v0.14.0
   ├─ Chat + Canvas 分屏组件
   ├─ 引用点击 → Canvas 打开内容
   ├─ 独立页面点击对话 → 进入工作区
   ├─ 工作区 URL + 状态管理
   ├─ 移动端全屏切换
+  ├─ 共享 chat 类型和 SSE 客户端（lib/chat.ts）
   └─ 验证：两种入口收敛到同一终态
 
 Phase F：用户数据 + 支付

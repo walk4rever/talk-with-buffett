@@ -18,6 +18,27 @@
 - [x] 后端主导引用机制（杜绝幻觉）
 - [x] 阅读页 — contentMd 直接渲染，中英交替 + 单语过滤
 - [x] 代码清理 — 删除 Section 及所有依赖代码（-4800 行）
+- [x] **Phase A**：数据模型重构 Letter → Source（v0.13.0）
+  - [x] Prisma schema 重命名 + 新增字段（videoUrl, videoSource, thumbnailUrl）
+  - [x] Chunk.letterId → Chunk.sourceId
+  - [x] 代码全量替换（search.ts, prompts/buffett.ts, api/chat/route.ts, 页面组件）
+  - [x] import 脚本适配
+- [x] **Phase C**：统一工作区（v0.14.0）
+  - [x] Chat + Canvas 分屏组件（Workspace.tsx）
+  - [x] 共享 chat 类型和 SSE 客户端（lib/chat.ts）
+  - [x] /api/source — Canvas 内容 API
+  - [x] 引用点击 → Canvas 打开对应内容
+  - [x] 独立页面点击"对话" → 进入工作区
+  - [x] 工作区 URL（/workspace?source=...&year=...）
+  - [x] 移动端全屏切换（Chat ↔ Canvas）
+  - [x] 关闭按钮退出分屏
+  - [x] 记住各内容滚动位置
+- [x] **Phase B**：股东大会数据导入（v0.15.0–v0.16.1）
+  - [x] 导入 34 篇大会转录（1985-2024，2556 chunks，总计 4195 chunks）
+  - [x] 首页大会分区（股东大会 1985–2024）
+  - [x] 大会阅读页（/letters/annual_meeting/:year）
+  - [x] data/ 目录重组：shareholder/、partnership/、annual_meeting/
+  - [x] import 脚本重写：data/<type>/ 约定目录 + --file 单文件导入
 
 ---
 
@@ -27,36 +48,8 @@
 
 ### 收尾任务
 
-- [ ] 线上 migration 部署 — 跑 `drop_section_tables`，验证 Vercel build 通过
-- [ ] 对话质量验收 — 准备 10 个测试问题，验证检索召回率 + 引用出现
-- [ ] 移动端体验打磨 — 阅读页、对话抽屉在手机上的交互细节
-
-### Phase A：数据模型重构（Letter → Source）
-
-- [ ] Prisma schema 重命名 Letter → Source + 新增字段（videoUrl, videoSource, thumbnailUrl）
-- [ ] Chunk.letterId → Chunk.sourceId
-- [ ] type 值保持不变（shareholder, partnership），新增 article, annual_meeting, interview
-- [ ] 代码全量替换（search.ts, prompts/buffett.ts, api/chat/route.ts, 页面组件）
-- [ ] import 脚本适配
-- [ ] 验证：现有功能不受影响
-
-### Phase C：统一工作区
-
-- [ ] Chat + Canvas 分屏组件
-- [ ] 引用点击 → Canvas 打开对应内容并定位段落
-- [ ] 独立页面点击"对话" → 进入工作区
-- [ ] 工作区 URL（支持刷新/分享）
-- [ ] 移动端全屏切换（Chat ↔ Canvas）
-- [ ] 关闭按钮退出分屏
-- [ ] 记住各内容滚动位置
-- [ ] 验证：两种入口收敛到同一终态
-
-### Phase B：股东大会数据导入（1994-2024）
-
-- [ ] 导入 31 篇大会转录（1994-2024，复用 import 脚本，`--type annual_meeting`）
-- [ ] 首页大会分区
-- [ ] 大会阅读页（复用 LetterReadingArea）
-- [ ] 验证：检索覆盖大会内容
+- [ ] 对话质量验收 — 准备 10 个测试问题，验证检索召回率 + 引用出现（含股东大会内容）
+- [ ] 移动端体验打磨 — 阅读页、工作区在手机上的交互细节
 
 ### Phase F：用户数据 + 支付
 
