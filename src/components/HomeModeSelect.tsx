@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export function HomeModeSelect() {
@@ -13,10 +14,12 @@ export function HomeModeSelect() {
           你怎么看现在的 AI 公司？
         </div>
         <div className="home-preview-msg home-preview-msg--assistant">
-          <img
+          <Image
             src="/buffett-avarta.png"
             alt="Buffett"
             className="home-preview-avatar"
+            width={30}
+            height={30}
           />
           <div className="home-preview-body">
             <p>
@@ -55,10 +58,12 @@ export function HomeModeSelect() {
         >
           <span className="home-mode-badge">✦ 增值</span>
           <span className="home-mode-icon">
-            <img
+            <Image
               src="/buffett-avarta.png"
               alt="数字人"
               className="home-mode-avatar-img"
+              width={36}
+              height={36}
             />
           </span>
           <span className="home-mode-name">数字人对话</span>

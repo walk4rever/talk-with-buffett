@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { WaitlistModal } from "@/components/WaitlistModal";
@@ -29,6 +30,8 @@ const STARTERS = [
   "什么样的生意你永远不会买？",
   "你怎么看现在的 AI 公司？",
 ];
+
+const WORKSPACE_CHAT_TRANSFER_KEY = "workspace-chat-transfer-v1";
 
 // ── SSE streaming client ─────────────────────────────────────────────────
 
@@ -127,6 +130,25 @@ export function ChatPage() {
   // Accumulate streaming text in a ref so callbacks always see the latest
   const streamingTextRef = useRef("");
 
+  const persistChatForWorkspace = useCallback(() => {
+    try {
+      const transferable = messages
+        .filter((m) => m.role === "user" || m.content.trim() !== "")
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+          sources: m.sources,
+        }));
+
+      sessionStorage.setItem(
+        WORKSPACE_CHAT_TRANSFER_KEY,
+        JSON.stringify({ savedAt: Date.now(), messages: transferable }),
+      );
+    } catch {
+      // Ignore storage errors; navigation should still proceed.
+    }
+  }, [messages]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -208,7 +230,6 @@ export function ChatPage() {
         setLoading(false);
       },
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, loading, mode]);
 
   function handleSubmit(e: React.FormEvent) {
@@ -261,8 +282,8 @@ export function ChatPage() {
         {mode === "text" ? (
           <TextMode
             messages={messages}
-            loading={loading}
             onStarter={send}
+            onSourceNavigate={persistChatForWorkspace}
             messagesEndRef={messagesEndRef}
           />
         ) : (
@@ -271,6 +292,7 @@ export function ChatPage() {
             subtitle={subtitleText}
             loading={loading}
             lastMessage={lastAssistantMsg}
+            onSourceNavigate={persistChatForWorkspace}
           />
         )}
       </div>
@@ -317,13 +339,13 @@ export function ChatPage() {
 
 function TextMode({
   messages,
-  loading,
   onStarter,
+  onSourceNavigate,
   messagesEndRef,
 }: {
   messages: Message[];
-  loading: boolean;
   onStarter: (t: string) => void;
+  onSourceNavigate: () => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const isEmpty = messages.length === 0;
@@ -335,7 +357,7 @@ function TextMode({
       ) : (
         <div className="messages">
           {messages.map((msg, i) => (
-            <MessageBubble key={i} msg={msg} />
+            <MessageBubble key={i} msg={msg} onSourceNavigate={onSourceNavigate} />
           ))}
           <div ref={messagesEndRef} />
         </div>
@@ -347,10 +369,12 @@ function TextMode({
 function EmptyState({ onStarter }: { onStarter: (t: string) => void }) {
   return (
     <div className="empty-chat">
-      <img
+      <Image
         src="/buffett-avarta.png"
         alt="Warren Buffett"
         className="empty-chat-avatar"
+        width={120}
+        height={120}
       />
       <h2 className="empty-chat-title">与巴菲特对话</h2>
       <p className="empty-chat-sub">
@@ -367,7 +391,13 @@ function EmptyState({ onStarter }: { onStarter: (t: string) => void }) {
   );
 }
 
-function MessageBubble({ msg }: { msg: Message }) {
+function MessageBubble({
+  msg,
+  onSourceNavigate,
+}: {
+  msg: Message;
+  onSourceNavigate: () => void;
+}) {
   if (msg.role === "user") {
     return (
       <div className="msg msg--user">
@@ -380,7 +410,7 @@ function MessageBubble({ msg }: { msg: Message }) {
     const limitMsg = msg.content.slice(9);
     return (
       <div className="msg msg--assistant">
-        <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+        <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <p className="msg-text">{limitMsg}</p>
           <WaitlistModal
@@ -402,7 +432,7 @@ function MessageBubble({ msg }: { msg: Message }) {
   if (msg.streaming && !msg.content) {
     return (
       <div className="msg msg--assistant">
-        <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+        <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <div className="thinking-dots">
             <span className="dot" />
@@ -416,10 +446,12 @@ function MessageBubble({ msg }: { msg: Message }) {
 
   return (
     <div className="msg msg--assistant">
-      <img
+      <Image
         src="/buffett-avarta.png"
         alt="Buffett"
         className="msg-avatar"
+        width={34}
+        height={34}
       />
       <div className="msg-body">
         <div className="msg-text msg-markdown">
@@ -429,7 +461,7 @@ function MessageBubble({ msg }: { msg: Message }) {
           <div className="sources">
             <p className="sources-label">相关原文</p>
             {msg.sources.map((s, i) => (
-              <SourceCard key={i} source={s} />
+              <SourceCard key={i} source={s} onNavigate={onSourceNavigate} />
             ))}
           </div>
         )}
@@ -438,7 +470,13 @@ function MessageBubble({ msg }: { msg: Message }) {
   );
 }
 
-function SourceCard({ source }: { source: Source }) {
+function SourceCard({
+  source,
+  onNavigate,
+}: {
+  source: Source;
+  onNavigate: () => void;
+}) {
   const typeLabels: Record<string, string> = {
     shareholder: "股东信",
     partnership: "合伙人信",
@@ -463,7 +501,11 @@ function SourceCard({ source }: { source: Source }) {
           {source.year} 年{typeLabel}
           {source.title ? ` · ${source.title}` : ""}
         </span>
-        <Link href={`/workspace?source=${source.sourceType}&year=${source.year}`} className="source-link">
+        <Link
+          href={`/workspace?source=${source.sourceType}&year=${source.year}`}
+          className="source-link"
+          onClick={onNavigate}
+        >
           查看 →
         </Link>
       </div>
@@ -479,20 +521,24 @@ function AvatarMode({
   subtitle,
   loading,
   lastMessage,
+  onSourceNavigate,
 }: {
   speaking: boolean;
   subtitle: string;
   loading: boolean;
   lastMessage?: Message;
+  onSourceNavigate: () => void;
 }) {
   return (
     <div className="avatar-mode">
       {/* Video stage */}
       <div className={`avatar-stage${speaking ? " avatar-stage--speaking" : ""}`}>
-        <img
+        <Image
           src="/buffett-avarta.png"
           alt="Warren Buffett"
           className="avatar-stage-img"
+          fill
+          sizes="(max-width: 600px) 90vw, 420px"
         />
         {/* Speaking ring animation */}
         {speaking && <div className="avatar-ring" />}
@@ -522,7 +568,7 @@ function AvatarMode({
         <div className="avatar-sources">
           <p className="avatar-sources-label">相关原文</p>
           {lastMessage.sources.map((s, i) => (
-            <SourceCard key={i} source={s} />
+            <SourceCard key={i} source={s} onNavigate={onSourceNavigate} />
           ))}
         </div>
       )}

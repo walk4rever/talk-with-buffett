@@ -3,18 +3,14 @@
 import { useEffect, useState } from 'react';
 
 const DarkModeToggle = () => {
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    // Check for saved preference in localStorage first, then system preference
-    const savedPreference = localStorage.getItem('darkMode');
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const savedPreference = window.localStorage.getItem('darkMode');
     if (savedPreference !== null) {
-      setDarkMode(savedPreference === 'true');
-    } else {
-      const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setDarkMode(isSystemDark);
+      return savedPreference === 'true';
     }
-  }, []);
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
     // Apply dark mode class to document element

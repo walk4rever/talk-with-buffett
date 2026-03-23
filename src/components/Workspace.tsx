@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { WaitlistModal } from "@/components/WaitlistModal";
@@ -19,6 +20,7 @@ const STARTERS = [
   "什么样的生意你永远不会买？",
   "你怎么看现在的 AI 公司？",
 ];
+const WORKSPACE_CHAT_TRANSFER_KEY = "workspace-chat-transfer-v1";
 
 // ── Canvas content cache (scroll position + content) ─────────────────────
 
@@ -92,6 +94,34 @@ export function Workspace() {
   const [mobilePanel, setMobilePanel] = useState<"chat" | "canvas">(
     hasCanvas ? "canvas" : "chat"
   );
+
+  // Restore chat messages transferred from /chat (consume once).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(WORKSPACE_CHAT_TRANSFER_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as {
+        messages?: Array<{ role: string; content: string; sources?: ChatSource[] }>;
+      };
+
+      const restored = (parsed.messages ?? [])
+        .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          sources: m.sources,
+        }));
+
+      if (restored.length > 0) {
+        setMessages(restored);
+      }
+
+      sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
+    } catch {
+      // Ignore parse/storage errors.
+    }
+  }, []);
 
   // Auto-scroll messages
   useEffect(() => {
@@ -248,7 +278,7 @@ export function Workspace() {
         <div className="workspace-chat-body">
           {messages.length === 0 ? (
             <div className="empty-chat">
-              <img src="/buffett-avarta.png" alt="Warren Buffett" className="empty-chat-avatar" />
+              <Image src="/buffett-avarta.png" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
               <h2 className="empty-chat-title">与巴菲特对话</h2>
               <p className="empty-chat-sub">
                 基于 1957–2025 年全部合伙人/股东信 · 每个回答标注来源
@@ -359,7 +389,7 @@ function WorkspaceMessage({
     const limitMsg = msg.content.slice(9);
     return (
       <div className="msg msg--assistant">
-        <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+        <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <p className="msg-text">{limitMsg}</p>
           <WaitlistModal
@@ -378,7 +408,7 @@ function WorkspaceMessage({
   if (msg.streaming && !msg.content) {
     return (
       <div className="msg msg--assistant">
-        <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+        <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <div className="thinking-dots">
             <span className="dot" />
@@ -392,7 +422,7 @@ function WorkspaceMessage({
 
   return (
     <div className="msg msg--assistant">
-      <img src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" />
+      <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
       <div className="msg-body">
         <div className="msg-text msg-markdown">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>

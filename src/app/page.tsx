@@ -3,6 +3,8 @@ import Link from "next/link";
 import { HomeModeSelect } from "@/components/HomeModeSelect";
 import { WaitlistModal } from "@/components/WaitlistModal";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const shareholderLetters = await prisma.source.findMany({
     where: { type: "shareholder" },

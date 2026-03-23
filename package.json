@@ -1,11 +1,11 @@
 {
   "name": "talk-with-buffett",
-  "version": "0.2.0",
+  "version": "0.14.1",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

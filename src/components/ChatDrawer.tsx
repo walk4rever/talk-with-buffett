@@ -151,7 +151,6 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
         setLoading(false);
       },
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, loading]);
 
   function handleSubmit(e: React.FormEvent) {

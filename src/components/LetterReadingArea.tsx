@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -19,6 +20,31 @@ const LINE_HEIGHTS = [1.5, 1.65, 1.8, 2.0, 2.2];
 
 const DEFAULT_FONT = 2;      // index → 16px
 const DEFAULT_LINE = 2;      // index → 1.8
+
+function getInitialFontIdx() {
+  if (typeof window === "undefined") return DEFAULT_FONT;
+  const saved = window.localStorage.getItem("reader-font-idx");
+  if (saved === null) return DEFAULT_FONT;
+  const parsed = Number(saved);
+  if (!Number.isFinite(parsed)) return DEFAULT_FONT;
+  return Math.max(0, Math.min(FONT_SIZES.length - 1, parsed));
+}
+
+function getInitialLineIdx() {
+  if (typeof window === "undefined") return DEFAULT_LINE;
+  const saved = window.localStorage.getItem("reader-line-idx");
+  if (saved === null) return DEFAULT_LINE;
+  const parsed = Number(saved);
+  if (!Number.isFinite(parsed)) return DEFAULT_LINE;
+  return Math.max(0, Math.min(LINE_HEIGHTS.length - 1, parsed));
+}
+
+function getInitialReadingMode(): ReadingMode {
+  if (typeof window === "undefined") return "all";
+  const saved = window.localStorage.getItem("reader-mode");
+  if (saved === "all" || saved === "en" || saved === "zh") return saved;
+  return "all";
+}
 
 // ── CJK detection ──────────────────────────────────────────────────────────
 
@@ -125,21 +151,9 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
 
 export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" }: LetterReadingAreaProps) {
   const router = useRouter();
-  const [fontIdx, setFontIdx] = useState(DEFAULT_FONT);
-  const [lineIdx, setLineIdx] = useState(DEFAULT_LINE);
-  const [readingMode, setReadingMode] = useState<ReadingMode>("all");
-
-  // Restore from localStorage on mount
-  useEffect(() => {
-    const f = localStorage.getItem("reader-font-idx");
-    const l = localStorage.getItem("reader-line-idx");
-    const m = localStorage.getItem("reader-mode");
-    if (f !== null) setFontIdx(Number(f));
-    if (l !== null) setLineIdx(Number(l));
-    if (m !== null && (m === "all" || m === "en" || m === "zh")) {
-      setReadingMode(m);
-    }
-  }, []);
+  const [fontIdx, setFontIdx] = useState(getInitialFontIdx);
+  const [lineIdx, setLineIdx] = useState(getInitialLineIdx);
+  const [readingMode, setReadingMode] = useState<ReadingMode>(getInitialReadingMode);
 
   function changeReadingMode(mode: ReadingMode) {
     setReadingMode(mode);
@@ -255,10 +269,12 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
         title="与巴菲特对话"
       >
         <span className="chat-fab-ring" />
-        <img
+        <Image
           src="/buffett-avarta.png"
           alt="Warren Buffett"
           className="chat-fab-img"
+          width={44}
+          height={44}
         />
         <span className="chat-fab-label">问问他</span>
       </button>
