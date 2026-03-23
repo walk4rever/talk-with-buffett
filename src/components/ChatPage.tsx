@@ -313,7 +313,7 @@ export function ChatPage() {
           </button>
         </form>
         <p className="chat-disclaimer">
-          回答基于 1965–2024 年巴菲特股东信，仅供学习参考。
+          回答基于 1957–2025 年巴菲特致合伙人/股东信，仅供学习参考。
         </p>
       </div>
     </div>
@@ -361,7 +361,7 @@ function EmptyState({ onStarter }: { onStarter: (t: string) => void }) {
       />
       <h2 className="empty-chat-title">与巴菲特对话</h2>
       <p className="empty-chat-sub">
-        基于 1965–2024 年全部股东信 · 每个回答标注来源
+        基于 1957–2025 年全部合伙人/股东信 · 每个回答标注来源
       </p>
       <div className="starter-grid">
         {STARTERS.map((s) => (
@@ -457,8 +457,8 @@ function CitationCard({ citation }: { citation: Citation }) {
           />
           <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
         </svg>
-        <span className="citation-year">{citation.year} 年股东信</span>
-        <Link href={`/letters/${citation.year}`} className="citation-link">
+        <span className="citation-year">{citation.year} 年{citation.year < 1965 ? "合伙人信" : "股东信"}</span>
+        <Link href={`/letters/${citation.year < 1965 ? "partnership" : "shareholder"}/${citation.year}`} className="citation-link">
           查看原文 →
         </Link>
       </div>

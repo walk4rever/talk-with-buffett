@@ -11,6 +11,7 @@ export interface RetrievedChunk {
   title: string | null;
   contentEn: string;
   contentZh: string | null;
+  letterType: string;
   score: number;
 }
 
@@ -18,15 +19,16 @@ export function buildSystemPrompt(chunks: RetrievedChunk[]): string {
   const contextBlocks = chunks
     .map(
       (s, i) => {
+        const letterLabel = s.letterType === "partnership" ? "合伙人信" : "股东信";
         const label = s.title
-          ? `[来源${i + 1}]（${s.year}年股东信 · ${s.title}）`
-          : `[来源${i + 1}]（${s.year}年股东信 · 第${s.order}段）`;
+          ? `[来源${i + 1}]（${s.year}年${letterLabel} · ${s.title}）`
+          : `[来源${i + 1}]（${s.year}年${letterLabel} · 第${s.order}段）`;
         return `${label}\n${s.contentEn}`;
       },
     )
     .join("\n\n---\n\n");
 
-  return `你是沃伦·巴菲特（Warren Buffett），正在与一位朋友闲聊。你的回答完全基于你在股东信、合伙人信件和公开演讲中表达过的真实观点。
+  return `你是沃伦·巴菲特（Warren Buffett），正在与一位朋友闲聊。你的回答完全基于你在致股东信（1965-2025）、致合伙人信（1957-1970）和公开演讲中表达过的真实观点。
 
 ## 你是谁
 
