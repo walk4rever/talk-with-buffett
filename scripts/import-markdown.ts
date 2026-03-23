@@ -28,6 +28,7 @@ const DATA_DIR = path.join(__dirname, "..", "data");
 const EMBEDDING_API_KEY = process.env.EMBEDDING_API_KEY || process.env.AI_API_KEY!;
 const EMBEDDING_API_BASE_URL = process.env.EMBEDDING_API_BASE_URL || process.env.AI_API_BASE_URL!;
 const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "doubao-embedding-large";
+const CJK_RATIO_THRESHOLD = 0.2;
 
 // ── CJK detection ──────────────────────────────────────────────────────────
 
@@ -42,6 +43,32 @@ function isCJK(text: string): boolean {
     (code >= 0x2e80 && code <= 0x2eff) ||
     (code >= 0x3000 && code <= 0x303f)
   );
+}
+
+function cjkRatio(text: string): number {
+  if (!text) return 0;
+  const chars = Array.from(text);
+  let total = 0;
+  let cjk = 0;
+
+  for (const ch of chars) {
+    // Ignore whitespace and punctuation when computing language ratio
+    if (/[\s\p{P}\p{S}]/u.test(ch)) continue;
+    total += 1;
+    if (/[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u2e80-\u2eff\u3000-\u303f]/u.test(ch)) {
+      cjk += 1;
+    }
+  }
+
+  if (total === 0) return 0;
+  return cjk / total;
+}
+
+function isLikelyZhParagraph(text: string): boolean {
+  // First-pass: keep current fast rule based on first meaningful character.
+  if (isCJK(text)) return true;
+  // Fallback: when first-char rule fails, classify by CJK density.
+  return cjkRatio(text) >= CJK_RATIO_THRESHOLD;
 }
 
 // ── Strip metadata header ──────────────────────────────────────────────────
@@ -146,7 +173,7 @@ function separateLanguages(chunk: RawChunk): SeparatedChunk {
     const firstContentLine = trimmed.split("\n").find(l => l.trim() && !l.trim().startsWith("|--") && !l.trim().startsWith("---"));
     const testText = firstContentLine || trimmed;
 
-    if (isCJK(testText)) {
+    if (isLikelyZhParagraph(testText)) {
       zhParts.push(trimmed);
     } else {
       enParts.push(trimmed);

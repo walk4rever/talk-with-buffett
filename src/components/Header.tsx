@@ -2,10 +2,29 @@
 
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import DarkModeToggle from './DarkModeToggle';
 
 export function Header() {
   const { data: session } = useSession();
+  const pathname = usePathname();
+
+  const hideOnImmersivePages =
+    pathname === "/chat" ||
+    pathname === "/workspace" ||
+    pathname.startsWith("/letters/");
+
+  useEffect(() => {
+    document.body.classList.toggle("layout-no-header", hideOnImmersivePages);
+    return () => {
+      document.body.classList.remove("layout-no-header");
+    };
+  }, [hideOnImmersivePages]);
+
+  if (hideOnImmersivePages) {
+    return null;
+  }
 
   return (
     <header className="header">
