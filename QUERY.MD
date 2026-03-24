@@ -138,3 +138,61 @@ Release gate (MVP):
 1. Fact performance does not regress vs baseline.
 2. Average latency does not worsen by more than 20%.
 3. Insufficient-evidence behavior passes manual checks (no fabrication).
+
+## Phase 7: Iteration Method (Benchmark-Driven)
+
+### 7.1 Standard Loop (Must Follow)
+
+1. Set/confirm baseline commit and baseline summary file.
+2. Implement exactly one focused optimization (single-variable preferred).
+3. Run benchmark with `npm run eval:mvp:benchmark`.
+4. Compare results with `npm run eval:mvp:compare -- --base <baseline_or_last_kept_summary> --candidate tests/evals/mvp_benchmark_30_summary.json`.
+5. Decision:
+keep + commit if metrics materially improve and pass gate.
+rollback if no substantial improvement or key metric regresses.
+6. Archive summary/results into `tests/evals/history/` for next-round comparison.
+
+### 7.2 Keep/Rollback Rules
+
+Primary rule:
+`Facts Retrieval` metrics are first priority.
+
+Keep when all true:
+1. `fact.avgHits` non-regression vs comparison base.
+2. `avgLatencyMsAll` <= +20% vs comparison base.
+3. weighted score has meaningful gain or fact zero-hit improves materially.
+4. manual check confirms no fabrication increase.
+
+Rollback when any true:
+1. `fact.avgHits` regresses vs last kept round.
+2. weighted score regresses with no compensating fact-quality gain.
+3. latency worsens with no clear retrieval gain.
+
+### 7.3 Today’s Iteration Log (2026-03-24)
+
+Baseline snapshot:
+commit `fe74056`.
+summary `tests/evals/history/mvp_benchmark_30_summary_2026-03-24T12-43-59.080Z.json`.
+
+Round A (kept):
+commit `eec2cd6`.
+change: strict token filter fix + keyword anchor enrichment + compare script.
+result vs baseline: weightedAvgHits `6.11 -> 6.85`, fact.avgHits `6.1 -> 7.4`, latency `+2.11%`.
+
+Round B (rejected, rolled back):
+change: broader strict token relaxation + extra anchors.
+result vs last kept (`6.85` round): weighted/fact regressed.
+action: rollback.
+
+Round C (rejected, rolled back):
+change: entity synonym rewrite only.
+result vs last kept: strong regression (weighted and fact down).
+action: rollback.
+
+Round D (kept, current best):
+commit `76a69ce`.
+single-variable change: in `mention + timeline`, keep semantic retrieval fallback (`semanticLimit >= 8`) instead of forcing `0`.
+result vs last kept (`eec2cd6`): weightedAvgHits `6.85 -> 7.54`, fact.avgHits `7.4 -> 8.0`, fact.zeroHitCount `2 -> 0`, latency `+4.45%` (within gate).
+
+Current recommended next target:
+fix intent misclassification for investment-method queries currently falling into `chat` (notably `M006`, `M009`).
