@@ -235,6 +235,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
         FROM "Chunk" s
         JOIN "Source" l ON l."id" = s."sourceId"
         WHERE s."contentEn" LIKE $1
+          AND l."type" IN ('shareholder', 'partnership')
           AND ($2::int IS NULL OR l."year" >= $2)
           AND ($3::int IS NULL OR l."year" <= $3)
         ORDER BY l."year" ASC
@@ -265,6 +266,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
         JOIN "Source" l ON l."id" = s."sourceId"
         WHERE s."searchVector" @@ websearch_to_tsquery('english', $1)
           AND ts_rank_cd(s."searchVector", websearch_to_tsquery('english', $1)) > $2
+          AND l."type" IN ('shareholder', 'partnership')
           AND ($3::int IS NULL OR l."year" >= $3)
           AND ($4::int IS NULL OR l."year" <= $4)
         ORDER BY l."year" ASC, score DESC
@@ -293,6 +295,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
       JOIN "Source" l ON l."id" = s."sourceId"
       WHERE s."searchVector" @@ websearch_to_tsquery('english', $1)
         AND ts_rank_cd(s."searchVector", websearch_to_tsquery('english', $1)) > $2
+        AND l."type" IN ('shareholder', 'partnership')
         AND ($3::int IS NULL OR l."year" >= $3)
         AND ($4::int IS NULL OR l."year" <= $4)
       ORDER BY ${orderClause}
@@ -360,6 +363,7 @@ async function runSemanticSearch(query: string): Promise<RetrievedChunk[]> {
       FROM "Chunk" s
       JOIN "Source" l ON l."id" = s."sourceId"
       WHERE s."embedding" IS NOT NULL
+        AND l."type" IN ('shareholder', 'partnership')
       ORDER BY s."embedding" <=> $1::vector
       LIMIT 8
       `,
