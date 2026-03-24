@@ -12,6 +12,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 
 type ReadingMode = "all" | "en" | "zh";
 
@@ -231,7 +232,10 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
   }
 
   const body = useMemo(() => stripHeader(contentMd), [contentMd]);
-  const filtered = useMemo(() => filterByLanguage(body, readingMode), [body, readingMode]);
+  const filtered = useMemo(() => {
+    const md = filterByLanguage(body, readingMode);
+    return md.replace(/<\/br>/gi, "<br/>");
+  }, [body, readingMode]);
   const markdownComponents = useMemo(() => createMarkdownComponents(readingMode), [readingMode]);
 
   return (
@@ -317,7 +321,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
         className="md-reader"
         style={{ fontSize: FONT_SIZES[fontIdx], lineHeight: LINE_HEIGHTS[lineIdx] }}
       >
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={markdownComponents}>
           {filtered}
         </ReactMarkdown>
       </div>

@@ -15,6 +15,7 @@ import Link from "next/link";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { WaitlistModal } from "@/components/WaitlistModal";
 import {
   type ChatMessage,
@@ -372,7 +373,9 @@ export function Workspace() {
 
   const filteredCanvasContent = useMemo(() => {
     if (!canvasContent?.contentMd) return "";
-    return filterByLanguage(stripHeader(canvasContent.contentMd), readingMode);
+    const md = filterByLanguage(stripHeader(canvasContent.contentMd), readingMode);
+    // Normalize non-standard </br> closing tags to <br/> for rehype-raw
+    return md.replace(/<\/br>/gi, "<br/>");
   }, [canvasContent, readingMode]);
   const readerMarkdownComponents = useMemo(
     () => createReaderMarkdownComponents(readingMode),
@@ -653,7 +656,7 @@ export function Workspace() {
             ) : canvasContent ? (
               <>
                 <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={readerMarkdownComponents}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={readerMarkdownComponents}>
                     {filteredCanvasContent}
                   </ReactMarkdown>
                 </div>
