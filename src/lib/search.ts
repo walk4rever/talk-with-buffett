@@ -364,6 +364,7 @@ function enrichKeywordQuery(keywordQuery: string, rawQuery: string): string {
 async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
   const q = p.keywords.trim();
   if (!q) return [];
+  const strictTokens = p.strictTokens ?? [];
 
   const threshold = p.order === "relevance" ? THRESHOLD_RELEVANCE : THRESHOLD_TEMPORAL;
   const orderClause =
@@ -402,8 +403,8 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
       );
 
       if (ilikeRows.length > 0) {
-        const strictFiltered = (p.strictTokens && p.strictTokens.length > 0)
-          ? ilikeRows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens))
+        const strictFiltered = strictTokens.length > 0
+          ? ilikeRows.filter((r) => containsAllTokens(r.contentEn, strictTokens))
           : ilikeRows;
         if (strictFiltered.length > 0) return strictFiltered.map(toChunk);
       }
@@ -435,8 +436,8 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
         `,
         q, threshold, p.yearFrom ?? null, p.yearTo ?? null, p.limit,
       );
-      const strictFiltered = (p.strictTokens && p.strictTokens.length > 0)
-        ? rows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens))
+      const strictFiltered = strictTokens.length > 0
+        ? rows.filter((r) => containsAllTokens(r.contentEn, strictTokens))
         : rows;
       return strictFiltered.map(toChunk);
     }
@@ -466,8 +467,8 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
       `,
       q, threshold, p.yearFrom ?? null, p.yearTo ?? null, p.limit,
     );
-    const strictFiltered = (p.strictTokens && p.strictTokens.length > 0)
-      ? rows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens))
+    const strictFiltered = strictTokens.length > 0
+      ? rows.filter((r) => containsAllTokens(r.contentEn, strictTokens))
       : rows;
     return strictFiltered.map(toChunk);
   } catch (err) {
