@@ -8,6 +8,7 @@ export interface ChatSource {
   title: string | null;
   sourceType: string;
   excerpt: string;
+  excerptZh?: string;
   chunkId?: string;
 }
 

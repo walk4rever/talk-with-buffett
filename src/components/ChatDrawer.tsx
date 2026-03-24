@@ -10,6 +10,7 @@ interface Source {
   title: string | null;
   sourceType: string;
   excerpt: string;
+  excerptZh?: string;
 }
 
 interface Message {
@@ -260,7 +261,7 @@ function DrawerSourceCard({ source }: { source: Source }) {
           查看 →
         </Link>
       </div>
-      <blockquote className="source-quote">{source.excerpt}</blockquote>
+      <blockquote className="source-quote">{source.excerptZh || source.excerpt}</blockquote>
     </div>
   );
 }

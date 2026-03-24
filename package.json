@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "eval:retrieval:v2": "node --loader ts-node/esm scripts/eval-retrieval-v2.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

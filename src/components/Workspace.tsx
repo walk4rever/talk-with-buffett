@@ -44,12 +44,6 @@ interface CanvasContent {
   videoSource?: string | null;
 }
 
-interface ReferenceItem extends ChatSource {
-  key: string;
-  firstSeenTurn: number;
-  seenCount: number;
-}
-
 const messageMarkdownComponents = {
   table: (props: ComponentPropsWithoutRef<"table">) => (
     <div className="msg-table-wrap">
@@ -72,7 +66,7 @@ const messageMarkdownComponents = {
 const scrollPositions = new Map<string, number>();
 let activeHighlightEl: Element | null = null;
 let cachedTransfer:
-  | { messages: ChatMessage[]; refs: ReferenceItem[]; turns: number }
+  | { messages: ChatMessage[] }
   | null
   | undefined;
 
@@ -80,47 +74,11 @@ function canvasKey(type: string, year: number) {
   return `${type}:${year}`;
 }
 
-function sourceKey(source: ChatSource) {
-  if (source.chunkId) return source.chunkId;
-  return `${source.sourceType}|${source.year}|${source.title ?? ""}|${source.excerpt.slice(0, 60)}`;
-}
-
-function upsertReferences(prev: ReferenceItem[], incoming: ChatSource[], turn: number): ReferenceItem[] {
-  const map = new Map(prev.map((r) => [r.key, r]));
-
-  for (const source of incoming) {
-    const key = sourceKey(source);
-    const existing = map.get(key);
-    if (existing) {
-      map.set(key, { ...existing, seenCount: existing.seenCount + 1 });
-    } else {
-      map.set(key, {
-        ...source,
-        key,
-        firstSeenTurn: turn,
-        seenCount: 1,
-      });
-    }
-  }
-
-  return [...map.values()].sort((a, b) => {
-    if (b.firstSeenTurn !== a.firstSeenTurn) return b.firstSeenTurn - a.firstSeenTurn;
-    return b.seenCount - a.seenCount;
-  });
-}
-
-function collectReferencesFromMessages(restored: ChatMessage[]): { refs: ReferenceItem[]; turns: number } {
-  let refs: ReferenceItem[] = [];
-  let turns = 0;
-
-  for (const msg of restored) {
-    if (msg.role === "assistant" && msg.sources && msg.sources.length > 0) {
-      turns += 1;
-      refs = upsertReferences(refs, msg.sources, turns);
-    }
-  }
-
-  return { refs, turns };
+function latestSourcesFromMessages(restored: ChatMessage[]): ChatSource[] {
+  const last = [...restored].reverse().find(
+    (msg) => msg.role === "assistant" && msg.sources && msg.sources.length > 0,
+  );
+  return last?.sources ?? [];
 }
 
 function readTransferFromSessionStorage() {
@@ -149,8 +107,7 @@ function readTransferFromSessionStorage() {
         sources: m.sources,
       }));
 
-    const { refs, turns } = collectReferencesFromMessages(restored);
-    cachedTransfer = { messages: restored, refs, turns };
+    cachedTransfer = { messages: restored };
     return cachedTransfer;
   } catch {
     cachedTransfer = null;
@@ -233,7 +190,39 @@ function applyHighlight(el: Element) {
   activeHighlightEl = el;
 }
 
-function scrollToChunk(container: HTMLElement, title: string | null, excerpt: string) {
+function normalizeForMatch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findByExcerpt(container: HTMLElement, excerpt: string): Element | null {
+  const query = excerpt.trim();
+  if (!query) return null;
+  const normalizedQuery = normalizeForMatch(query);
+  if (!normalizedQuery) return null;
+  const queryPrefix = normalizedQuery.slice(0, Math.min(40, normalizedQuery.length));
+
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const text = normalizeForMatch(node.textContent ?? "");
+    if (!text) continue;
+    if (text.includes(queryPrefix)) {
+      return node.parentElement;
+    }
+  }
+  return null;
+}
+
+function scrollToChunk(
+  container: HTMLElement,
+  title: string | null,
+  excerptEn: string,
+  excerptZh?: string,
+) {
   // Strategy 1: find heading by chunk title (most reliable — headings are unique anchors).
   if (title && title.trim()) {
     const words = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
@@ -248,20 +237,18 @@ function scrollToChunk(container: HTMLElement, title: string | null, excerpt: st
     }
   }
 
-  // Strategy 2: text walk with first 100 chars of excerpt.
-  const query = excerpt.slice(0, 100).trim();
-  if (!query) return;
+  // Strategy 2: match zh excerpt first in mixed/zh content, then fallback to en excerpt.
+  const zhEl = excerptZh ? findByExcerpt(container, excerptZh) : null;
+  if (zhEl) {
+    zhEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    applyHighlight(zhEl);
+    return;
+  }
 
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let node: Node | null;
-  while ((node = walker.nextNode())) {
-    if ((node.textContent ?? "").includes(query.slice(0, 60))) {
-      const el = node.parentElement;
-      if (!el) continue;
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      applyHighlight(el);
-      return;
-    }
+  const enEl = findByExcerpt(container, excerptEn);
+  if (enEl) {
+    enEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    applyHighlight(enEl);
   }
 }
 
@@ -350,6 +337,7 @@ export function Workspace() {
   const canvasType = params.get("source") ?? "";
   const canvasYear = parseInt(params.get("year") ?? "0", 10);
   const canvasExcerpt = params.get("q") ?? "";
+  const canvasExcerptZh = params.get("qzh") ?? "";
   const canvasTitle = params.get("t") ?? "";
   const hasReader = !!canvasType && canvasYear > 0;
 
@@ -357,16 +345,15 @@ export function Workspace() {
     const restored = readTransferFromSessionStorage();
     return restored?.messages ?? [];
   });
-  const [referenceItems, setReferenceItems] = useState<ReferenceItem[]>(() => {
+  const [activeSources, setActiveSources] = useState<ChatSource[]>(() => {
     const restored = readTransferFromSessionStorage();
-    return restored?.refs ?? [];
+    return restored ? latestSourcesFromMessages(restored.messages) : [];
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [readingMode, setReadingMode] = useState<ReadingMode>(getInitialReadingMode);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingTextRef = useRef("");
-  const turnSeqRef = useRef(readTransferFromSessionStorage()?.turns ?? 0);
 
   const [canvasContent, setCanvasContent] = useState<CanvasContent | null>(null);
   const canvasScrollRef = useRef<HTMLDivElement>(null);
@@ -421,8 +408,8 @@ export function Workspace() {
 
         requestAnimationFrame(() => {
           const savedPos = scrollPositions.get(key);
-          if ((canvasTitle || canvasExcerpt) && canvasScrollRef.current) {
-            scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt);
+          if ((canvasTitle || canvasExcerpt || canvasExcerptZh) && canvasScrollRef.current) {
+            scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt, canvasExcerptZh);
           } else if (savedPos && canvasScrollRef.current) {
             canvasScrollRef.current.scrollTop = savedPos;
           } else if (canvasScrollRef.current) {
@@ -437,13 +424,15 @@ export function Workspace() {
     return () => {
       cancelled = true;
     };
-  }, [hasReader, canvasType, canvasYear]);
+  }, [hasReader, canvasType, canvasYear, canvasTitle, canvasExcerpt, canvasExcerptZh]);
 
   const openReader = useCallback(
-    (type: string, year: number, excerpt?: string, title?: string | null) => {
+    (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => {
       const q = excerpt ? `&q=${encodeURIComponent(excerpt.slice(0, 100))}` : "";
+      const qzh = excerptZh ? `&qzh=${encodeURIComponent(excerptZh.slice(0, 100))}` : "";
       const t = title ? `&t=${encodeURIComponent(title)}` : "";
-      router.push(`/workspace?source=${type}&year=${year}${q}${t}`, { scroll: false });
+      const c = chunkId ? `&c=${encodeURIComponent(chunkId)}` : "";
+      router.push(`/workspace?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
       setMobilePanel("canvas");
     },
     [router],
@@ -502,12 +491,7 @@ export function Workspace() {
             };
             return updated;
           });
-
-          if (sources.length > 0) {
-            turnSeqRef.current += 1;
-            const turn = turnSeqRef.current;
-            setReferenceItems((prev) => upsertReferences(prev, sources, turn));
-          }
+          setActiveSources(sources);
 
           setLoading(false);
         },
@@ -521,6 +505,7 @@ export function Workspace() {
             };
             return updated;
           });
+          setActiveSources([]);
           setLoading(false);
         },
       );
@@ -571,7 +556,15 @@ export function Workspace() {
           ) : (
             <div className="messages">
               {messages.map((msg, i) => (
-                <WorkspaceMessage key={i} msg={msg} />
+                <WorkspaceMessage
+                  key={i}
+                  msg={msg}
+                  onOpenSources={(sources) => {
+                    setActiveSources(sources);
+                    setMobilePanel("canvas");
+                  }}
+                  onOpenReader={openReader}
+                />
               ))}
               <div ref={messagesEndRef} />
             </div>
@@ -650,7 +643,7 @@ export function Workspace() {
               </svg>
             </button>
           ) : (
-            <span className="workspace-canvas-count">{referenceItems.length} 条</span>
+            <span className="workspace-canvas-count">{activeSources.length} 条</span>
           )}
         </div>
 
@@ -670,7 +663,7 @@ export function Workspace() {
               <div className="workspace-canvas-loading">未找到内容</div>
             )
           ) : (
-            <ReferenceList items={referenceItems} onOpen={openReader} />
+            <ReferenceList items={activeSources} onOpen={openReader} />
           )}
         </div>
       </div>
@@ -678,7 +671,23 @@ export function Workspace() {
   );
 }
 
-function WorkspaceMessage({ msg }: { msg: ChatMessage }) {
+function WorkspaceMessage({
+  msg,
+  onOpenSources,
+  onOpenReader,
+}: {
+  msg: ChatMessage;
+  onOpenSources: (sources: ChatSource[]) => void;
+  onOpenReader: (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const toggleSources = () => {
+    const sources = msg.sources ?? [];
+    onOpenSources(sources);
+    setExpanded((v) => !v);
+  };
+
   if (msg.role === "user") {
     return (
       <div className="msg msg--user">
@@ -731,6 +740,35 @@ function WorkspaceMessage({ msg }: { msg: ChatMessage }) {
             {msg.content}
           </ReactMarkdown>
         </div>
+        {msg.sources && msg.sources.length > 0 ? (
+          <div className="sources">
+            <button
+              type="button"
+              className="workspace-source-toggle"
+              onClick={toggleSources}
+            >
+              原文索引（{msg.sources.length}）{expanded ? "收起" : "展开"}
+            </button>
+            {expanded ? (
+              <div className="workspace-reference-list">
+                {msg.sources.map((s, i) => (
+                  <button
+                    key={`${s.chunkId ?? `${s.sourceType}-${s.year}`}-${i}`}
+                    type="button"
+                    className="workspace-reference-item"
+                    onClick={() => onOpenReader(s.sourceType, s.year, s.excerpt, s.title, s.chunkId, s.excerptZh)}
+                  >
+                    <div className="workspace-reference-meta">
+                      <span>{s.year} 年{getSourceTypeLabel(s.sourceType)}</span>
+                    </div>
+                    {s.title ? <h4 className="workspace-reference-title">{s.title}</h4> : null}
+                    <p className="workspace-reference-excerpt">{s.excerptZh || s.excerpt}</p>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -740,30 +778,30 @@ function ReferenceList({
   items,
   onOpen,
 }: {
-  items: ReferenceItem[];
-  onOpen: (type: string, year: number, excerpt?: string, title?: string | null) => void;
+  items: ChatSource[];
+  onOpen: (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => void;
 }) {
   if (items.length === 0) {
     return (
       <div className="workspace-reference-empty">
-        <p>对话开始后，相关原文会自动汇总在这里。</p>
+        <p>右侧默认展示最近一条回复的原文索引。</p>
       </div>
     );
   }
 
   return (
-    <div className="workspace-reference-list">
+      <div className="workspace-reference-list">
       {items.map((item) => (
         <button
-          key={item.key}
+          key={item.chunkId ?? `${item.sourceType}-${item.year}-${item.title ?? ""}-${item.excerpt.slice(0, 40)}`}
           className="workspace-reference-item"
-          onClick={() => onOpen(item.sourceType, item.year, item.excerpt, item.title)}
+          onClick={() => onOpen(item.sourceType, item.year, item.excerpt, item.title, item.chunkId, item.excerptZh)}
         >
           <div className="workspace-reference-meta">
             <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>
           </div>
           {item.title ? <h4 className="workspace-reference-title">{item.title}</h4> : null}
-          <p className="workspace-reference-excerpt">{item.excerpt}</p>
+          <p className="workspace-reference-excerpt">{item.excerptZh || item.excerpt}</p>
         </button>
       ))}
     </div>

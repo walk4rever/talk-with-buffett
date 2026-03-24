@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getClientIp } from "@/lib/ratelimit";
 import { buildSystemPrompt } from "@/lib/prompts/buffett";
+import type { EvidencePlan, RetrievedChunk } from "@/lib/prompts/buffett";
 import { searchChunks } from "@/lib/search";
 
 const AI_API_KEY = process.env.AI_API_KEY!;
@@ -12,6 +13,99 @@ const FREE_DAILY_LIMIT = parseInt(process.env.FREE_DAILY_CHAT_LIMIT ?? "30", 10)
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((x) => x.length >= 3);
+}
+
+function pickEvidenceExcerpt(queryEn: string, contentEn: string): string {
+  const text = contentEn.trim();
+  if (!text) return "";
+
+  const queryTokens = new Set(tokenize(queryEn));
+  if (queryTokens.size === 0) {
+    return text.slice(0, 180).trim() + (text.length > 180 ? "…" : "");
+  }
+
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 20);
+
+  if (sentences.length === 0) {
+    return text.slice(0, 180).trim() + (text.length > 180 ? "…" : "");
+  }
+
+  let best = sentences[0];
+  let bestScore = -1;
+
+  for (const s of sentences) {
+    const tokens = tokenize(s);
+    if (tokens.length === 0) continue;
+    let overlap = 0;
+    for (const t of tokens) {
+      if (queryTokens.has(t)) overlap++;
+    }
+    const score = overlap / Math.sqrt(tokens.length);
+    if (score > bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+
+  const clipped = best.length > 220 ? `${best.slice(0, 220).trim()}…` : best;
+  return clipped;
+}
+
+function pickEvidenceExcerptZh(contentZh: string | null): string {
+  const text = (contentZh ?? "").trim();
+  if (!text) return "";
+  const lines = text
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 8);
+  const best = lines[0] ?? text;
+  return best.length > 140 ? `${best.slice(0, 140).trim()}…` : best;
+}
+
+function buildEvidencePlan(params: {
+  query: string;
+  intent: string;
+  answerMode: string;
+  entities: string[];
+  yearFrom: number | null;
+  yearTo: number | null;
+  chunks: RetrievedChunk[];
+}): EvidencePlan {
+  const yearsCovered = [...new Set(params.chunks.map((c) => c.year))].sort((a, b) => a - b);
+  const hasYearConstraint = params.yearFrom !== null || params.yearTo !== null;
+  const sufficient = params.chunks.length > 0;
+
+  let insufficiencyReason: string | undefined;
+  if (!sufficient) {
+    const rangeHint = hasYearConstraint
+      ? `（时间约束：${params.yearFrom ?? "不限"}-${params.yearTo ?? "不限"}）`
+      : "";
+    insufficiencyReason = `检索范围内未命中相关段落${rangeHint}`;
+  }
+
+  return {
+    query: params.query,
+    intent: params.intent,
+    answerMode: params.answerMode,
+    entities: params.entities,
+    yearFrom: params.yearFrom,
+    yearTo: params.yearTo,
+    yearsCovered,
+    evidenceCount: params.chunks.length,
+    sufficient,
+    insufficiencyReason,
+  };
 }
 
 async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; remaining: number }> {
@@ -46,10 +140,21 @@ export async function POST(req: Request) {
   }
 
   // Parallel: usage check + tool-use search
-  const [usage, { chunks, order, distinctByYear }] = await Promise.all([
+  const [usage, searchResult] = await Promise.all([
     checkAndIncrementUsage(ip),
     searchChunks(lastUserMsg.content),
   ]);
+  const {
+    chunks,
+    order,
+    distinctByYear,
+    evidenceQuery,
+    intent,
+    answerMode,
+    entities,
+    yearFrom,
+    yearTo,
+  } = searchResult;
   console.log(`[search] query="${lastUserMsg.content.slice(0, 60)}" chunks=${chunks.length} order=${order} distinct=${distinctByYear}`);
 
   if (!usage.allowed) {
@@ -59,7 +164,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = buildSystemPrompt(chunks, order, distinctByYear);
+  const evidencePlan = buildEvidencePlan({
+    query: evidenceQuery,
+    intent,
+    answerMode,
+    entities,
+    yearFrom,
+    yearTo,
+    chunks,
+  });
+
+  const systemPrompt = buildSystemPrompt(chunks, order, distinctByYear, evidencePlan);
 
   // Build sources from search results (always shown, independent of AI output)
   const sources = chunks.map((c) => ({
@@ -67,7 +182,8 @@ export async function POST(req: Request) {
     title: c.title,
     sourceType: c.sourceType,
     chunkId: c.id,
-    excerpt: c.contentEn.slice(0, 150).trim() + (c.contentEn.length > 150 ? "…" : ""),
+    excerpt: pickEvidenceExcerpt(evidenceQuery, c.contentEn),
+    excerptZh: pickEvidenceExcerptZh(c.contentZh),
   }));
 
   const aiMessages = [

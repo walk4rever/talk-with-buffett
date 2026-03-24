@@ -1,0 +1,667 @@
+[
+  {
+    "id": "Q001",
+    "type": "timeline",
+    "question": "巴菲特最早哪一年提到 GEICO？",
+    "hits": 10,
+    "years": [
+      1980,
+      1986,
+      1995,
+      1999,
+      2009,
+      2010,
+      2011,
+      2014
+    ],
+    "first": {
+      "year": 1995,
+      "sourceType": "shareholder",
+      "title": "GEICO Corporation GEICO保险营运 (1)",
+      "chunkId": "58de398f-4f97-4c27-8d25-9d16231630ae"
+    },
+    "elapsedMs": 15413,
+    "error": null
+  },
+  {
+    "id": "Q002",
+    "type": "timeline",
+    "question": "他在哪些年份反复强调回购（share buyback）原则？",
+    "hits": 9,
+    "years": [
+      1988,
+      1994,
+      1999,
+      2011,
+      2016,
+      2018,
+      2019,
+      2020,
+      2021
+    ],
+    "first": {
+      "year": 1988,
+      "sourceType": "shareholder",
+      "title": "New York Stock Exchange Listing (2)",
+      "chunkId": "a23e8978-b636-4bda-bf52-43560b715885"
+    },
+    "elapsedMs": 29569,
+    "error": null
+  },
+  {
+    "id": "Q003",
+    "type": "opinion",
+    "question": "Buffett 对保险浮存金（float）的核心看法是什么？",
+    "hits": 10,
+    "years": [
+      1997,
+      1999,
+      2002,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2017
+    ],
+    "first": {
+      "year": 2013,
+      "sourceType": "shareholder",
+      "title": "Insurance (2)",
+      "chunkId": "b8d55858-8a3d-4e44-b6d9-a49f742eb596"
+    },
+    "elapsedMs": 21291,
+    "error": null
+  },
+  {
+    "id": "Q004",
+    "type": "opinion",
+    "question": "巴菲特怎么看管理层诚信和能力？",
+    "hits": 6,
+    "years": [
+      1982,
+      1983,
+      1988,
+      1996,
+      2010,
+      2025
+    ],
+    "first": {
+      "year": 1983,
+      "sourceType": "shareholder",
+      "title": null,
+      "chunkId": "614e8250-fde3-48a8-a73b-1ae28a844d92"
+    },
+    "elapsedMs": 19940,
+    "error": null
+  },
+  {
+    "id": "Q005",
+    "type": "opinion",
+    "question": "他关于 debt / leverage 的态度是什么？",
+    "hits": 6,
+    "years": [
+      1987,
+      1989,
+      1993,
+      2002,
+      2005,
+      2009
+    ],
+    "first": {
+      "year": 1989,
+      "sourceType": "shareholder",
+      "title": "Leverage",
+      "chunkId": "3f10789a-9415-414a-91d8-819ec0d0ab44"
+    },
+    "elapsedMs": 27218,
+    "error": null
+  },
+  {
+    "id": "Q006",
+    "type": "fact",
+    "question": "1973-1974 熊市期间他在信里强调了什么？",
+    "hits": 10,
+    "years": [
+      1959,
+      1963,
+      1973,
+      1974,
+      1983,
+      1985,
+      2017,
+      2023
+    ],
+    "first": {
+      "year": 1985,
+      "sourceType": "shareholder",
+      "title": "Marketable Securities (2)",
+      "chunkId": "de9fbc84-6edf-47ae-b282-de066e3f59fe"
+    },
+    "elapsedMs": 17702,
+    "error": null
+  },
+  {
+    "id": "Q007",
+    "type": "timeline",
+    "question": "巴菲特最早什么时候讨论可口可乐投资？",
+    "hits": 6,
+    "years": [
+      1989,
+      1991,
+      1993,
+      2022,
+      2023
+    ],
+    "first": {
+      "year": 1993,
+      "sourceType": "shareholder",
+      "title": "Common Stock Investments (2)",
+      "chunkId": "7ce3d894-4dc2-46df-be56-12dce9610bd1"
+    },
+    "elapsedMs": 12951,
+    "error": null
+  },
+  {
+    "id": "Q008",
+    "type": "fact",
+    "question": "IBM 投资错误他后来是怎么复盘的？",
+    "hits": 5,
+    "years": [
+      1989,
+      1991,
+      2020,
+      2024
+    ],
+    "first": {
+      "year": 1989,
+      "sourceType": "shareholder",
+      "title": "Missing Great Opportunities",
+      "chunkId": "c409a2d3-58b0-40f4-9b81-add7dd5988a0"
+    },
+    "elapsedMs": 15362,
+    "error": null
+  },
+  {
+    "id": "Q009",
+    "type": "opinion",
+    "question": "巴菲特如何定义护城河（moat）？",
+    "hits": 4,
+    "years": [
+      1992,
+      2007,
+      2020
+    ],
+    "first": {
+      "year": 2007,
+      "sourceType": "shareholder",
+      "title": "Businesses -- The Great, the Good and the Gruesome (1)",
+      "chunkId": "3279beb7-5128-49c3-8962-70510fb75c9d"
+    },
+    "elapsedMs": 16534,
+    "error": null
+  },
+  {
+    "id": "Q010",
+    "type": "opinion",
+    "question": "他如何看待 market timing？",
+    "hits": 10,
+    "years": [
+      1959,
+      1963,
+      1987,
+      2013,
+      2014,
+      2023
+    ],
+    "first": {
+      "year": 1987,
+      "sourceType": "shareholder",
+      "title": "Marketable Securities - Permanent Holdings (1)",
+      "chunkId": "346b7513-75a7-4ada-8818-633d4103b8af"
+    },
+    "elapsedMs": 16198,
+    "error": null
+  },
+  {
+    "id": "Q011",
+    "type": "timeline",
+    "question": "在合伙人时期，他如何描述自己的投资方法？",
+    "hits": 10,
+    "years": [
+      1958,
+      1960,
+      1963,
+      1966,
+      1967,
+      1968,
+      1987
+    ],
+    "first": {
+      "year": 1987,
+      "sourceType": "shareholder",
+      "title": "Marketable Securities - Permanent Holdings (1)",
+      "chunkId": "346b7513-75a7-4ada-8818-633d4103b8af"
+    },
+    "elapsedMs": 26268,
+    "error": null
+  },
+  {
+    "id": "Q012",
+    "type": "timeline",
+    "question": "巴菲特哪几年谈到通胀（inflation）风险？",
+    "hits": 2,
+    "years": [
+      1979,
+      1980
+    ],
+    "first": {
+      "year": 1979,
+      "sourceType": "shareholder",
+      "title": "Long Term Results (2)",
+      "chunkId": "7651f303-3a14-497f-8c77-8373103faf60"
+    },
+    "elapsedMs": 20161,
+    "error": null
+  },
+  {
+    "id": "Q013",
+    "type": "opinion",
+    "question": "他对分红（dividend）政策的思路是什么？",
+    "hits": 10,
+    "years": [
+      1981,
+      1984,
+      1999,
+      2012,
+      2016
+    ],
+    "first": {
+      "year": 2012,
+      "sourceType": "shareholder",
+      "title": "Dividends (3)",
+      "chunkId": "44d392fd-97ad-4b5d-8d4d-8b67025ece27"
+    },
+    "elapsedMs": 20073,
+    "error": null
+  },
+  {
+    "id": "Q014",
+    "type": "timeline",
+    "question": "首次提及 Charlie Munger 是哪一年？",
+    "hits": 1,
+    "years": [
+      2023
+    ],
+    "first": {
+      "year": 2023,
+      "sourceType": "shareholder",
+      "title": null,
+      "chunkId": "090770e7-9c2d-43d7-b550-c872542fce78"
+    },
+    "elapsedMs": 12252,
+    "error": null
+  },
+  {
+    "id": "Q015",
+    "type": "compare",
+    "question": "他如何比较投资股票和买农场？",
+    "hits": 10,
+    "years": [
+      1987,
+      2003,
+      2011,
+      2013,
+      2016,
+      2020,
+      2023
+    ],
+    "first": {
+      "year": 2013,
+      "sourceType": "shareholder",
+      "title": "Some Thoughts About Investing (1)",
+      "chunkId": "561a960a-4d83-4b3d-ad2b-1692e26a0436"
+    },
+    "elapsedMs": 20940,
+    "error": null
+  },
+  {
+    "id": "Q016",
+    "type": "fact",
+    "question": "巴菲特对铁路业务（BNSF）的长期判断有哪些？",
+    "hits": 10,
+    "years": [
+      2010,
+      2011,
+      2013,
+      2014,
+      2015,
+      2016,
+      2019,
+      2020,
+      2023
+    ],
+    "first": {
+      "year": 2016,
+      "sourceType": "shareholder",
+      "title": "Regulated, Capital-Intensive Businesses (1)",
+      "chunkId": "4e0eaf11-2385-4a2a-b159-d23dd2423bff"
+    },
+    "elapsedMs": 19980,
+    "error": null
+  },
+  {
+    "id": "Q017",
+    "type": "timeline",
+    "question": "他在哪些年份系统讲过资本配置（capital allocation）？",
+    "hits": 7,
+    "years": [
+      1986,
+      1987,
+      1994,
+      1995,
+      2006,
+      2016,
+      2022
+    ],
+    "first": {
+      "year": 1986,
+      "sourceType": "shareholder",
+      "title": null,
+      "chunkId": "be09797c-0bae-44ab-add7-00a4ddbd0bbd"
+    },
+    "elapsedMs": 30169,
+    "error": null
+  },
+  {
+    "id": "Q018",
+    "type": "fact",
+    "question": "Buffett 怎么看股票回购价格上限？",
+    "hits": 10,
+    "years": [
+      1983,
+      1999,
+      2011,
+      2016
+    ],
+    "first": {
+      "year": 2016,
+      "sourceType": "shareholder",
+      "title": "Share Repurchases (1)",
+      "chunkId": "dd7f5d51-495b-4434-912f-eafb1615236e"
+    },
+    "elapsedMs": 23343,
+    "error": null
+  },
+  {
+    "id": "Q019",
+    "type": "fact",
+    "question": "2008 金融危机时他在信里最核心的判断是什么？",
+    "hits": 5,
+    "years": [
+      2008,
+      2009,
+      2023
+    ],
+    "first": {
+      "year": 2008,
+      "sourceType": "shareholder",
+      "title": "BERKSHIRE HATHAWAY INC. (1)",
+      "chunkId": "152b15bf-ee72-4b4c-8914-0c73ed846a85"
+    },
+    "elapsedMs": 16602,
+    "error": null
+  },
+  {
+    "id": "Q020",
+    "type": "opinion",
+    "question": "他为什么强调不要预测短期市场？",
+    "hits": 10,
+    "years": [
+      1959,
+      1987,
+      1992,
+      1994,
+      2013,
+      2014,
+      2023,
+      2025
+    ],
+    "first": {
+      "year": 2013,
+      "sourceType": "shareholder",
+      "title": "Some Thoughts About Investing (3)",
+      "chunkId": "fc9e4894-005d-4b86-b8e7-2bb5ad15b3d9"
+    },
+    "elapsedMs": 24701,
+    "error": null
+  },
+  {
+    "id": "Q021",
+    "type": "fact",
+    "question": "巴菲特在合伙人信里怎么解释业绩波动和回撤？",
+    "hits": 10,
+    "years": [
+      1958,
+      1960,
+      1961,
+      1962,
+      1963,
+      1965,
+      1966,
+      1967,
+      1969
+    ],
+    "first": {
+      "year": 1962,
+      "sourceType": "partnership",
+      "title": "Investment Companies during the First Half:",
+      "chunkId": "632d520b-b8f7-412d-8df9-3ea35c703f4d"
+    },
+    "elapsedMs": 14164,
+    "error": null
+  },
+  {
+    "id": "Q022",
+    "type": "opinion",
+    "question": "伯克希尔现金储备过高时，他通常如何解释？",
+    "hits": 10,
+    "years": [
+      1981,
+      1984,
+      1996,
+      2012,
+      2015,
+      2018,
+      2021,
+      2023,
+      2025
+    ],
+    "first": {
+      "year": 2023,
+      "sourceType": "shareholder",
+      "title": "Our Not-So-Secret Weapon (2)",
+      "chunkId": "bcb464b6-18f7-4113-9fe8-f2f96fd64a35"
+    },
+    "elapsedMs": 17424,
+    "error": null
+  },
+  {
+    "id": "Q023",
+    "type": "timeline",
+    "question": "他在哪些年份提到 Berkshire 能否继续跑赢标普？",
+    "hits": 19,
+    "years": [
+      1992,
+      2003,
+      2005,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2023,
+      2024
+    ],
+    "first": {
+      "year": 1992,
+      "sourceType": "shareholder",
+      "title": null,
+      "chunkId": "36d4f119-4ba5-4165-8efd-f39fa129396a"
+    },
+    "elapsedMs": 32221,
+    "error": null
+  },
+  {
+    "id": "Q024",
+    "type": "timeline",
+    "question": "关于科技公司，他的态度是如何变化的？",
+    "hits": 0,
+    "years": [],
+    "first": null,
+    "elapsedMs": 11794,
+    "error": null
+  },
+  {
+    "id": "Q025",
+    "type": "opinion",
+    "question": "巴菲特怎样看待会计利润和经济利润差异？",
+    "hits": 10,
+    "years": [
+      1980,
+      1982,
+      1983,
+      1986,
+      1990,
+      1994,
+      1999,
+      2007
+    ],
+    "first": {
+      "year": 1990,
+      "sourceType": "shareholder",
+      "title": "\"Look-Through\" Earnings (1)",
+      "chunkId": "d172c789-ded7-4747-b27d-89172186f029"
+    },
+    "elapsedMs": 18615,
+    "error": null
+  },
+  {
+    "id": "Q026",
+    "type": "fact",
+    "question": "Dexter Shoe 这笔错误投资的教训是什么？",
+    "hits": 10,
+    "years": [
+      1958,
+      1985,
+      1989,
+      1991,
+      1993,
+      2001,
+      2007,
+      2016
+    ],
+    "first": {
+      "year": 2001,
+      "sourceType": "shareholder",
+      "title": "Sources of Reported Earnings (2)",
+      "chunkId": "6eb50852-56f4-4677-88e7-adafdebe387a"
+    },
+    "elapsedMs": 15405,
+    "error": null
+  },
+  {
+    "id": "Q027",
+    "type": "fact",
+    "question": "他关于保险承保纪律（underwriting discipline）说过什么？",
+    "hits": 10,
+    "years": [
+      1982,
+      1989,
+      1998,
+      2001,
+      2011,
+      2015,
+      2016,
+      2018,
+      2019
+    ],
+    "first": {
+      "year": 2001,
+      "sourceType": "shareholder",
+      "title": "Insurance Operations in 2001 2001 (1)",
+      "chunkId": "23c2002b-2843-4b36-9df6-47ef38b62c0a"
+    },
+    "elapsedMs": 27594,
+    "error": null
+  },
+  {
+    "id": "Q028",
+    "type": "compare",
+    "question": "对比 1999 和 2021，他对市场估值的表述有什么异同？",
+    "hits": 3,
+    "years": [
+      1966,
+      1987,
+      1999
+    ],
+    "first": {
+      "year": 1999,
+      "sourceType": "shareholder",
+      "title": "Investments (2)",
+      "chunkId": "9e8a6cd1-e9fe-4586-98e6-c300d3abd63b"
+    },
+    "elapsedMs": 30403,
+    "error": null
+  },
+  {
+    "id": "Q029",
+    "type": "timeline",
+    "question": "巴菲特最早在哪一年谈到 margin of safety？",
+    "hits": 9,
+    "years": [
+      1987,
+      1989,
+      1990,
+      1992,
+      1993,
+      1994,
+      2013
+    ],
+    "first": {
+      "year": 1992,
+      "sourceType": "shareholder",
+      "title": "Common Stock Investments (4)",
+      "chunkId": "31b64aa8-9113-4fa5-a8be-007c6f5f828d"
+    },
+    "elapsedMs": 12100,
+    "error": null
+  },
+  {
+    "id": "Q030",
+    "type": "opinion",
+    "question": "如果我只懂消费品行业，他会怎么建议我建立能力圈？",
+    "hits": 4,
+    "years": [
+      1996,
+      2007
+    ],
+    "first": {
+      "year": 1996,
+      "sourceType": "shareholder",
+      "title": "Common Stock Investments (4)",
+      "chunkId": "3a3f3b38-3c76-40f6-9a74-a76ef2da6c85"
+    },
+    "elapsedMs": 14511,
+    "error": null
+  }
+]

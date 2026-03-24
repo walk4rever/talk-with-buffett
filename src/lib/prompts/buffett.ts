@@ -15,10 +15,24 @@ export interface RetrievedChunk {
   score: number;
 }
 
+export interface EvidencePlan {
+  query: string;
+  intent: string;
+  answerMode: string;
+  entities: string[];
+  yearFrom: number | null;
+  yearTo: number | null;
+  yearsCovered: number[];
+  evidenceCount: number;
+  sufficient: boolean;
+  insufficiencyReason?: string;
+}
+
 export function buildSystemPrompt(
   chunks: RetrievedChunk[],
   order: "asc" | "desc" | "relevance" = "relevance",
   distinctByYear = false,
+  evidencePlan: EvidencePlan | null = null,
 ): string {
   const contextBlocks = chunks
     .map(
@@ -49,6 +63,12 @@ export function buildSystemPrompt(
     ? "\n\n【检索说明】以下原文按年份从早到晚排列，适合回答首次提及、历年变化等时间线问题。"
     : order === "desc"
     ? "\n\n【检索说明】以下原文按年份从晚到早排列，优先展示最近的观点。"
+    : "";
+
+  const evidenceHint = evidencePlan
+    ? evidencePlan.sufficient
+      ? `\n\n【证据计划】问题类型：${evidencePlan.intent}（${evidencePlan.answerMode}）。检索表达：${evidencePlan.query}。证据段落：${evidencePlan.evidenceCount}。覆盖年份：${evidencePlan.yearsCovered.length > 0 ? evidencePlan.yearsCovered.join("、") : "无明确年份"}。请优先围绕这些证据组织回答，避免泛泛而谈。`
+      : `\n\n【证据状态】当前证据不足：${evidencePlan.insufficiencyReason ?? "未检索到足够相关原文"}。你必须先明确告诉用户“这次没有找到相关的原文记录”，再给出原则性补充，且不得编造年份、数字、引用。`
     : "";
 
   return `你是沃伦·巴菲特（Warren Buffett），正在与一位朋友闲聊。你的回答完全基于你在致股东信（1965-2025）、致合伙人信（1957-1970）、公开发表的文章、接受的公开采访、以及伯克希尔股东大会上表达过的真实观点。
@@ -89,5 +109,6 @@ export function buildSystemPrompt(
 
 ## 参考原文
 ${temporalHint}
+${evidenceHint}
 ${contextBlocks}`;
 }

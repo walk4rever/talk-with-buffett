@@ -144,80 +144,91 @@ interview     → "2023年CNBC采访 · Becky Quick"
 
 点击引用 → 在 Canvas 中打开对应内容，定位到引用段落。
 
-## 检索系统
+## 检索系统（v2）
 
-检索层对内容类型**无感知**，始终基于 Chunk 检索。
-
-### D1: 混合检索（Hybrid Search）
-
-**方案**：关键词全文检索 + 向量语义检索，加权合并排序。
-
-**理由**：两者互补——
-- 关键词擅长精确匹配（"2008年 GEICO"）
-- 向量擅长语义理解（"借钱炒股" → leverage/debt/margin）
-- 单一方案都有盲区，混合检索覆盖最全
-
-### D2: 只对英文建索引
-
-**方案**：tsvector 和 embedding 都基于 `contentEn`，用户中文提问通过 AI 翻译成英文后检索。
-
-**理由**：
-- 英文是原文（source of truth），语义最准确
-- 只维护一套索引，避免中文分词复杂性（Supabase 不支持 zhparser）
-- 翻译步骤顺便做 query expansion（口语 → 检索友好表达）
-
-### D3: 全部在 Supabase PostgreSQL 内完成
-
-**方案**：tsvector + GIN（内置）、pgvector + HNSW（内置扩展），不引入外部搜索引擎或向量数据库。
-
-**理由**：
-- 数据量小（当前 ~4200 chunks），PostgreSQL 完全能处理
-- Supabase Free 方案即支持 pgvector
-- 一条 SQL 同时跑两路检索，架构简单
-- 迁移阿里云 RDS PostgreSQL 时零代码改动
-
-### D4: 不使用图数据库
-
-**理由**：数据是线性文档，不是图结构。SQL JOIN 足够。
-
-### D5: 不做中文 embedding
-
-**理由**：存储翻倍无必要，Query 翻译是更可控的方案。
-
-### D6: 不使用 qmd 等外部 RAG 框架
-
-**理由**：
-- 数据极其规整，所有内容类型都是中英交替 markdown，按标题切分即可
-- 自己切分代码 ~50-80 行，完全可控，无需外部依赖
-
-## 引用机制
-
-**方案**：后端主导引用，AI 只做选择。
-
-1. 检索返回 top-5 chunks，在 system prompt 中编号为 `[来源1]`..`[来源5]`
-2. AI 在回答中自然标注 `[来源N]`
-3. 后端提取编号 → 映射到实际 chunk 数据 → 生成 citations
-4. Excerpt 从真实 `contentEn` 截取前 80 字符
-
-**优点**：引用 100% 真实，不可能幻觉。
-
-## 检索流程
+当前阶段对话检索范围**只包含股东信 + 合伙人信**：
 
 ```
-用户中文提问
+Source.type IN ('shareholder', 'partnership')
+```
+
+股东大会、采访、文章继续保留阅读能力，但不进入对话检索主链路，等 v2 稳定后再扩容。
+
+### D1: 不再使用“单点路由二选一”
+
+**方案**：LLM 不负责决定“只跑关键词或只跑语义”，而是只负责输出结构化问题理解。
+
+**理由**：
+- 单点路由选错一次就全错
+- 并行多路召回更稳健，便于回归测试
+
+### D2: Query Understanding 结构化输出
+
+**方案**：先把用户问题解析为统一 JSON：
+- `intent`：fact / timeline / opinion / compare / chat
+- `entities`：公司、人名、事件
+- `year_from` / `year_to`
+- `keyword_query`（精确召回）
+- `semantic_query`（语义召回）
+- `answer_mode`：concise / timeline / compare
+
+**理由**：
+- 多轮追问、口语表达可以先归一化再检索
+- 检索与生成解耦，定位问题更容易
+
+### D3: 并行召回 + 融合重排
+
+**方案**：
+- 关键词路（tsvector）召回 top-k
+- 向量路（pgvector）召回 top-k
+- RRF/加权融合后去重，得到统一候选
+
+**理由**：
+- 关键词擅长实体精确命中，向量擅长语义扩展
+- 融合后对 query phrasing 变化更鲁棒
+
+### D4: 只对英文建索引（保持不变）
+
+**方案**：`searchVector` 与 `embedding` 都基于 `contentEn`。中文问题先做英文化检索表达。
+
+### D5: 全部在 PostgreSQL 内完成（保持不变）
+
+**方案**：tsvector + GIN、pgvector + HNSW，不引入外部检索引擎。
+
+### D6: 引用精度升级为“段落级摘取”
+
+**方案**：检索命中 chunk 后，在 chunk 内做 query-aware passage 抽取，返回最小可读证据段落作为引用。
+
+**理由**：
+- 比“固定截取前 80/150 字符”更精准
+- 用户点击引用时更容易验证答案
+
+## 生成机制（Evidence-first）
+
+**方案**：先证据规划，再生成回答。
+
+1. 从融合候选中选出证据集合（覆盖实体/年份/子问题）
+2. 形成内部 evidence plan（不对用户展示）
+3. LLM 严格基于证据生成中文回答
+4. 若证据不足，明确告知“未检索到足够原文”
+
+## 检索流程（v2）
+
+```
+用户提问
   │
-  ├─① Query 翻译 + 改写（AI API，与 usage check 并行）
-  │    "借钱炒股危险吗" → "dangers of leverage margin debt investing"
+  ├─① Query Understanding（结构化）
+  │    输出 intent/entities/time/keyword_query/semantic_query
   │
-  ├─② 并行两路检索
-  │    ├─ 向量路：query embedding → cosine similarity → top 20
-  │    └─ 关键词路：translated query → tsvector @@ plainto_tsquery → top 20
+  ├─② 并行召回（限定 shareholder + partnership）
+  │    ├─ 关键词路：tsvector top-k
+  │    └─ 语义路：pgvector top-k
   │
-  ├─③ 合并去重 + 加权排序
-  │    score = 0.7 × vector_score + 0.3 × keyword_score
-  │    取 top 5
+  ├─③ 融合重排 + 去重（RRF/加权）
   │
-  └─④ 喂给巴菲特 persona 生成中文回答
+  ├─④ 段落级证据抽取（query-aware passage）
+  │
+  └─⑤ Evidence-first 生成回答 + 返回来源
 ```
 
 ## Embedding 方案

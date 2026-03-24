@@ -48,8 +48,18 @@
 
 ### 收尾任务
 
-- [ ] 对话质量验收 — 准备 10 个测试问题，验证检索召回率 + 引用出现（含股东大会内容）
+- [ ] 对话质量验收 — 准备 30 个测试问题，验证检索召回率 + 引用命中率（范围：股东信 + 合伙人信）
 - [ ] 移动端体验打磨 — 阅读页、工作区在手机上的交互细节
+
+### Phase R：检索架构 v2（当前最高优先级）
+
+- [x] R1. Query Understanding — 输出结构化 JSON（intent/entities/time/keyword_query/semantic_query/answer_mode）
+- [x] R2. 检索执行改为并行双路（keyword + semantic），不再二选一单点路由
+- [x] R3. 融合重排（RRF 或加权）+ 去重，统一 top-k 候选
+- [x] R4. query-aware 段落级引用摘取，替换固定前缀截断 excerpt
+- [x] R5. 生成前 Evidence Plan（内部步骤），证据不足时明确降级回复
+- [x] R6. 配置化检索范围（默认仅 shareholder + partnership）
+- [x] R7. 建立离线评测集（30-50 题）+ 指标看板（完整性/相关性/可追溯率）
 
 ### Phase F：用户数据 + 支付
 

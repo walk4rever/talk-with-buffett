@@ -2087,6 +2087,21 @@ body.layout-no-header {
   color: var(--text-muted);
 }
 
+.workspace-source-toggle {
+  margin: 0.6rem 0 0.45rem;
+  border: 1px solid var(--secondary);
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  padding: 0.28rem 0.55rem;
+  cursor: pointer;
+}
+
+.workspace-source-toggle:hover {
+  border-color: var(--accent);
+}
+
 .workspace-canvas-loading {
   display: flex;
   align-items: center;
