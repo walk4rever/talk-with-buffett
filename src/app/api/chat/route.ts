@@ -109,6 +109,13 @@ export async function POST(req: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      // Send sources immediately before AI streaming begins so it always arrives.
+      controller.enqueue(
+        encoder.encode(
+          `event: sources\ndata: ${JSON.stringify({ sources, remaining: usage.remaining })}\n\n`,
+        ),
+      );
+
       const reader = aiRes.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -143,11 +150,7 @@ export async function POST(req: Request) {
           }
         }
 
-        controller.enqueue(
-          encoder.encode(
-            `event: done\ndata: ${JSON.stringify({ sources, remaining: usage.remaining })}\n\n`,
-          ),
-        );
+        controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
       } catch (err) {
         console.error("Stream processing error:", err);
         controller.enqueue(

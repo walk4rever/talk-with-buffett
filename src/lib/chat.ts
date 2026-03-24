@@ -71,13 +71,17 @@ export async function streamChatAPI(
         const payload = trimmed.slice(6);
         if (currentEvent === "delta") {
           try { onDelta(JSON.parse(payload)); } catch { /* skip */ }
-        } else if (currentEvent === "done") {
+        } else if (currentEvent === "sources") {
+          // Sources arrive first, before AI streaming starts.
           try {
             const data = JSON.parse(payload);
             onDone(data.sources ?? []);
           } catch {
             onDone([]);
           }
+          gotDone = true;
+        } else if (currentEvent === "done") {
+          // End-of-stream signal — sources already delivered via "sources" event.
           gotDone = true;
         } else if (currentEvent === "error") {
           onError("抱歉，服务暂时不可用，请稍后重试。");
