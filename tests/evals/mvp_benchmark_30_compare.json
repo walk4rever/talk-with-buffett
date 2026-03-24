@@ -1,17 +1,8 @@
 {
-  "generatedAt": "2026-03-24T13:09:30.521Z",
+  "generatedAt": "2026-03-24T14:00:06.466Z",
   "comparison": {
     "base": {
-      "path": "/Users/rafael/R129/talk-with-buffett/tests/evals/history/mvp_benchmark_30_summary_2026-03-24T12-43-59.080Z.json",
-      "meta": {
-        "generatedAt": "2026-03-24T12:43:59.080Z",
-        "baseUrl": "http://127.0.0.1:3000",
-        "questionFile": "/Users/rafael/R129/talk-with-buffett/tests/evals/mvp_benchmark_30_questions.json",
-        "gitSha": "5ec54919b4b9c10f42614e04195f2a9884dac592"
-      }
-    },
-    "candidate": {
-      "path": "/Users/rafael/R129/talk-with-buffett/tests/evals/mvp_benchmark_30_summary.json",
+      "path": "/Users/rafael/R129/talk-with-buffett/tests/evals/history/mvp_benchmark_30_summary_2026-03-24T13-09-23.157Z.json",
       "meta": {
         "generatedAt": "2026-03-24T13:09:23.157Z",
         "baseUrl": "http://127.0.0.1:3000",
@@ -19,24 +10,33 @@
         "gitSha": "fe740562fd28d8439933f724608724c272003cf2"
       }
     },
+    "candidate": {
+      "path": "/Users/rafael/R129/talk-with-buffett/tests/evals/mvp_benchmark_30_summary.json",
+      "meta": {
+        "generatedAt": "2026-03-24T13:59:55.729Z",
+        "baseUrl": "http://127.0.0.1:3000",
+        "questionFile": "/Users/rafael/R129/talk-with-buffett/tests/evals/mvp_benchmark_30_questions.json",
+        "gitSha": "eec2cd6e53827be85c16b8c1677b8f6b40963a2f"
+      }
+    },
     "overall": {
       "weightedAvgHits": {
-        "base": 6.11,
-        "current": 6.85,
-        "delta": 0.74,
-        "pct": 12.11
+        "base": 6.85,
+        "current": 7.54,
+        "delta": 0.69,
+        "pct": 10.07
       },
       "avgHitsAll": {
-        "base": 5.4,
-        "current": 5.8333,
-        "delta": 0.4333,
-        "pct": 8.02
+        "base": 5.8333,
+        "current": 6.3333,
+        "delta": 0.5,
+        "pct": 8.57
       },
       "avgLatencyMsAll": {
-        "base": 21346.33,
-        "current": 21797.77,
-        "delta": 451.44,
-        "pct": 2.11
+        "base": 21797.77,
+        "current": 22767.7,
+        "delta": 969.93,
+        "pct": 4.45
       },
       "successRate": {
         "base": 1,
@@ -47,21 +47,21 @@
     "byType": {
       "fact": {
         "avgHits": {
-          "base": 6.1,
-          "current": 7.4,
-          "delta": 1.3,
-          "pct": 21.31
+          "base": 7.4,
+          "current": 8,
+          "delta": 0.6,
+          "pct": 8.11
         },
         "avgLatencyMs": {
-          "base": 23703.6,
-          "current": 23949.8,
-          "delta": 246.2,
-          "pct": 1.04
+          "base": 23949.8,
+          "current": 25753,
+          "delta": 1803.2,
+          "pct": 7.53
         },
         "zeroHitCount": {
           "base": 2,
-          "current": 2,
-          "delta": 0
+          "current": 0,
+          "delta": -2
         },
         "successRate": {
           "base": 1,
@@ -71,21 +71,21 @@
       },
       "method": {
         "avgHits": {
-          "base": 7.2,
-          "current": 7,
-          "delta": -0.2,
-          "pct": -2.78
+          "base": 7,
+          "current": 8.2,
+          "delta": 1.2,
+          "pct": 17.14
         },
         "avgLatencyMs": {
-          "base": 22159.7,
-          "current": 23056.3,
-          "delta": 896.6,
-          "pct": 4.05
+          "base": 23056.3,
+          "current": 26326.2,
+          "delta": 3269.9,
+          "pct": 14.18
         },
         "zeroHitCount": {
           "base": 3,
-          "current": 3,
-          "delta": 0
+          "current": 2,
+          "delta": -1
         },
         "successRate": {
           "base": 1,
@@ -95,16 +95,16 @@
       },
       "chat": {
         "avgHits": {
-          "base": 2.9,
-          "current": 3.1,
-          "delta": 0.2,
-          "pct": 6.9
+          "base": 3.1,
+          "current": 2.8,
+          "delta": -0.3,
+          "pct": -9.68
         },
         "avgLatencyMs": {
-          "base": 18175.7,
-          "current": 18387.2,
-          "delta": 211.5,
-          "pct": 1.16
+          "base": 18387.2,
+          "current": 16223.9,
+          "delta": -2163.3,
+          "pct": -11.77
         },
         "zeroHitCount": {
           "base": 5,

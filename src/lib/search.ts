@@ -699,7 +699,7 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     semanticLimit += 8;
   }
   if (mentionQuery && timelineQuery) {
-    semanticLimit = 0;
+    semanticLimit = Math.max(semanticLimit, 8);
   }
 
   const refinedKeywordQuery = mentionQuery && timelineQuery
