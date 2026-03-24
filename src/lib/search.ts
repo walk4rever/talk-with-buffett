@@ -192,8 +192,15 @@ interface KeywordParams {
   yearTo: number | null;
 }
 
-const THRESHOLD_TEMPORAL = 0.02;
+// Lower threshold for temporal/distinct-by-year to catch proper-noun company names.
+// tsvector stems "Progressive" → "progress" giving low ts_rank scores for single-mention chunks.
+const THRESHOLD_TEMPORAL = 0.001;
 const THRESHOLD_RELEVANCE = 0.05;
+
+/** Primary search term extracted from "Foo | Foo Bar" style keywords (first token before " | "). */
+function primaryTerm(keywords: string): string {
+  return keywords.split("|")[0].trim();
+}
 
 async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
   const threshold = p.order === "relevance" ? THRESHOLD_RELEVANCE : THRESHOLD_TEMPORAL;
@@ -204,7 +211,43 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
 
   try {
     if (p.distinctByYear) {
-      // One chunk per year — the highest-scoring chunk for that year.
+      // One chunk per year for "which years" queries.
+      // Strategy: exact ILIKE match first (precise for proper nouns like company names),
+      // fall back to tsvector if ILIKE returns nothing (e.g. abstract concepts with no exact match).
+      const term = primaryTerm(p.keywords);
+      // Use case-sensitive LIKE to avoid matching lowercase variants (e.g. "progressively" ≠ "Progressive").
+      // The LLM always capitalizes proper nouns (company names), so this gives high precision.
+      const likePattern = `%${term}%`;
+
+      const ilikeRows = await prisma.$queryRawUnsafe<
+        { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number }[]
+      >(
+        `
+        SELECT DISTINCT ON (l."year")
+          s."id",
+          l."year",
+          s."order",
+          s."title",
+          l."type"       AS "sourceType",
+          s."contentEn",
+          s."contentZh",
+          0.1::float8 AS score
+        FROM "Chunk" s
+        JOIN "Source" l ON l."id" = s."sourceId"
+        WHERE s."contentEn" LIKE $1
+          AND ($2::int IS NULL OR l."year" >= $2)
+          AND ($3::int IS NULL OR l."year" <= $3)
+        ORDER BY l."year" ASC
+        LIMIT 40
+        `,
+        likePattern, p.yearFrom ?? null, p.yearTo ?? null,
+      );
+
+      if (ilikeRows.length > 0) {
+        return ilikeRows.map(toChunk);
+      }
+
+      // ILIKE found nothing — fall back to tsvector (handles abstract/philosophical queries).
       const rows = await prisma.$queryRawUnsafe<
         { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number }[]
       >(
