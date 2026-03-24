@@ -310,6 +310,57 @@ function containsAllTokens(text: string, tokens: string[]): boolean {
   });
 }
 
+const STRICT_TOKEN_STOPWORDS = new Set([
+  "the", "and", "for", "with", "what", "when", "which", "who", "whom", "where", "why", "how",
+  "did", "does", "have", "has", "about", "into", "from", "that", "this", "your", "you", "will",
+  "were", "been", "over", "time", "first", "earliest", "latest", "mention", "mentioned",
+]);
+
+function extractAsciiTokens(text: string): string[] {
+  const out: string[] = [];
+  const matches = text.match(/[A-Za-z][A-Za-z0-9.&'-]*/g) ?? [];
+  for (const raw of matches) {
+    const token = raw.trim().replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, "");
+    if (token.length < 2) continue;
+    if (STRICT_TOKEN_STOPWORDS.has(token.toLowerCase())) continue;
+    out.push(token);
+  }
+  return [...new Set(out)];
+}
+
+function buildStrictTokens(keywordQuery: string, entities: string[], rawQuery: string): string[] {
+  const fromKeyword = extractAsciiTokens(primaryTerm(keywordQuery));
+  const fromEntities = entities.flatMap((e) => extractAsciiTokens(e));
+  const fromRaw = extractAsciiTokens(rawQuery).filter((t) => t.toUpperCase() === t || t.length >= 4);
+  return [...new Set([...fromEntities, ...fromKeyword, ...fromRaw])].slice(0, 8);
+}
+
+const KEYWORD_ANCHORS: Array<{ pattern: RegExp; anchor: string }> = [
+  { pattern: /能力圈|circle of competence/i, anchor: "circle of competence" },
+  { pattern: /护城河|moat/i, anchor: "economic moat" },
+  { pattern: /择时|market timing/i, anchor: "market timing" },
+  { pattern: /科技公司|technology company|tech company|tech stock/i, anchor: "technology companies investment" },
+  { pattern: /苹果|apple/i, anchor: "Apple AAPL" },
+  { pattern: /可口可乐|coca[\s-]?cola/i, anchor: "Coca-Cola" },
+  { pattern: /继任|接班|succession/i, anchor: "succession" },
+  { pattern: /浮存金|insurance float|float/i, anchor: "insurance float" },
+];
+
+function enrichKeywordQuery(keywordQuery: string, rawQuery: string): string {
+  const base = keywordQuery.trim();
+  if (!base) return base;
+
+  const anchors: string[] = [];
+  for (const rule of KEYWORD_ANCHORS) {
+    rule.pattern.lastIndex = 0;
+    if (!rule.pattern.test(rawQuery)) continue;
+    if (new RegExp(escapeRegExp(rule.anchor), "i").test(base)) continue;
+    anchors.push(rule.anchor);
+  }
+  if (anchors.length === 0) return base;
+  return `${anchors.join(" | ")} | ${base}`;
+}
+
 async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
   const q = p.keywords.trim();
   if (!q) return [];
@@ -651,11 +702,12 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     semanticLimit = 0;
   }
 
-  const keywordQuery = mentionQuery && timelineQuery
+  const refinedKeywordQuery = mentionQuery && timelineQuery
     ? refineKeywordForEntityMention(u.keywordQuery, query)
     : u.keywordQuery;
+  const keywordQuery = enrichKeywordQuery(refinedKeywordQuery, query);
   const strictTokens = mentionQuery && timelineQuery
-    ? primaryTerm(keywordQuery).split(/\s+/).map((x) => x.trim()).filter((x) => x.length >= 3)
+    ? buildStrictTokens(keywordQuery, u.entities, query)
     : [];
 
   const [keywordRows, semanticRows] = await Promise.all([
