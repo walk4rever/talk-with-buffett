@@ -139,12 +139,14 @@ export async function resolveSearch(query: string): Promise<ToolCall | null> {
     const raw = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!raw) return null;
 
-    return {
+    const call = {
       name: raw.function.name as string,
       arguments: JSON.parse(raw.function.arguments) as Record<string, unknown>,
     };
+    console.log(`[resolveSearch] tool=${call.name} args=${JSON.stringify(call.arguments)}`);
+    return call;
   } catch (err) {
-    console.error("resolveSearch error:", err);
+    console.error("[resolveSearch] error:", err);
     return null;
   }
 }

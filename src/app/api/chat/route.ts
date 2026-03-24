@@ -45,11 +45,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
 
-  // Parallel: usage check + keyword search (parseQuery → tsvector)
+  // Parallel: usage check + tool-use search
   const [usage, { chunks, order, distinctByYear }] = await Promise.all([
     checkAndIncrementUsage(ip),
     searchChunks(lastUserMsg.content),
   ]);
+  console.log(`[search] query="${lastUserMsg.content.slice(0, 60)}" chunks=${chunks.length} order=${order} distinct=${distinctByYear}`);
 
   if (!usage.allowed) {
     return NextResponse.json(
