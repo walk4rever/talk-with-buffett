@@ -70,6 +70,7 @@ const messageMarkdownComponents = {
 };
 
 const scrollPositions = new Map<string, number>();
+let activeHighlightEl: Element | null = null;
 let cachedTransfer:
   | { messages: ChatMessage[]; refs: ReferenceItem[]; turns: number }
   | null
@@ -226,6 +227,12 @@ function createReaderMarkdownComponents(readingMode: ReadingMode) {
   };
 }
 
+function applyHighlight(el: Element) {
+  if (activeHighlightEl) activeHighlightEl.classList.remove("canvas-highlight");
+  el.classList.add("canvas-highlight");
+  activeHighlightEl = el;
+}
+
 function scrollToChunk(container: HTMLElement, title: string | null, excerpt: string) {
   // Strategy 1: find heading by chunk title (most reliable — headings are unique anchors).
   if (title && title.trim()) {
@@ -235,8 +242,7 @@ function scrollToChunk(container: HTMLElement, title: string | null, excerpt: st
       const hText = (h.textContent ?? "").toLowerCase();
       if (words.length > 0 && words.every((w) => hText.includes(w))) {
         h.scrollIntoView({ behavior: "smooth", block: "start" });
-        (h as HTMLElement).classList.add("canvas-highlight");
-        setTimeout(() => (h as HTMLElement).classList.remove("canvas-highlight"), 2000);
+        applyHighlight(h);
         return;
       }
     }
@@ -253,8 +259,7 @@ function scrollToChunk(container: HTMLElement, title: string | null, excerpt: st
       const el = node.parentElement;
       if (!el) continue;
       el.scrollIntoView({ behavior: "smooth", block: "center" });
-      el.classList.add("canvas-highlight");
-      setTimeout(() => el.classList.remove("canvas-highlight"), 2000);
+      applyHighlight(el);
       return;
     }
   }
@@ -756,7 +761,6 @@ function ReferenceList({
         >
           <div className="workspace-reference-meta">
             <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>
-            {item.seenCount > 1 ? <span>出现 {item.seenCount} 次</span> : <span>首次引用</span>}
           </div>
           {item.title ? <h4 className="workspace-reference-title">{item.title}</h4> : null}
           <p className="workspace-reference-excerpt">{item.excerpt}</p>
