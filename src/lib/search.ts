@@ -1,10 +1,10 @@
 /**
  * Retrieval pipeline for the chat engine.
  *
- * Flow:
- *   understandQuery(query) -> structured intent/entities/time/queries
- *   parallel retrieval (keyword + semantic) within configured source scope
- *   fuse + rank -> return top chunks for prompt grounding
+ * MVP flow:
+ *   understandQuery(query) -> lightweight query plan (task + time + queries)
+ *   parallel retrieval (keyword + semantic) with task-aware budgets
+ *   RRF fusion + hard year filter + lightweight task post-process
  */
 
 import prisma from "@/lib/prisma";
@@ -45,15 +45,20 @@ const CHAT_SOURCE_TYPES_SQL = sourceTypeSqlList(CHAT_SOURCE_TYPES);
 
 type QueryIntent = "fact" | "timeline" | "opinion" | "compare" | "chat";
 type AnswerMode = "concise" | "timeline" | "compare";
+type TaskType = "fact" | "method" | "chat";
+type TemporalMode = "none" | "point" | "range" | "earliest" | "latest" | "evolution";
 
-interface QueryUnderstanding {
-  intent: QueryIntent;
+interface QueryPlan {
+  taskType: TaskType;
+  timeline: boolean;
+  compare: boolean;
+  temporalMode: TemporalMode;
   entities: string[];
   yearFrom: number | null;
   yearTo: number | null;
   keywordQuery: string;
   semanticQuery: string;
-  answerMode: AnswerMode;
+  confidence: number;
 }
 
 const TERM_GLOSSARY: Array<{ pattern: RegExp; replacement: string }> = [
@@ -73,11 +78,25 @@ function applyGlossary(text: string): string {
 }
 
 function isTemporalQuestion(text: string): boolean {
-  return /(哪一年|哪年|哪些年|几年|最早|首次|第一次|when did|what year|which year|first mention|earliest)/i.test(text);
+  return /(哪一年|哪年|哪些年|几年|最早|首次|第一次|历年|变化|when did|what year|which year|first mention|earliest|latest|over\s+time)/i.test(text);
 }
 
 function isMentionQuery(text: string): boolean {
   return /(提到|提及|有没有说过|mention|mentioned|mentioning)/i.test(text);
+}
+
+function isCompareQuestion(text: string): boolean {
+  return /(比较|对比|区别|vs\.?|versus|相比|compared?\s+to)/i.test(text);
+}
+
+function isMethodQuestion(text: string): boolean {
+  return /(怎么看|看法|认为|原则|方法|如何|怎么做|approach|philosophy|principle|framework|why)/i.test(text);
+}
+
+function isChatQuestion(text: string): boolean {
+  const q = text.trim();
+  if (q.length <= 12 && /^(你好|嗨|哈喽|在吗|谢谢|hello|hi)/i.test(q)) return true;
+  return /(你好吗|讲个笑话|早上好|晚上好)/i.test(q);
 }
 
 function refineKeywordForEntityMention(keywordQuery: string, rawQuery: string): string {
@@ -93,14 +112,15 @@ function refineKeywordForEntityMention(keywordQuery: string, rawQuery: string): 
 }
 
 const UNDERSTAND_SYSTEM =
-  "You normalize user questions for retrieval over Warren Buffett writings.\n" +
-  "Return strict JSON only, with keys: intent, entities, yearFrom, yearTo, keywordQuery, semanticQuery, answerMode.\n" +
-  "intent enum: fact|timeline|opinion|compare|chat.\n" +
-  "answerMode enum: concise|timeline|compare.\n" +
-  "Translate Chinese into concise English retrieval expressions.\n" +
-  "keywordQuery should prioritize entities and exact terms; semanticQuery should be a natural English query.\n" +
-  "If no year constraints, use null for yearFrom/yearTo.\n" +
-  "Do not add markdown. Output only one JSON object.";
+  "You are a retrieval planner for Warren Buffett corpus QA.\\n" +
+  "Return strict JSON only with keys: task_type, temporal_mode, year_from, year_to, entities, keyword_query, semantic_query, confidence.\\n" +
+  "task_type enum: fact|method|chat.\\n" +
+  "temporal_mode enum: none|point|range|earliest|latest|evolution.\\n" +
+  "entities must be a short array of retrieval-relevant names.\\n" +
+  "Translate Chinese into concise English retrieval expressions.\\n" +
+  "keyword_query should prioritize exact entities and anchor terms; semantic_query should be a natural English query.\\n" +
+  "If no year constraints, use null for year_from/year_to.\\n" +
+  "Output only one JSON object.";
 
 function extractYearsFromText(text: string): { yearFrom: number | null; yearTo: number | null } {
   const years = Array.from(text.matchAll(/(?:19|20)\d{2}/g)).map((m) => Number(m[0]));
@@ -109,57 +129,89 @@ function extractYearsFromText(text: string): { yearFrom: number | null; yearTo: 
   return { yearFrom: sorted[0] ?? null, yearTo: sorted[sorted.length - 1] ?? null };
 }
 
-function fallbackUnderstanding(query: string): QueryUnderstanding {
-  const normalizedInput = applyGlossary(query);
-  const temporalPattern = /(哪年|哪些年|首次|第一次|历年|变化|most recent|latest|first\s+time|which\s+years|over\s+time)/i;
-  const opinionPattern = /(怎么看|看法|认为|原则|方法|approach|think about|philosophy|principle|framework)/i;
-  const comparePattern = /(比较|对比|区别|vs\.?|versus|compared?\s+to)/i;
+function inferTemporalMode(text: string, yearFrom: number | null, yearTo: number | null): TemporalMode {
+  if (/(最早|首次|第一次|earliest|first)/i.test(text)) return "earliest";
+  if (/(最近|最新|latest|most recent)/i.test(text)) return "latest";
+  if (/(变化|演变|历年|evolution|over\s+time)/i.test(text)) return "evolution";
+  if (yearFrom !== null && yearTo !== null && yearFrom !== yearTo) return "range";
+  if (yearFrom !== null && yearTo !== null && yearFrom === yearTo) return "point";
+  return "none";
+}
 
-  const { yearFrom, yearTo } = extractYearsFromText(normalizedInput);
-  const intent: QueryIntent = comparePattern.test(normalizedInput)
-    ? "compare"
-    : temporalPattern.test(normalizedInput)
-    ? "timeline"
-    : opinionPattern.test(normalizedInput)
-    ? "opinion"
+function normalizeYearRange(yearFrom: number | null, yearTo: number | null): { yearFrom: number | null; yearTo: number | null } {
+  const yf = yearFrom !== null && yearFrom >= 1900 && yearFrom <= 2100 ? yearFrom : null;
+  const yt = yearTo !== null && yearTo >= 1900 && yearTo <= 2100 ? yearTo : null;
+  if (yf === null && yt === null) return { yearFrom: null, yearTo: null };
+  if (yf !== null && yt !== null && yf > yt) return { yearFrom: yt, yearTo: yf };
+  return { yearFrom: yf, yearTo: yt };
+}
+
+function fallbackPlan(query: string): QueryPlan {
+  const normalizedInput = applyGlossary(query);
+  const extractedYears = extractYearsFromText(normalizedInput);
+  const { yearFrom, yearTo } = normalizeYearRange(extractedYears.yearFrom, extractedYears.yearTo);
+  const compare = isCompareQuestion(normalizedInput);
+  const timeline = isTemporalQuestion(normalizedInput);
+  const taskType: TaskType = isChatQuestion(normalizedInput)
+    ? "chat"
+    : isMethodQuestion(normalizedInput)
+    ? "method"
     : "fact";
 
-  const answerMode: AnswerMode = intent === "timeline" ? "timeline" : intent === "compare" ? "compare" : "concise";
-
   return {
-    intent,
+    taskType: compare && taskType === "chat" ? "fact" : taskType,
+    timeline,
+    compare,
+    temporalMode: inferTemporalMode(normalizedInput, yearFrom, yearTo),
     entities: [],
     yearFrom,
     yearTo,
     keywordQuery: normalizedInput,
     semanticQuery: normalizedInput,
-    answerMode,
+    confidence: 0.55,
   };
 }
 
-function normalizeUnderstanding(raw: unknown, fallback: QueryUnderstanding): QueryUnderstanding {
+function normalizePlan(raw: unknown, fallback: QueryPlan): QueryPlan {
   if (!raw || typeof raw !== "object") return fallback;
   const obj = raw as Record<string, unknown>;
 
-  const intent = ["fact", "timeline", "opinion", "compare", "chat"].includes(String(obj.intent))
-    ? (obj.intent as QueryIntent)
-    : fallback.intent;
-
-  const answerMode = ["concise", "timeline", "compare"].includes(String(obj.answerMode))
-    ? (obj.answerMode as AnswerMode)
-    : fallback.answerMode;
+  const taskType = ["fact", "method", "chat"].includes(String(obj.task_type))
+    ? (obj.task_type as TaskType)
+    : fallback.taskType;
+  const temporalMode = ["none", "point", "range", "earliest", "latest", "evolution"].includes(String(obj.temporal_mode))
+    ? (obj.temporal_mode as TemporalMode)
+    : fallback.temporalMode;
 
   const entities = Array.isArray(obj.entities)
     ? obj.entities.map((x) => String(x).trim()).filter((x) => x.length > 0).slice(0, 8)
     : fallback.entities;
 
-  const yearFrom = typeof obj.yearFrom === "number" ? obj.yearFrom : fallback.yearFrom;
-  const yearTo = typeof obj.yearTo === "number" ? obj.yearTo : fallback.yearTo;
+  const yearFromRaw = typeof obj.year_from === "number" ? obj.year_from : fallback.yearFrom;
+  const yearToRaw = typeof obj.year_to === "number" ? obj.year_to : fallback.yearTo;
+  const { yearFrom, yearTo } = normalizeYearRange(yearFromRaw, yearToRaw);
 
-  const keywordQuery = String(obj.keywordQuery ?? "").trim() || fallback.keywordQuery;
-  const semanticQuery = String(obj.semanticQuery ?? "").trim() || fallback.semanticQuery;
+  const keywordQuery = String(obj.keyword_query ?? "").trim() || fallback.keywordQuery;
+  const semanticQuery = String(obj.semantic_query ?? "").trim() || fallback.semanticQuery;
+  const confidence = typeof obj.confidence === "number" && obj.confidence >= 0 && obj.confidence <= 1
+    ? obj.confidence
+    : fallback.confidence;
 
-  return { intent, entities, yearFrom, yearTo, keywordQuery, semanticQuery, answerMode };
+  const compare = isCompareQuestion(keywordQuery) || isCompareQuestion(semanticQuery);
+  const timeline = temporalMode !== "none" || isTemporalQuestion(keywordQuery) || isTemporalQuestion(semanticQuery);
+
+  return {
+    taskType: compare && taskType === "chat" ? "fact" : taskType,
+    timeline,
+    compare,
+    temporalMode,
+    entities,
+    yearFrom,
+    yearTo,
+    keywordQuery,
+    semanticQuery,
+    confidence,
+  };
 }
 
 function tryParseJson(content: string): unknown {
@@ -176,9 +228,9 @@ function tryParseJson(content: string): unknown {
   }
 }
 
-async function understandQuery(query: string): Promise<QueryUnderstanding> {
+async function understandQuery(query: string): Promise<QueryPlan> {
   const normalizedInput = applyGlossary(query);
-  const fallback = fallbackUnderstanding(normalizedInput);
+  const fallback = fallbackPlan(normalizedInput);
 
   try {
     const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
@@ -203,26 +255,23 @@ async function understandQuery(query: string): Promise<QueryUnderstanding> {
     const data = await res.json();
     const content = String(data.choices?.[0]?.message?.content ?? "");
     const parsed = tryParseJson(content);
-    const normalized = normalizeUnderstanding(parsed, fallback);
+    const normalized = normalizePlan(parsed, fallback);
 
-    console.log(`[understandQuery] ${JSON.stringify(normalized)}`);
-    if (isTemporalQuestion(query)) {
-      return {
-        ...normalized,
-        intent: "timeline",
-        answerMode: "timeline",
-      };
-    }
-    return normalized;
+    const forcedTimeline = isTemporalQuestion(query);
+    const forcedCompare = isCompareQuestion(query);
+    const result: QueryPlan = {
+      ...normalized,
+      timeline: normalized.timeline || forcedTimeline,
+      compare: normalized.compare || forcedCompare,
+      temporalMode: forcedTimeline && normalized.temporalMode === "none" ? "evolution" : normalized.temporalMode,
+    };
+
+    console.log(
+      `[understandQuery] task=${result.taskType} timeline=${result.timeline} compare=${result.compare} mode=${result.temporalMode} years=${result.yearFrom ?? "-"}-${result.yearTo ?? "-"} conf=${result.confidence.toFixed(2)}`,
+    );
+    return result;
   } catch (err) {
     console.error("[understandQuery] error:", err);
-    if (isTemporalQuestion(query)) {
-      return {
-        ...fallback,
-        intent: "timeline",
-        answerMode: "timeline",
-      };
-    }
     return fallback;
   }
 }
@@ -253,7 +302,6 @@ function escapeRegExp(s: string): string {
 function containsAllTokens(text: string, tokens: string[]): boolean {
   if (tokens.length === 0) return true;
   return tokens.every((t) => {
-    // ASCII tokens: enforce whole-word match to avoid false positives like progressive -> progressively.
     if (/^[a-z0-9_-]+$/i.test(t)) {
       const re = new RegExp(`\\b${escapeRegExp(t)}\\b`, "i");
       return re.test(text);
@@ -304,18 +352,12 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
 
       if (ilikeRows.length > 0) {
         const strictFiltered = (p.strictTokens && p.strictTokens.length > 0)
-          ? ilikeRows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens!))
+          ? ilikeRows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens))
           : ilikeRows;
-        if (strictFiltered.length > 0) {
-          return strictFiltered.map(toChunk);
-        }
+        if (strictFiltered.length > 0) return strictFiltered.map(toChunk);
       }
 
-      // Mention + temporal queries use strict phrase/entity matching only.
-      // If strict filters found no rows, avoid broad tsvector fallback that introduces false positives.
-      if (p.strictTokens && p.strictTokens.length > 1) {
-        return [];
-      }
+      if (p.strictTokens && p.strictTokens.length > 1) return [];
 
       const rows = await prisma.$queryRawUnsafe<
         { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number }[]
@@ -343,7 +385,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
         q, threshold, p.yearFrom ?? null, p.yearTo ?? null, p.limit,
       );
       const strictFiltered = (p.strictTokens && p.strictTokens.length > 0)
-        ? rows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens!))
+        ? rows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens))
         : rows;
       return strictFiltered.map(toChunk);
     }
@@ -374,7 +416,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
       q, threshold, p.yearFrom ?? null, p.yearTo ?? null, p.limit,
     );
     const strictFiltered = (p.strictTokens && p.strictTokens.length > 0)
-      ? rows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens!))
+      ? rows.filter((r) => containsAllTokens(r.contentEn, p.strictTokens))
       : rows;
     return strictFiltered.map(toChunk);
   } catch (err) {
@@ -402,7 +444,12 @@ async function getEmbedding(text: string): Promise<number[]> {
   return data.data.embedding;
 }
 
-async function runSemanticSearch(query: string, limit: number): Promise<RetrievedChunk[]> {
+async function runSemanticSearch(
+  query: string,
+  limit: number,
+  yearFrom: number | null,
+  yearTo: number | null,
+): Promise<RetrievedChunk[]> {
   const q = query.trim();
   if (!q) return [];
 
@@ -432,10 +479,14 @@ async function runSemanticSearch(query: string, limit: number): Promise<Retrieve
       JOIN "Source" l ON l."id" = s."sourceId"
       WHERE s."embedding" IS NOT NULL
         AND l."type" IN (${CHAT_SOURCE_TYPES_SQL})
+        AND ($2::int IS NULL OR l."year" >= $2)
+        AND ($3::int IS NULL OR l."year" <= $3)
       ORDER BY s."embedding" <=> $1::vector
-      LIMIT $2
+      LIMIT $4
       `,
       JSON.stringify(embedding),
+      yearFrom ?? null,
+      yearTo ?? null,
       limit,
     );
     return rows.map(toChunk);
@@ -445,10 +496,13 @@ async function runSemanticSearch(query: string, limit: number): Promise<Retrieve
   }
 }
 
-function fuseByRrf(keyword: RetrievedChunk[], semantic: RetrievedChunk[], limit: number): RetrievedChunk[] {
+function fuseByRrf(
+  keyword: RetrievedChunk[],
+  semantic: RetrievedChunk[],
+  limit: number,
+  weights: { keyword: number; semantic: number } = { keyword: 1, semantic: 1 },
+): RetrievedChunk[] {
   const k = 50;
-  const weights = { keyword: 1, semantic: 1 };
-
   const acc = new Map<string, { chunk: RetrievedChunk; score: number }>();
 
   for (let i = 0; i < keyword.length; i++) {
@@ -473,6 +527,14 @@ function fuseByRrf(keyword: RetrievedChunk[], semantic: RetrievedChunk[], limit:
     .map((x) => x.chunk);
 }
 
+function applyYearRangeFilter(chunks: RetrievedChunk[], yearFrom: number | null, yearTo: number | null): RetrievedChunk[] {
+  return chunks.filter((c) => {
+    if (yearFrom !== null && c.year < yearFrom) return false;
+    if (yearTo !== null && c.year > yearTo) return false;
+    return true;
+  });
+}
+
 function maybeDistinctByYear(chunks: RetrievedChunk[], distinctByYear: boolean): RetrievedChunk[] {
   if (!distinctByYear) return chunks;
   const seen = new Set<number>();
@@ -491,6 +553,47 @@ function sortForOrder(chunks: RetrievedChunk[], order: "asc" | "desc" | "relevan
   return chunks;
 }
 
+function hasEntityMatch(chunk: RetrievedChunk, entity: string): boolean {
+  const q = entity.trim();
+  if (!q) return false;
+  const text = `${chunk.title ?? ""}\n${chunk.contentEn}`.toLowerCase();
+  return text.includes(q.toLowerCase());
+}
+
+async function ensureCompareCoverage(params: {
+  chunks: RetrievedChunk[];
+  entities: string[];
+  yearFrom: number | null;
+  yearTo: number | null;
+}): Promise<RetrievedChunk[]> {
+  if (params.entities.length < 2) return params.chunks;
+  const left = params.entities[0] ?? "";
+  const right = params.entities[1] ?? "";
+  if (!left || !right) return params.chunks;
+
+  const hasLeft = params.chunks.some((c) => hasEntityMatch(c, left));
+  const hasRight = params.chunks.some((c) => hasEntityMatch(c, right));
+  if (hasLeft && hasRight) return params.chunks;
+
+  const missing = !hasLeft ? left : right;
+  const supplementalRows = await runKeywordSearch({
+    keywords: missing,
+    order: "relevance",
+    distinctByYear: false,
+    yearFrom: params.yearFrom,
+    yearTo: params.yearTo,
+    limit: 8,
+    strictTokens: missing.split(/\s+/).map((x) => x.trim()).filter((x) => x.length >= 3),
+  });
+
+  const uniq = new Map<string, RetrievedChunk>();
+  for (const c of [...params.chunks, ...supplementalRows]) {
+    const prev = uniq.get(c.id);
+    if (!prev || c.score > prev.score) uniq.set(c.id, c);
+  }
+  return [...uniq.values()];
+}
+
 function toChunk(r: {
   id: string; year: number; order: number; title: string | null;
   sourceType: string; contentEn: string; contentZh: string | null; score: number;
@@ -499,6 +602,22 @@ function toChunk(r: {
     id: r.id, year: r.year, order: r.order, title: r.title,
     sourceType: r.sourceType, contentEn: r.contentEn, contentZh: r.contentZh, score: r.score,
   };
+}
+
+function mapPlanToOutput(taskType: TaskType, timeline: boolean, compare: boolean): { intent: QueryIntent; answerMode: AnswerMode } {
+  if (compare) return { intent: "compare", answerMode: "compare" };
+  if (timeline) return { intent: "timeline", answerMode: "timeline" };
+  if (taskType === "method") return { intent: "opinion", answerMode: "concise" };
+  if (taskType === "chat") return { intent: "chat", answerMode: "concise" };
+  return { intent: "fact", answerMode: "concise" };
+}
+
+function buildRrfWeights(taskType: TaskType, timeline: boolean, compare: boolean): { keyword: number; semantic: number } {
+  if (compare) return { keyword: 0.5, semantic: 0.5 };
+  if (timeline) return { keyword: 0.6, semantic: 0.4 };
+  if (taskType === "method") return { keyword: 0.45, semantic: 0.55 };
+  if (taskType === "chat") return { keyword: 1, semantic: 0 };
+  return { keyword: 0.7, semantic: 0.3 };
 }
 
 export interface SearchResult {
@@ -516,18 +635,26 @@ export interface SearchResult {
 export async function searchChunks(query: string): Promise<SearchResult> {
   const u = await understandQuery(query);
   const mentionQuery = isMentionQuery(query);
-  const temporalQuery = isTemporalQuestion(query);
+  const timelineQuery = u.timeline || isTemporalQuestion(query);
+  const compareQuery = u.compare || isCompareQuestion(query);
 
-  const isTimeline = temporalQuery || u.intent === "timeline" || u.answerMode === "timeline";
-  const order: "asc" | "desc" | "relevance" = isTimeline ? "asc" : "relevance";
-  const distinctByYear = isTimeline;
+  const order: "asc" | "desc" | "relevance" = timelineQuery ? "asc" : "relevance";
+  const distinctByYear = timelineQuery;
 
-  const keywordLimit = distinctByYear ? 40 : 24;
-  const semanticLimit = mentionQuery && temporalQuery ? 0 : 24;
-  const keywordQuery = mentionQuery && temporalQuery
+  let keywordLimit = u.taskType === "fact" ? 32 : u.taskType === "method" ? 24 : 6;
+  let semanticLimit = u.taskType === "fact" ? 16 : u.taskType === "method" ? 24 : 0;
+  if (timelineQuery) {
+    keywordLimit += 8;
+    semanticLimit += 8;
+  }
+  if (mentionQuery && timelineQuery) {
+    semanticLimit = 0;
+  }
+
+  const keywordQuery = mentionQuery && timelineQuery
     ? refineKeywordForEntityMention(u.keywordQuery, query)
     : u.keywordQuery;
-  const strictTokens = mentionQuery && temporalQuery
+  const strictTokens = mentionQuery && timelineQuery
     ? primaryTerm(keywordQuery).split(/\s+/).map((x) => x.trim()).filter((x) => x.length >= 3)
     : [];
 
@@ -541,30 +668,43 @@ export async function searchChunks(query: string): Promise<SearchResult> {
       limit: keywordLimit,
       strictTokens,
     }),
-    semanticLimit > 0 ? runSemanticSearch(u.semanticQuery, semanticLimit) : Promise.resolve([]),
+    semanticLimit > 0
+      ? runSemanticSearch(u.semanticQuery, semanticLimit, u.yearFrom, u.yearTo)
+      : Promise.resolve([]),
   ]);
 
-  let fused = fuseByRrf(keywordRows, semanticRows, distinctByYear ? 24 : 10);
+  const weights = buildRrfWeights(u.taskType, timelineQuery, compareQuery);
+  let fused = fuseByRrf(keywordRows, semanticRows, distinctByYear ? 24 : 10, weights);
+  fused = applyYearRangeFilter(fused, u.yearFrom, u.yearTo);
 
-  // If both retrieval routes fail unexpectedly, keep previous behavior fallback.
   if (fused.length === 0) {
     const fallbackRows = await runKeywordSearch({
       keywords: query,
       order: "relevance",
       distinctByYear: false,
-      yearFrom: null,
-      yearTo: null,
+      yearFrom: u.yearFrom,
+      yearTo: u.yearTo,
       limit: 10,
       strictTokens: [],
     });
-    fused = fallbackRows;
+    fused = applyYearRangeFilter(fallbackRows, u.yearFrom, u.yearTo);
+  }
+
+  if (compareQuery) {
+    fused = await ensureCompareCoverage({
+      chunks: fused,
+      entities: u.entities,
+      yearFrom: u.yearFrom,
+      yearTo: u.yearTo,
+    });
   }
 
   const deduped = maybeDistinctByYear(fused, distinctByYear);
   const finalChunks = sortForOrder(deduped, order);
+  const { intent, answerMode } = mapPlanToOutput(u.taskType, timelineQuery, compareQuery);
 
   console.log(
-    `[searchChunks] intent=${u.intent} mode=${u.answerMode} sourceTypes=${CHAT_SOURCE_TYPES.join(",")} kw=${keywordRows.length} sem=${semanticRows.length} final=${finalChunks.length}`,
+    `[searchChunks] task=${u.taskType} intent=${intent} mode=${answerMode} timeline=${timelineQuery} compare=${compareQuery} years=${u.yearFrom ?? "-"}-${u.yearTo ?? "-"} sourceTypes=${CHAT_SOURCE_TYPES.join(",")} kw=${keywordRows.length} sem=${semanticRows.length} final=${finalChunks.length}`,
   );
 
   return {
@@ -572,8 +712,8 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     order,
     distinctByYear,
     evidenceQuery: u.keywordQuery || u.semanticQuery || query,
-    intent: u.intent,
-    answerMode: u.answerMode,
+    intent,
+    answerMode,
     entities: u.entities,
     yearFrom: u.yearFrom,
     yearTo: u.yearTo,
