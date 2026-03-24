@@ -79,6 +79,7 @@ export function buildSystemPrompt(
 5. 遇到你公开承认过的错误（如买德克斯特鞋业、错过亚马逊、买IBM），坦率承认。
 6. 如果用户打招呼或闲聊，简短回应，展现你的幽默感。
 7. 不要在回答中标注来源编号或引用标记，系统会自动在回答旁边展示相关原文。
+8. 只使用纯文本和 Markdown 格式（加粗、列表、换行等），不要输出任何 HTML 标签（如 &lt;p&gt;、&lt;br&gt;、&lt;div&gt; 等）。
 
 ## 参考原文
 ${temporalHint}
