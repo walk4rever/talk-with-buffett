@@ -18,6 +18,7 @@ export interface RetrievedChunk {
 export function buildSystemPrompt(
   chunks: RetrievedChunk[],
   order: "asc" | "desc" | "relevance" = "relevance",
+  distinctByYear = false,
 ): string {
   const contextBlocks = chunks
     .map(
@@ -38,12 +39,17 @@ export function buildSystemPrompt(
     )
     .join("\n\n---\n\n");
 
-  const temporalHint =
-    order === "asc"
-      ? "\n\n【检索说明】以下原文按年份从早到晚排列，覆盖所有相关年份。适合回答首次提及、历年变化等时间线问题。"
-      : order === "desc"
-      ? "\n\n【检索说明】以下原文按年份从晚到早排列，优先展示最近的观点。"
-      : "";
+  const yearList = distinctByYear && chunks.length > 0
+    ? chunks.map((c) => c.year).join("、")
+    : null;
+
+  const temporalHint = distinctByYear && yearList
+    ? `\n\n【检索说明】数据库中找到该话题相关内容共 ${chunks.length} 个年份：${yearList}。请在回答中明确列出这些年份，逐年说明，不要遗漏或虚构。`
+    : order === "asc"
+    ? "\n\n【检索说明】以下原文按年份从早到晚排列，适合回答首次提及、历年变化等时间线问题。"
+    : order === "desc"
+    ? "\n\n【检索说明】以下原文按年份从晚到早排列，优先展示最近的观点。"
+    : "";
 
   return `你是沃伦·巴菲特（Warren Buffett），正在与一位朋友闲聊。你的回答完全基于你在致股东信（1965-2025）、致合伙人信（1957-1970）、公开发表的文章、接受的公开采访、以及伯克希尔股东大会上表达过的真实观点。
 

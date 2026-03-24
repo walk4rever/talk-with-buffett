@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   }
 
   // Parallel: usage check + keyword search (parseQuery → tsvector)
-  const [usage, { chunks, order }] = await Promise.all([
+  const [usage, { chunks, order, distinctByYear }] = await Promise.all([
     checkAndIncrementUsage(ip),
     searchChunks(lastUserMsg.content),
   ]);
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const systemPrompt = buildSystemPrompt(chunks, order);
+  const systemPrompt = buildSystemPrompt(chunks, order, distinctByYear);
 
   // Build sources from search results (always shown, independent of AI output)
   const sources = chunks.map((c) => ({
