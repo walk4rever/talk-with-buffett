@@ -39,7 +39,7 @@ export function HomeModeSelect() {
       <div className="home-mode-cards">
         <button
           className="home-mode-card"
-          onClick={() => router.push("/chat?mode=text")}
+          onClick={() => router.push("/workspace")}
         >
           <span className="home-mode-icon">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
