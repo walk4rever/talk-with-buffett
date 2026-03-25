@@ -4,6 +4,8 @@
  * Extracted from route.ts so it can be iterated independently.
  */
 
+export type RetrievalMethod = "keyword" | "semantic" | "both";
+
 export interface RetrievedChunk {
   id: string;
   year: number;
@@ -13,6 +15,9 @@ export interface RetrievedChunk {
   contentZh: string | null;
   sourceType: string;
   score: number;
+  retrieval: RetrievalMethod;
+  /** Raw cosine similarity (0–1) for semantic hits; null for keyword-only */
+  semanticScore: number | null;
 }
 
 export interface EvidencePlan {

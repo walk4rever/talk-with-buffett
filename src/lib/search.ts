@@ -411,7 +411,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
         const strictFiltered = strictTokens.length > 0
           ? ilikeRows.filter((r) => containsAllTokens(r.contentEn, strictTokens))
           : ilikeRows;
-        if (strictFiltered.length > 0) return strictFiltered.map(toChunk);
+        if (strictFiltered.length > 0) return strictFiltered.map((r) => toChunk(r));
       }
 
       if (p.strictTokens && p.strictTokens.length > 1) return [];
@@ -444,7 +444,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
       const strictFiltered = strictTokens.length > 0
         ? rows.filter((r) => containsAllTokens(r.contentEn, strictTokens))
         : rows;
-      return strictFiltered.map(toChunk);
+      return strictFiltered.map((r) => toChunk(r));
     }
 
     const rows = await prisma.$queryRawUnsafe<
@@ -475,7 +475,7 @@ async function runKeywordSearch(p: KeywordParams): Promise<RetrievedChunk[]> {
     const strictFiltered = strictTokens.length > 0
       ? rows.filter((r) => containsAllTokens(r.contentEn, strictTokens))
       : rows;
-    return strictFiltered.map(toChunk);
+    return strictFiltered.map((r) => toChunk(r));
   } catch (err) {
     console.error("runKeywordSearch error:", err);
     return [];
@@ -558,7 +558,7 @@ async function runSemanticSearch(
       if (idx < SEMANTIC_MIN_KEEP) return true;
       return r.score >= dynamicFloor;
     });
-    return filtered.map(toChunk);
+    return filtered.map((r) => toChunk(r, "semantic", r.score));
   } catch (err) {
     console.error("runSemanticSearch error:", err);
     return [];
@@ -572,6 +572,9 @@ function fuseByRrf(
   weights: { keyword: number; semantic: number } = { keyword: 1, semantic: 1 },
 ): RetrievedChunk[] {
   const k = 50;
+  const kwIds = new Set(keyword.map((c) => c.id));
+  const semIds = new Set(semantic.map((c) => c.id));
+
   const acc = new Map<string, { chunk: RetrievedChunk; score: number }>();
 
   for (let i = 0; i < keyword.length; i++) {
@@ -593,7 +596,14 @@ function fuseByRrf(
   return [...acc.values()]
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map((x) => x.chunk);
+    .map(({ chunk, score }) => {
+      const inKw = kwIds.has(chunk.id);
+      const inSem = semIds.has(chunk.id);
+      const retrieval = inKw && inSem ? "both" : inSem ? "semantic" : "keyword";
+      // For semantic hits, find original cosine score
+      const semChunk = inSem ? semantic.find((c) => c.id === chunk.id) : null;
+      return { ...chunk, score, retrieval, semanticScore: semChunk?.semanticScore ?? null };
+    });
 }
 
 function applyYearRangeFilter(chunks: RetrievedChunk[], yearFrom: number | null, yearTo: number | null): RetrievedChunk[] {
@@ -663,13 +673,15 @@ async function ensureCompareCoverage(params: {
   return [...uniq.values()];
 }
 
-function toChunk(r: {
-  id: string; year: number; order: number; title: string | null;
-  sourceType: string; contentEn: string; contentZh: string | null; score: number;
-}): RetrievedChunk {
+function toChunk(
+  r: { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number },
+  retrieval: import("@/lib/prompts/buffett").RetrievalMethod = "keyword",
+  semanticScore: number | null = null,
+): RetrievedChunk {
   return {
     id: r.id, year: r.year, order: r.order, title: r.title,
-    sourceType: r.sourceType, contentEn: r.contentEn, contentZh: r.contentZh, score: r.score,
+    sourceType: r.sourceType, contentEn: r.contentEn, contentZh: r.contentZh,
+    score: r.score, retrieval, semanticScore,
   };
 }
 

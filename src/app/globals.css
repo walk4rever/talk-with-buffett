@@ -1706,6 +1706,15 @@ body.layout-no-header {
 
 .source-link:hover { opacity: 0.7; }
 
+.source-retrieval-tag {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 20px;
+  background: var(--secondary);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .source-quote {
   margin: 0;
   font-size: 0.82rem;

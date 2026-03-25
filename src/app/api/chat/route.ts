@@ -184,6 +184,8 @@ export async function POST(req: Request) {
     chunkId: c.id,
     excerpt: pickEvidenceExcerpt(evidenceQuery, c.contentEn),
     excerptZh: pickEvidenceExcerptZh(c.contentZh),
+    retrieval: c.retrieval,
+    semanticScore: c.semanticScore,
   }));
 
   const aiMessages = [

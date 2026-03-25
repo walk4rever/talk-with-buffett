@@ -17,6 +17,8 @@ interface Source {
   excerpt: string;
   excerptZh?: string;
   chunkId?: string;
+  retrieval?: "keyword" | "semantic" | "both";
+  semanticScore?: number | null;
 }
 
 interface Message {
@@ -557,6 +559,12 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   interview: "采访",
 };
 
+const RETRIEVAL_LABELS: Record<string, string> = {
+  keyword: "关键词",
+  semantic: "语义",
+  both: "关键词+语义",
+};
+
 function SourceList({
   sources,
   onSourceNavigate,
@@ -575,10 +583,20 @@ function SourceList({
         const c = s.chunkId ? `&c=${encodeURIComponent(s.chunkId)}` : "";
         const href = `/workspace?source=${s.sourceType}&year=${s.year}${q}${qzh}${t}${c}`;
         const quote = s.excerptZh || s.excerpt;
+        const retrievalLabel = s.retrieval ? RETRIEVAL_LABELS[s.retrieval] : null;
+        const scoreLabel =
+          s.semanticScore != null ? `${Math.round(s.semanticScore * 100)}%` : null;
         return (
           <div key={s.chunkId ?? i} className="source-card">
             <div className="source-header">
-              <span className="source-year">{s.year} 年{typeLabel}{s.title ? ` · ${s.title}` : ""}</span>
+              <span className="source-year">
+                {s.year} 年{typeLabel}{s.title ? ` · ${s.title}` : ""}
+              </span>
+              {retrievalLabel && (
+                <span className="source-retrieval-tag">
+                  {retrievalLabel}{scoreLabel ? ` ${scoreLabel}` : ""}
+                </span>
+              )}
               <Link href={href} className="source-link" onClick={onSourceNavigate}>
                 查看原文 →
               </Link>
