@@ -778,7 +778,14 @@ function ReferenceList({
       <div className="workspace-reference-list">
       {sorted.map((item) => {
         const retrievalLabel = item.retrieval ? RETRIEVAL_LABELS[item.retrieval] : null;
-        const scoreLabel = item.semanticScore != null ? ` ${Math.round(item.semanticScore * 100)}%` : "";
+        const scoreLabel =
+          item.retrieval === "both"
+            ? ""
+            : item.retrieval === "semantic" && item.semanticScore != null
+            ? ` ${Math.round(item.semanticScore * 100)}%`
+            : item.retrieval === "keyword" && item.keywordScore != null
+            ? ` ${item.keywordScore.toFixed(2)}`
+            : "";
         return (
         <button
           key={item.chunkId ?? `${item.sourceType}-${item.year}-${item.title ?? ""}-${item.excerpt.slice(0, 40)}`}

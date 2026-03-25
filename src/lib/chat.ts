@@ -12,6 +12,7 @@ export interface ChatSource {
   chunkId?: string;
   retrieval?: "keyword" | "semantic" | "both";
   semanticScore?: number | null;
+  keywordScore?: number | null;
 }
 
 export interface ChatMessage {

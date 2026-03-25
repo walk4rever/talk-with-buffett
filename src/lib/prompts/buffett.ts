@@ -18,6 +18,8 @@ export interface RetrievedChunk {
   retrieval: RetrievalMethod;
   /** Raw cosine similarity (0–1) for semantic hits; null for keyword-only */
   semanticScore: number | null;
+  /** Raw ts_rank_cd score for keyword hits; null for semantic-only */
+  keywordScore: number | null;
 }
 
 export interface EvidencePlan {

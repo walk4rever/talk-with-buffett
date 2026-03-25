@@ -186,6 +186,7 @@ export async function POST(req: Request) {
     excerptZh: pickEvidenceExcerptZh(c.contentZh),
     retrieval: c.retrieval,
     semanticScore: c.semanticScore,
+    keywordScore: c.keywordScore,
   }));
 
   const aiMessages = [

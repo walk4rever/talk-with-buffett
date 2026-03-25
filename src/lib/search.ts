@@ -558,7 +558,7 @@ async function runSemanticSearch(
       if (idx < SEMANTIC_MIN_KEEP) return true;
       return r.score >= dynamicFloor;
     });
-    return filtered.map((r) => toChunk(r, "semantic", r.score));
+    return filtered.map((r) => toChunk(r, "semantic", r.score, null));
   } catch (err) {
     console.error("runSemanticSearch error:", err);
     return [];
@@ -600,9 +600,15 @@ function fuseByRrf(
       const inKw = kwIds.has(chunk.id);
       const inSem = semIds.has(chunk.id);
       const retrieval = inKw && inSem ? "both" : inSem ? "semantic" : "keyword";
-      // For semantic hits, find original cosine score
       const semChunk = inSem ? semantic.find((c) => c.id === chunk.id) : null;
-      return { ...chunk, score, retrieval, semanticScore: semChunk?.semanticScore ?? null };
+      const kwChunk = inKw ? keyword.find((c) => c.id === chunk.id) : null;
+      return {
+        ...chunk,
+        score,
+        retrieval,
+        semanticScore: semChunk?.semanticScore ?? null,
+        keywordScore: kwChunk?.keywordScore ?? null,
+      };
     });
 }
 
@@ -677,11 +683,13 @@ function toChunk(
   r: { id: string; year: number; order: number; title: string | null; sourceType: string; contentEn: string; contentZh: string | null; score: number },
   retrieval: import("@/lib/prompts/buffett").RetrievalMethod = "keyword",
   semanticScore: number | null = null,
+  keywordScore: number | null = null,
 ): RetrievedChunk {
   return {
     id: r.id, year: r.year, order: r.order, title: r.title,
     sourceType: r.sourceType, contentEn: r.contentEn, contentZh: r.contentZh,
     score: r.score, retrieval, semanticScore,
+    keywordScore: keywordScore ?? (retrieval === "keyword" ? r.score : null),
   };
 }
 
