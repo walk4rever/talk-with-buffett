@@ -492,12 +492,12 @@ function MessageBubble({
               href="/workspace"
               className="workspace-source-chip"
               onClick={onSourceNavigate}
-              aria-label={`查看 ${msg.sources.length} 条原文引用`}
+              aria-label={`${msg.sources.length} sources`}
             >
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
               </svg>
-              <span>{msg.sources.length} 条原文引用</span>
+              <span>{msg.sources.length} sources</span>
             </Link>
           </div>
         )}
@@ -562,12 +562,12 @@ function AvatarMode({
             href="/workspace"
             className="workspace-source-chip"
             onClick={onSourceNavigate}
-            aria-label={`查看 ${lastMessage.sources.length} 条原文引用`}
+            aria-label={`${lastMessage.sources.length} sources`}
           >
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
             </svg>
-            <span>{lastMessage.sources.length} 条原文引用</span>
+            <span>{lastMessage.sources.length} sources</span>
           </Link>
         </div>
       )}
