@@ -2102,6 +2102,34 @@ body.layout-no-header {
   border-color: var(--accent);
 }
 
+.workspace-source-chip-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.45rem;
+}
+
+.workspace-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--secondary));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--secondary) 78%, #fff);
+  color: var(--text-muted);
+  font-size: 0.73rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.22rem 0.56rem;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.workspace-source-chip:hover {
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--secondary));
+  transform: translateY(-1px);
+}
+
 .workspace-canvas-loading {
   display: flex;
   align-items: center;

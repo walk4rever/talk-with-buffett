@@ -563,7 +563,6 @@ export function Workspace() {
                     setActiveSources(sources);
                     setMobilePanel("canvas");
                   }}
-                  onOpenReader={openReader}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -674,19 +673,11 @@ export function Workspace() {
 function WorkspaceMessage({
   msg,
   onOpenSources,
-  onOpenReader,
 }: {
   msg: ChatMessage;
   onOpenSources: (sources: ChatSource[]) => void;
-  onOpenReader: (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
-  const toggleSources = () => {
-    const sources = msg.sources ?? [];
-    onOpenSources(sources);
-    setExpanded((v) => !v);
-  };
+  const openSources = () => onOpenSources(msg.sources ?? []);
 
   if (msg.role === "user") {
     return (
@@ -741,32 +732,18 @@ function WorkspaceMessage({
           </ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 ? (
-          <div className="sources">
+          <div className="workspace-source-chip-row">
             <button
               type="button"
-              className="workspace-source-toggle"
-              onClick={toggleSources}
+              className="workspace-source-chip"
+              onClick={openSources}
+              aria-label={`查看 ${msg.sources.length} 条原文引用`}
             >
-              原文索引（{msg.sources.length}）{expanded ? "收起" : "展开"}
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+              <span>{msg.sources.length} sources</span>
             </button>
-            {expanded ? (
-              <div className="workspace-reference-list">
-                {msg.sources.map((s, i) => (
-                  <button
-                    key={`${s.chunkId ?? `${s.sourceType}-${s.year}`}-${i}`}
-                    type="button"
-                    className="workspace-reference-item"
-                    onClick={() => onOpenReader(s.sourceType, s.year, s.excerpt, s.title, s.chunkId, s.excerptZh)}
-                  >
-                    <div className="workspace-reference-meta">
-                      <span>{s.year} 年{getSourceTypeLabel(s.sourceType)}</span>
-                    </div>
-                    {s.title ? <h4 className="workspace-reference-title">{s.title}</h4> : null}
-                    <p className="workspace-reference-excerpt">{s.excerptZh || s.excerpt}</p>
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
         ) : null}
       </div>

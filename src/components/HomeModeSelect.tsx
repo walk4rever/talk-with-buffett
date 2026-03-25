@@ -39,7 +39,7 @@ export function HomeModeSelect() {
       <div className="home-mode-cards">
         <button
           className="home-mode-card"
-          onClick={() => router.push("/workspace")}
+          onClick={() => router.push("/chat?mode=text")}
         >
           <span className="home-mode-icon">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -48,7 +48,7 @@ export function HomeModeSelect() {
             </svg>
           </span>
           <span className="home-mode-name">文字对话</span>
-          <span className="home-mode-desc">引用原文，随时可查</span>
+          <span className="home-mode-desc">先聊天，再查看原文索引</span>
           <span className="home-mode-cta">开始对话 →</span>
         </button>
 

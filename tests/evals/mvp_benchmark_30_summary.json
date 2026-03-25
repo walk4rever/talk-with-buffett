@@ -1,41 +1,41 @@
 {
   "meta": {
-    "generatedAt": "2026-03-24T13:59:55.729Z",
+    "generatedAt": "2026-03-25T03:32:11.829Z",
     "baseUrl": "http://127.0.0.1:3000",
     "questionFile": "/Users/rafael/R129/talk-with-buffett/tests/evals/mvp_benchmark_30_questions.json",
-    "gitSha": "eec2cd6e53827be85c16b8c1677b8f6b40963a2f"
+    "gitSha": "3846a7268b4cc4aa1cb87923d7e47e63b41d62db"
   },
   "summary": {
     "total": 30,
     "success": 30,
     "successRate": 1,
-    "avgHitsAll": 6.3333,
-    "avgLatencyMsAll": 22767.7,
-    "weightedAvgHits": 7.54,
+    "avgHitsAll": 4.7667,
+    "avgLatencyMsAll": 18576.5,
+    "weightedAvgHits": 6.18,
     "byType": {
       "fact": {
         "total": 10,
         "success": 10,
         "successRate": 1,
-        "avgHits": 8,
-        "avgLatencyMs": 25753,
+        "avgHits": 7.5,
+        "avgLatencyMs": 23283.2,
         "zeroHitCount": 0
       },
       "method": {
         "total": 10,
         "success": 10,
         "successRate": 1,
-        "avgHits": 8.2,
-        "avgLatencyMs": 26326.2,
-        "zeroHitCount": 2
+        "avgHits": 5,
+        "avgLatencyMs": 20938.6,
+        "zeroHitCount": 3
       },
       "chat": {
         "total": 10,
         "success": 10,
         "successRate": 1,
-        "avgHits": 2.8,
-        "avgLatencyMs": 16223.9,
-        "zeroHitCount": 5
+        "avgHits": 1.8,
+        "avgLatencyMs": 11507.7,
+        "zeroHitCount": 6
       }
     }
   }

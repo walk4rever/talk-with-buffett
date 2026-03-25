@@ -25,6 +25,8 @@ interface ChatDrawerProps {
   onClose: () => void;
 }
 
+const WORKSPACE_CHAT_TRANSFER_KEY = "workspace-chat-transfer-v1";
+
 async function streamChatAPI(
   messages: Message[],
   onDelta: (text: string) => void,
@@ -100,6 +102,24 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const streamingTextRef = useRef("");
+
+  const persistChatForWorkspace = useCallback(() => {
+    try {
+      const transferable = messages
+        .filter((m) => m.role === "user" || m.content.trim() !== "")
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+          sources: m.sources,
+        }));
+      sessionStorage.setItem(
+        WORKSPACE_CHAT_TRANSFER_KEY,
+        JSON.stringify({ savedAt: Date.now(), messages: transferable }),
+      );
+    } catch {
+      // Ignore storage errors and proceed to navigation.
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -197,11 +217,18 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   </div>
                   {msg.sources && msg.sources.length > 0 && (
-                    <div className="sources">
-                      <p className="sources-label">相关原文</p>
-                      {msg.sources.map((s, j) => (
-                        <DrawerSourceCard key={j} source={s} />
-                      ))}
+                    <div className="workspace-source-chip-row">
+                      <Link
+                        href="/workspace"
+                        className="workspace-source-chip"
+                        onClick={persistChatForWorkspace}
+                        aria-label={`查看 ${msg.sources.length} 条原文引用`}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                        </svg>
+                        <span>{msg.sources.length} sources</span>
+                      </Link>
                     </div>
                   )}
                 </>
@@ -236,32 +263,5 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
         </form>
       </aside>
     </>
-  );
-}
-
-function DrawerSourceCard({ source }: { source: Source }) {
-  const typeLabels: Record<string, string> = {
-    shareholder: "股东信",
-    partnership: "合伙人信",
-    annual_meeting: "股东大会",
-    article: "文章",
-    interview: "采访",
-  };
-  const typeLabel = typeLabels[source.sourceType] ?? source.sourceType;
-  const linkType = source.sourceType;
-
-  return (
-    <div className="source-card">
-      <div className="source-header">
-        <span className="source-year">
-          {source.year} 年{typeLabel}
-          {source.title ? ` · ${source.title}` : ""}
-        </span>
-        <Link href={`/letters/${linkType}/${source.year}`} className="source-link">
-          查看 →
-        </Link>
-      </div>
-      <blockquote className="source-quote">{source.excerptZh || source.excerpt}</blockquote>
-    </div>
   );
 }

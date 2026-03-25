@@ -279,6 +279,11 @@ async function understandQuery(query: string): Promise<QueryPlan> {
 // Lower threshold for temporal queries to improve long-tail recall.
 const THRESHOLD_TEMPORAL = 0.001;
 const THRESHOLD_RELEVANCE = 0.05;
+const SEMANTIC_SCORE_FLOOR = Number(process.env.SEMANTIC_SCORE_FLOOR ?? "0.2");
+const SEMANTIC_SCORE_WINDOW = Number(process.env.SEMANTIC_SCORE_WINDOW ?? "0.12");
+const SEMANTIC_MIN_KEEP = Number(process.env.SEMANTIC_MIN_KEEP ?? "4");
+const FUSED_LIMIT_DEFAULT = Number(process.env.FUSED_LIMIT_DEFAULT ?? "7");
+const FUSED_LIMIT_TIMELINE = Number(process.env.FUSED_LIMIT_TIMELINE ?? "18");
 
 interface KeywordParams {
   keywords: string;
@@ -541,7 +546,19 @@ async function runSemanticSearch(
       yearTo ?? null,
       limit,
     );
-    return rows.map(toChunk);
+    if (rows.length === 0) return [];
+
+    const topScore = rows[0]?.score ?? 0;
+    const dynamicFloor = Math.max(
+      SEMANTIC_SCORE_FLOOR,
+      topScore - SEMANTIC_SCORE_WINDOW,
+    );
+
+    const filtered = rows.filter((r, idx) => {
+      if (idx < SEMANTIC_MIN_KEEP) return true;
+      return r.score >= dynamicFloor;
+    });
+    return filtered.map(toChunk);
   } catch (err) {
     console.error("runSemanticSearch error:", err);
     return [];
@@ -694,10 +711,11 @@ export async function searchChunks(query: string): Promise<SearchResult> {
   const distinctByYear = timelineQuery;
 
   let keywordLimit = u.taskType === "fact" ? 32 : u.taskType === "method" ? 24 : 6;
-  let semanticLimit = u.taskType === "fact" ? 16 : u.taskType === "method" ? 24 : 0;
+  // Latency-focused iteration: trim method semantic pool, keep fact semantic budget stable.
+  let semanticLimit = u.taskType === "fact" ? 16 : u.taskType === "method" ? 16 : 0;
   if (timelineQuery) {
     keywordLimit += 8;
-    semanticLimit += 8;
+    semanticLimit += u.taskType === "fact" ? 8 : 4;
   }
   if (mentionQuery && timelineQuery) {
     semanticLimit = Math.max(semanticLimit, 8);
@@ -727,7 +745,12 @@ export async function searchChunks(query: string): Promise<SearchResult> {
   ]);
 
   const weights = buildRrfWeights(u.taskType, timelineQuery, compareQuery);
-  let fused = fuseByRrf(keywordRows, semanticRows, distinctByYear ? 24 : 10, weights);
+  let fused = fuseByRrf(
+    keywordRows,
+    semanticRows,
+    distinctByYear ? FUSED_LIMIT_TIMELINE : FUSED_LIMIT_DEFAULT,
+    weights,
+  );
   fused = applyYearRangeFilter(fused, u.yearFrom, u.yearTo);
 
   if (fused.length === 0) {
