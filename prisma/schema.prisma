@@ -74,17 +74,19 @@ model Source {
 }
 
 model Chunk {
-  id           String                   @id @default(cuid())
-  sourceId     String
-  order        Int
-  title        String?
-  contentEn    String
-  contentZh    String?
-  embedding    Unsupported("vector")?
-  searchVector Unsupported("tsvector")?
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
-  source       Source                   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  id            String                   @id @default(cuid())
+  sourceId      String
+  order         Int
+  title         String?                  // sectionEn: e.g. "Non-Insurance Operations > See's Candies"
+  sectionZh     String?                  // e.g. "非保险经营 > 喜诗糖果店"
+  contentEn     String
+  contentZh     String?
+  skipEmbedding Boolean                  @default(false)
+  embedding     Unsupported("vector")?
+  searchVector  Unsupported("tsvector")?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  source        Source                   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, order])
 }

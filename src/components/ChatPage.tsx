@@ -16,6 +16,7 @@ interface Source {
   sourceType: string;
   excerpt: string;
   excerptZh?: string;
+  chunkId?: string;
 }
 
 interface Message {
@@ -94,13 +95,17 @@ async function streamChatAPI(
         const payload = trimmed.slice(6);
         if (currentEvent === "delta") {
           try { onDelta(JSON.parse(payload)); } catch { /* skip */ }
-        } else if (currentEvent === "done") {
+        } else if (currentEvent === "sources") {
           try {
             const data = JSON.parse(payload);
             onDone(data.sources ?? []);
           } catch {
             onDone([]);
           }
+          gotDone = true;
+        } else if (currentEvent === "done") {
+          // sources already delivered via "sources" event; just mark done
+          if (!gotDone) onDone([]);
           gotDone = true;
         } else if (currentEvent === "error") {
           onError("抱歉，服务暂时不可用，请稍后重试。");
@@ -480,19 +485,7 @@ function MessageBubble({
           </ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && (
-          <div className="workspace-source-chip-row">
-            <Link
-              href="/workspace"
-              className="workspace-source-chip"
-              onClick={onSourceNavigate}
-              aria-label={`查看 ${msg.sources.length} 条原文引用`}
-            >
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              </svg>
-              <span>{msg.sources.length} sources</span>
-            </Link>
-          </div>
+          <SourceList sources={msg.sources} onSourceNavigate={onSourceNavigate} />
         )}
       </div>
     </div>
@@ -550,20 +543,50 @@ function AvatarMode({
 
       {/* Source cards below stage */}
       {lastMessage?.sources && lastMessage.sources.length > 0 && (
-        <div className="workspace-source-chip-row">
-          <Link
-            href="/workspace"
-            className="workspace-source-chip"
-            onClick={onSourceNavigate}
-            aria-label={`查看 ${lastMessage.sources.length} 条原文引用`}
-          >
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-            <span>{lastMessage.sources.length} sources</span>
-          </Link>
-        </div>
+        <SourceList sources={lastMessage.sources} onSourceNavigate={onSourceNavigate} />
       )}
+    </div>
+  );
+}
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  shareholder: "股东信",
+  partnership: "合伙人信",
+  annual_meeting: "股东大会",
+  article: "文章",
+  interview: "采访",
+};
+
+function SourceList({
+  sources,
+  onSourceNavigate,
+}: {
+  sources: Source[];
+  onSourceNavigate: () => void;
+}) {
+  return (
+    <div className="sources">
+      <p className="sources-label">原文引用</p>
+      {sources.map((s, i) => {
+        const typeLabel = SOURCE_TYPE_LABELS[s.sourceType] ?? s.sourceType;
+        const q = s.excerpt ? `&q=${encodeURIComponent(s.excerpt.slice(0, 100))}` : "";
+        const qzh = s.excerptZh ? `&qzh=${encodeURIComponent(s.excerptZh.slice(0, 100))}` : "";
+        const t = s.title ? `&t=${encodeURIComponent(s.title)}` : "";
+        const c = s.chunkId ? `&c=${encodeURIComponent(s.chunkId)}` : "";
+        const href = `/workspace?source=${s.sourceType}&year=${s.year}${q}${qzh}${t}${c}`;
+        const quote = s.excerptZh || s.excerpt;
+        return (
+          <div key={s.chunkId ?? i} className="source-card">
+            <div className="source-header">
+              <span className="source-year">{s.year} 年{typeLabel}{s.title ? ` · ${s.title}` : ""}</span>
+              <Link href={href} className="source-link" onClick={onSourceNavigate}>
+                查看原文 →
+              </Link>
+            </div>
+            {quote && <p className="source-quote">{quote}</p>}
+          </div>
+        );
+      })}
     </div>
   );
 }
