@@ -480,58 +480,21 @@ function MessageBubble({
           </ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && (
-          <div className="sources">
-            <p className="sources-label">相关原文</p>
-            {msg.sources.map((s, i) => (
-              <SourceCard key={i} source={s} onNavigate={onSourceNavigate} />
-            ))}
+          <div className="workspace-source-chip-row">
+            <Link
+              href="/workspace"
+              className="workspace-source-chip"
+              onClick={onSourceNavigate}
+              aria-label={`查看 ${msg.sources.length} 条原文引用`}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+              <span>{msg.sources.length} sources</span>
+            </Link>
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function SourceCard({
-  source,
-  onNavigate,
-}: {
-  source: Source;
-  onNavigate: () => void;
-}) {
-  const typeLabels: Record<string, string> = {
-    shareholder: "股东信",
-    partnership: "合伙人信",
-    annual_meeting: "股东大会",
-    article: "文章",
-    interview: "采访",
-  };
-  const typeLabel = typeLabels[source.sourceType] ?? source.sourceType;
-  return (
-    <div className="source-card">
-      <div className="source-header">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path
-            d="M2 2h8v8H2z"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinejoin="round"
-          />
-          <path d="M4 5h4M4 7h2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-        <span className="source-year">
-          {source.year} 年{typeLabel}
-          {source.title ? ` · ${source.title}` : ""}
-        </span>
-        <Link
-          href={`/workspace?source=${source.sourceType}&year=${source.year}`}
-          className="source-link"
-          onClick={onNavigate}
-        >
-          查看 →
-        </Link>
-      </div>
-      <blockquote className="source-quote">{source.excerptZh || source.excerpt}</blockquote>
     </div>
   );
 }
@@ -587,11 +550,18 @@ function AvatarMode({
 
       {/* Source cards below stage */}
       {lastMessage?.sources && lastMessage.sources.length > 0 && (
-        <div className="avatar-sources">
-          <p className="avatar-sources-label">相关原文</p>
-          {lastMessage.sources.map((s, i) => (
-            <SourceCard key={i} source={s} onNavigate={onSourceNavigate} />
-          ))}
+        <div className="workspace-source-chip-row">
+          <Link
+            href="/workspace"
+            className="workspace-source-chip"
+            onClick={onSourceNavigate}
+            aria-label={`查看 ${lastMessage.sources.length} 条原文引用`}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            <span>{lastMessage.sources.length} sources</span>
+          </Link>
         </div>
       )}
     </div>
