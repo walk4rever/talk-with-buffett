@@ -766,9 +766,11 @@ function ReferenceList({
     );
   }
 
+  const sorted = [...items].sort((a, b) => a.year - b.year);
+
   return (
       <div className="workspace-reference-list">
-      {items.map((item) => (
+      {sorted.map((item) => (
         <button
           key={item.chunkId ?? `${item.sourceType}-${item.year}-${item.title ?? ""}-${item.excerpt.slice(0, 40)}`}
           className="workspace-reference-item"

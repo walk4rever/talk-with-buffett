@@ -575,7 +575,7 @@ function SourceList({
   return (
     <div className="sources">
       <p className="sources-label">原文引用</p>
-      {sources.map((s, i) => {
+      {[...sources].sort((a, b) => a.year - b.year).map((s, i) => {
         const typeLabel = SOURCE_TYPE_LABELS[s.sourceType] ?? s.sourceType;
         const q = s.excerpt ? `&q=${encodeURIComponent(s.excerpt.slice(0, 100))}` : "";
         const qzh = s.excerptZh ? `&qzh=${encodeURIComponent(s.excerptZh.slice(0, 100))}` : "";
