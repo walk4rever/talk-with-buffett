@@ -487,7 +487,19 @@ function MessageBubble({
           </ReactMarkdown>
         </div>
         {msg.sources && msg.sources.length > 0 && (
-          <SourceList sources={msg.sources} onSourceNavigate={onSourceNavigate} />
+          <div className="workspace-source-chip-row">
+            <Link
+              href="/workspace"
+              className="workspace-source-chip"
+              onClick={onSourceNavigate}
+              aria-label={`查看 ${msg.sources.length} 条原文引用`}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+              <span>{msg.sources.length} 条原文引用</span>
+            </Link>
+          </div>
         )}
       </div>
     </div>
@@ -545,66 +557,20 @@ function AvatarMode({
 
       {/* Source cards below stage */}
       {lastMessage?.sources && lastMessage.sources.length > 0 && (
-        <SourceList sources={lastMessage.sources} onSourceNavigate={onSourceNavigate} />
+        <div className="workspace-source-chip-row">
+          <Link
+            href="/workspace"
+            className="workspace-source-chip"
+            onClick={onSourceNavigate}
+            aria-label={`查看 ${lastMessage.sources.length} 条原文引用`}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 3.5h10M3 8h10M3 12.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            <span>{lastMessage.sources.length} 条原文引用</span>
+          </Link>
+        </div>
       )}
-    </div>
-  );
-}
-
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  shareholder: "股东信",
-  partnership: "合伙人信",
-  annual_meeting: "股东大会",
-  article: "文章",
-  interview: "采访",
-};
-
-const RETRIEVAL_LABELS: Record<string, string> = {
-  keyword: "关键词",
-  semantic: "语义",
-  both: "关键词+语义",
-};
-
-function SourceList({
-  sources,
-  onSourceNavigate,
-}: {
-  sources: Source[];
-  onSourceNavigate: () => void;
-}) {
-  return (
-    <div className="sources">
-      <p className="sources-label">原文引用</p>
-      {[...sources].sort((a, b) => a.year - b.year).map((s, i) => {
-        const typeLabel = SOURCE_TYPE_LABELS[s.sourceType] ?? s.sourceType;
-        const q = s.excerpt ? `&q=${encodeURIComponent(s.excerpt.slice(0, 100))}` : "";
-        const qzh = s.excerptZh ? `&qzh=${encodeURIComponent(s.excerptZh.slice(0, 100))}` : "";
-        const t = s.title ? `&t=${encodeURIComponent(s.title)}` : "";
-        const c = s.chunkId ? `&c=${encodeURIComponent(s.chunkId)}` : "";
-        const href = `/workspace?source=${s.sourceType}&year=${s.year}${q}${qzh}${t}${c}`;
-        const quote = s.excerptZh || s.excerpt;
-        const retrievalLabel = s.retrieval ? RETRIEVAL_LABELS[s.retrieval] : null;
-        const scoreLabel =
-          s.semanticScore != null ? `${Math.round(s.semanticScore * 100)}%` : null;
-        return (
-          <div key={s.chunkId ?? i} className="source-card">
-            <div className="source-header">
-              <span className="source-year">
-                {s.year} 年{typeLabel}{s.title ? ` · ${s.title}` : ""}
-              </span>
-              {retrievalLabel && (
-                <span className="source-retrieval-tag">
-                  {retrievalLabel}{scoreLabel ? ` ${scoreLabel}` : ""}
-                </span>
-              )}
-              <Link href={href} className="source-link" onClick={onSourceNavigate}>
-                查看原文 →
-              </Link>
-            </div>
-            {quote && <p className="source-quote">{quote}</p>}
-          </div>
-        );
-      })}
     </div>
   );
 }

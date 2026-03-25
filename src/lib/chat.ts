@@ -10,6 +10,8 @@ export interface ChatSource {
   excerpt: string;
   excerptZh?: string;
   chunkId?: string;
+  retrieval?: "keyword" | "semantic" | "both";
+  semanticScore?: number | null;
 }
 
 export interface ChatMessage {

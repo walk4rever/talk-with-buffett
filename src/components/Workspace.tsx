@@ -768,9 +768,18 @@ function ReferenceList({
 
   const sorted = [...items].sort((a, b) => a.year - b.year);
 
+  const RETRIEVAL_LABELS: Record<string, string> = {
+    keyword: "关键词",
+    semantic: "语义",
+    both: "关键词+语义",
+  };
+
   return (
       <div className="workspace-reference-list">
-      {sorted.map((item) => (
+      {sorted.map((item) => {
+        const retrievalLabel = item.retrieval ? RETRIEVAL_LABELS[item.retrieval] : null;
+        const scoreLabel = item.semanticScore != null ? ` ${Math.round(item.semanticScore * 100)}%` : "";
+        return (
         <button
           key={item.chunkId ?? `${item.sourceType}-${item.year}-${item.title ?? ""}-${item.excerpt.slice(0, 40)}`}
           className="workspace-reference-item"
@@ -778,11 +787,15 @@ function ReferenceList({
         >
           <div className="workspace-reference-meta">
             <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>
+            {retrievalLabel && (
+              <span className="source-retrieval-tag">{retrievalLabel}{scoreLabel}</span>
+            )}
           </div>
           {item.title ? <h4 className="workspace-reference-title">{item.title}</h4> : null}
           <p className="workspace-reference-excerpt">{item.excerptZh || item.excerpt}</p>
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
