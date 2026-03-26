@@ -421,16 +421,19 @@ export function Workspace() {
         const key = canvasKey(canvasType, canvasYear);
         prevReaderKeyRef.current = key;
 
-        requestAnimationFrame(() => {
-          const savedPos = scrollPositions.get(key);
-          if ((canvasTitle || canvasExcerpt || canvasExcerptZh) && canvasScrollRef.current) {
-            scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt, canvasExcerptZh);
-          } else if (savedPos && canvasScrollRef.current) {
-            canvasScrollRef.current.scrollTop = savedPos;
-          } else if (canvasScrollRef.current) {
-            canvasScrollRef.current.scrollTop = 0;
-          }
-        });
+        // Only handle non-excerpt scroll here (saved position / reset to top).
+        // Excerpt scrolling is handled by a separate useEffect that runs after
+        // React has committed the readingMode-filtered DOM.
+        if (!canvasTitle && !canvasExcerpt && !canvasExcerptZh) {
+          requestAnimationFrame(() => {
+            const savedPos = scrollPositions.get(key);
+            if (savedPos && canvasScrollRef.current) {
+              canvasScrollRef.current.scrollTop = savedPos;
+            } else if (canvasScrollRef.current) {
+              canvasScrollRef.current.scrollTop = 0;
+            }
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) setCanvasContent(null);
@@ -440,6 +443,16 @@ export function Workspace() {
       cancelled = true;
     };
   }, [hasReader, canvasType, canvasYear, canvasTitle, canvasExcerpt, canvasExcerptZh]);
+
+  // Scroll to the cited excerpt after React commits the filtered DOM.
+  // Must depend on canvasContent (new source loaded) AND the excerpt params.
+  // Intentionally excludes readingMode: we don't want to re-scroll on mode toggle.
+  useEffect(() => {
+    if (!canvasContent || !canvasScrollRef.current) return;
+    if (!canvasTitle && !canvasExcerpt && !canvasExcerptZh) return;
+    scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt, canvasExcerptZh);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasContent, canvasTitle, canvasExcerpt, canvasExcerptZh]);
 
   const openReader = useCallback(
     (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => {
