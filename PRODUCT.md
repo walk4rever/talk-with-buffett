@@ -2,7 +2,7 @@
 
 # Talk with Buffett — 产品与技术设计
 
-> 最后更新：2026-03-26
+> 最后更新：2026-03-26（v0.24.0）
 
 ## 数据架构
 
@@ -789,12 +789,13 @@ Phase C：统一工作区                               ✅ v0.14.0
   ├─ 共享 chat 类型和 SSE 客户端（lib/chat.ts）
   └─ 验证：两种入口收敛到同一终态
 
-Phase F：用户数据 + 支付
-  ├─ ChatMessage 表 + 对话记录写入
-  ├─ 对话评分（👍👎）
-  ├─ PostHog 接入（行为事件 + session recording）
-  ├─ LemonSqueezy 订阅集成
-  ├─ 订阅状态校验（免费 vs 会员的次数限制）
+Phase F：用户数据 + 支付                          🚧 v0.24.0（部分完成）
+  ├─ ✅ PostHog 接入（pageview + session recording + 关键事件）
+  ├─ ✅ ChatMessage 表 + 对话记录写入（question / answer / sourceIds / taskType）
+  ├─ ✅ 对话评分（👍👎）→ PATCH /api/chat/[id]/rating
+  ├─ ✅ 统一入口：删除 ChatPage，所有入口 → /chat（原 /workspace）
+  ├─ 🔲 LemonSqueezy 订阅集成
+  ├─ 🔲 订阅状态校验（免费 vs 会员的次数限制）
   └─ 验证：完整的免费→付费转化链路
 ```
 
