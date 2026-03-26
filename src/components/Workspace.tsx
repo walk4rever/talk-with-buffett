@@ -203,7 +203,7 @@ function findByExcerpt(container: HTMLElement, excerpt: string): Element | null 
   if (!query) return null;
   const normalizedQuery = normalizeForMatch(query);
   if (!normalizedQuery) return null;
-  const queryPrefix = normalizedQuery.slice(0, Math.min(40, normalizedQuery.length));
+  const queryPrefix = normalizedQuery.slice(0, Math.min(80, normalizedQuery.length));
 
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let node: Node | null;
@@ -223,21 +223,8 @@ function scrollToChunk(
   excerptEn: string,
   excerptZh?: string,
 ) {
-  // Strategy 1: find heading by chunk title (most reliable — headings are unique anchors).
-  if (title && title.trim()) {
-    const words = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-    const headings = container.querySelectorAll("h1, h2, h3, h4");
-    for (const h of Array.from(headings)) {
-      const hText = (h.textContent ?? "").toLowerCase();
-      if (words.length > 0 && words.every((w) => hText.includes(w))) {
-        h.scrollIntoView({ behavior: "smooth", block: "start" });
-        applyHighlight(h);
-        return;
-      }
-    }
-  }
-
-  // Strategy 2: match zh excerpt first in mixed/zh content, then fallback to en excerpt.
+  // Strategy 1: match zh excerpt first in mixed/zh content, then fallback to en excerpt.
+  // Excerpt match targets the exact paragraph, which is more precise than a section heading.
   const zhEl = excerptZh ? findByExcerpt(container, excerptZh) : null;
   if (zhEl) {
     zhEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -249,6 +236,21 @@ function scrollToChunk(
   if (enEl) {
     enEl.scrollIntoView({ behavior: "smooth", block: "center" });
     applyHighlight(enEl);
+    return;
+  }
+
+  // Strategy 2: fall back to heading match by title when excerpt match fails.
+  if (title && title.trim()) {
+    const words = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    const headings = container.querySelectorAll("h1, h2, h3, h4");
+    for (const h of Array.from(headings)) {
+      const hText = (h.textContent ?? "").toLowerCase();
+      if (words.length > 0 && words.every((w) => hText.includes(w))) {
+        h.scrollIntoView({ behavior: "smooth", block: "start" });
+        applyHighlight(h);
+        return;
+      }
+    }
   }
 }
 
