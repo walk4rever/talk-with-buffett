@@ -154,6 +154,7 @@ export async function POST(req: Request) {
     entities,
     yearFrom,
     yearTo,
+    needsRetrieval,
   } = searchResult;
   console.log(`[search] query="${lastUserMsg.content.slice(0, 60)}" chunks=${chunks.length} order=${order} distinct=${distinctByYear}`);
 
@@ -164,15 +165,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const evidencePlan = buildEvidencePlan({
-    query: evidenceQuery,
-    intent,
-    answerMode,
-    entities,
-    yearFrom,
-    yearTo,
-    chunks,
-  });
+  const evidencePlan = needsRetrieval
+    ? buildEvidencePlan({
+        query: evidenceQuery,
+        intent,
+        answerMode,
+        entities,
+        yearFrom,
+        yearTo,
+        chunks,
+      })
+    : null;
 
   const systemPrompt = buildSystemPrompt(chunks, order, distinctByYear, evidencePlan);
 

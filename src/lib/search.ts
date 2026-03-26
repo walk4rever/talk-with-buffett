@@ -45,11 +45,12 @@ const CHAT_SOURCE_TYPES_SQL = sourceTypeSqlList(CHAT_SOURCE_TYPES);
 
 type QueryIntent = "fact" | "timeline" | "opinion" | "compare" | "chat";
 type AnswerMode = "concise" | "timeline" | "compare";
-type TaskType = "fact" | "method" | "chat";
+type TaskType = "fact" | "method";
 type TemporalMode = "none" | "point" | "range" | "earliest" | "latest" | "evolution";
 
 interface QueryPlan {
   taskType: TaskType;
+  needsRetrieval: boolean;
   timeline: boolean;
   compare: boolean;
   temporalMode: TemporalMode;
@@ -113,8 +114,9 @@ function refineKeywordForEntityMention(keywordQuery: string, rawQuery: string): 
 
 const UNDERSTAND_SYSTEM =
   "You are a retrieval planner for Warren Buffett corpus QA.\\n" +
-  "Return strict JSON only with keys: task_type, temporal_mode, year_from, year_to, entities, keyword_query, semantic_query, confidence.\\n" +
-  "task_type enum: fact|method|chat.\\n" +
+  "Return strict JSON only with keys: task_type, needs_retrieval, temporal_mode, year_from, year_to, entities, keyword_query, semantic_query, confidence.\\n" +
+  "task_type: 'fact' for questions about specific events, years, companies, or actions; 'method' for questions about Buffett's views, principles, frameworks, or approaches on any topic.\\n" +
+  "needs_retrieval: true for almost all questions; false ONLY for pure greetings or requests completely unrelated to investing or Buffett.\\n" +
   "temporal_mode enum: none|point|range|earliest|latest|evolution.\\n" +
   "entities must be a short array of retrieval-relevant names.\\n" +
   "Translate Chinese into concise English retrieval expressions.\\n" +
@@ -152,14 +154,11 @@ function fallbackPlan(query: string): QueryPlan {
   const { yearFrom, yearTo } = normalizeYearRange(extractedYears.yearFrom, extractedYears.yearTo);
   const compare = isCompareQuestion(normalizedInput);
   const timeline = isTemporalQuestion(normalizedInput);
-  const taskType: TaskType = isChatQuestion(normalizedInput)
-    ? "chat"
-    : isMethodQuestion(normalizedInput)
-    ? "method"
-    : "fact";
+  const taskType: TaskType = isMethodQuestion(normalizedInput) ? "method" : "fact";
 
   return {
-    taskType: compare && taskType === "chat" ? "fact" : taskType,
+    taskType,
+    needsRetrieval: true,
     timeline,
     compare,
     temporalMode: inferTemporalMode(normalizedInput, yearFrom, yearTo),
@@ -176,9 +175,13 @@ function normalizePlan(raw: unknown, fallback: QueryPlan): QueryPlan {
   if (!raw || typeof raw !== "object") return fallback;
   const obj = raw as Record<string, unknown>;
 
-  const taskType = ["fact", "method", "chat"].includes(String(obj.task_type))
+  const taskType = ["fact", "method"].includes(String(obj.task_type))
     ? (obj.task_type as TaskType)
     : fallback.taskType;
+
+  const needsRetrieval = typeof obj.needs_retrieval === "boolean"
+    ? obj.needs_retrieval
+    : true;
   const temporalMode = ["none", "point", "range", "earliest", "latest", "evolution"].includes(String(obj.temporal_mode))
     ? (obj.temporal_mode as TemporalMode)
     : fallback.temporalMode;
@@ -201,7 +204,8 @@ function normalizePlan(raw: unknown, fallback: QueryPlan): QueryPlan {
   const timeline = temporalMode !== "none" || isTemporalQuestion(keywordQuery) || isTemporalQuestion(semanticQuery);
 
   return {
-    taskType: compare && taskType === "chat" ? "fact" : taskType,
+    taskType,
+    needsRetrieval,
     timeline,
     compare,
     temporalMode,
@@ -697,7 +701,6 @@ function mapPlanToOutput(taskType: TaskType, timeline: boolean, compare: boolean
   if (compare) return { intent: "compare", answerMode: "compare" };
   if (timeline) return { intent: "timeline", answerMode: "timeline" };
   if (taskType === "method") return { intent: "opinion", answerMode: "concise" };
-  if (taskType === "chat") return { intent: "chat", answerMode: "concise" };
   return { intent: "fact", answerMode: "concise" };
 }
 
@@ -705,7 +708,6 @@ function buildRrfWeights(taskType: TaskType, timeline: boolean, compare: boolean
   if (compare) return { keyword: 0.5, semantic: 0.5 };
   if (timeline) return { keyword: 0.6, semantic: 0.4 };
   if (taskType === "method") return { keyword: 0.45, semantic: 0.55 };
-  if (taskType === "chat") return { keyword: 1, semantic: 0 };
   return { keyword: 0.7, semantic: 0.3 };
 }
 
@@ -719,10 +721,28 @@ export interface SearchResult {
   entities: string[];
   yearFrom: number | null;
   yearTo: number | null;
+  needsRetrieval: boolean;
 }
 
 export async function searchChunks(query: string): Promise<SearchResult> {
   const u = await understandQuery(query);
+
+  if (!u.needsRetrieval) {
+    console.log(`[searchChunks] needs_retrieval=false, skipping retrieval for query="${query.slice(0, 60)}"`);
+    return {
+      chunks: [],
+      order: "relevance",
+      distinctByYear: false,
+      evidenceQuery: query,
+      intent: "chat",
+      answerMode: "concise",
+      entities: [],
+      yearFrom: null,
+      yearTo: null,
+      needsRetrieval: false,
+    };
+  }
+
   const mentionQuery = isMentionQuery(query);
   const timelineQuery = u.timeline || isTemporalQuestion(query);
   const compareQuery = u.compare || isCompareQuestion(query);
@@ -730,9 +750,8 @@ export async function searchChunks(query: string): Promise<SearchResult> {
   const order: "asc" | "desc" | "relevance" = timelineQuery ? "asc" : "relevance";
   const distinctByYear = timelineQuery;
 
-  let keywordLimit = u.taskType === "fact" ? 32 : u.taskType === "method" ? 24 : 6;
-  // Latency-focused iteration: trim method semantic pool, keep fact semantic budget stable.
-  let semanticLimit = u.taskType === "fact" ? 16 : u.taskType === "method" ? 16 : 0;
+  let keywordLimit = u.taskType === "fact" ? 32 : 24;
+  let semanticLimit = 16;
   if (timelineQuery) {
     keywordLimit += 8;
     semanticLimit += u.taskType === "fact" ? 8 : 4;
@@ -813,5 +832,6 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     entities: u.entities,
     yearFrom: u.yearFrom,
     yearTo: u.yearTo,
+    needsRetrieval: true,
   };
 }

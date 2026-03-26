@@ -2,7 +2,7 @@
 
 # Talk with Buffett — 产品与技术设计
 
-> 最后更新：2026-03-23
+> 最后更新：2026-03-26
 
 ## 数据架构
 
@@ -17,6 +17,25 @@
 | 公开采访 | `interview` | 🆕 待收集 | CNBC/Bloomberg 等 | 待定 |
 
 所有内容类型的原始数据格式一致：中英文交替的 markdown 文件，按标题切分。
+
+#### 文件命名约定
+
+**Shareholder Letters（1965–2025）**
+
+- 文件数：63 个（61 封信 + `Berkshire_Performance_Book_Value.md` + `Berkshire_Performance_Market_Value.md`）
+- 命名规则：`YYYY_Letter_to_Berkshire_Shareholders.md`
+- year 提取：`filename[:4]`
+- letter_type：`shareholder_letter`（2025 文件为 `news_release`）
+- 结构：双语交替段落，`##` 主章节，`###` 子章节，无 H1
+
+**Partnership Letters（1957–1970）**
+
+- 文件数：33 个
+- 命名规则：`YYYYMMDD_Letter_RR.md`
+- year 提取：`filename[:4]`，date 提取：`filename[:8]`
+- letter_type：`partnership_letter`
+- 结构：双语交替段落，`##` 主章节，`###` 子章节，无 H1
+- 特殊：正文中含 `（译注：...）` 内嵌注释，属于中文译文的一部分，保留不处理
 
 ### 数据模型
 
@@ -49,6 +68,35 @@ Chunk（不变）
 └── updatedAt
 ```
 
+#### 数据库 Schema（PostgreSQL）
+
+```sql
+CREATE TABLE chunks (
+    id              SERIAL PRIMARY KEY,
+    chunk_id        TEXT UNIQUE NOT NULL,       -- "shareholder_1989_12"
+    source          TEXT NOT NULL,              -- 原始文件名
+    corpus          TEXT NOT NULL,              -- "shareholder" | "partnership"
+    year            INTEGER,
+    date            TEXT,                       -- partnership 用，"19680124"
+    letter_type     TEXT NOT NULL,
+    section_en      TEXT,
+    section_zh      TEXT,
+    chunk_index     INTEGER NOT NULL,
+    en_text         TEXT,
+    zh_text         TEXT,
+    skip_embedding  BOOLEAN DEFAULT FALSE,
+    embedding       VECTOR(1024)                -- doubao text-embedding-v3
+);
+
+-- 索引
+CREATE INDEX ON chunks USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX ON chunks (year);
+CREATE INDEX ON chunks (corpus);
+CREATE INDEX ON chunks (letter_type);
+-- 全文检索（英文）
+CREATE INDEX ON chunks USING GIN (to_tsvector('english', en_text));
+```
+
 ### 模型设计决策
 
 | # | 决策 | 理由 |
@@ -58,16 +106,120 @@ Chunk（不变）
 | D13 | 视频字段放 Source 上 | 视频是 Source 的属性，不是独立实体 |
 | D14 | 不新建 Transcript 表 | 转录文本就是 contentMd，格式与信件一致（中英 markdown），复用 Chunk 检索 |
 
-### 切分策略
+### 切分策略（Chunk 设计）
+
+#### 核心单元
+
+**1 个 EN 段落 + 对应 ZH 段落 = 1 个 chunk**
+
+```
+英文段落
+
+中文段落
+```
+
+以空行（`\n\n`）为段落边界。
 
 所有内容类型共用同一套切分逻辑：
 
-1. 按 `#` / `##` 标题切分为章节
+1. 按 `##` / `###` 标题切分为章节
 2. 无标题的早期信件（1965-1976 等）按段落切分
 3. 超长章节按段落二次切分（上限 ~800 token）
 4. 每个 chunk 内分离中英文：CJK 字符开头的段落为中文，否则为英文
 
 股东大会转录的 Q&A 天然按 `##` 编号切分（如 `## 2. Buffett loses "Miss Congeniality" title`），与信件处理流程完全一致。
+
+#### 段落语言判断
+
+```python
+import re
+
+def is_chinese(text):
+    return bool(re.search(r'[\u4e00-\u9fff]', text))
+```
+
+含汉字 → ZH 段落；否则 → EN 段落。
+
+#### 标题处理
+
+遇到 `##` 或 `###` 标题行：
+- **不生成 chunk**
+- 提取为 `section_en` / `section_zh`，更新当前 section 状态
+- 子章节路径用 `>` 拼接
+
+```python
+def parse_heading(line):
+    text = line.lstrip('#').strip()
+    match = re.search(r'[\u4e00-\u9fff]', text)
+    if match:
+        en = text[:match.start()].strip()
+        zh = text[match.start():].strip()
+    else:
+        en, zh = text, None
+    return en, zh
+
+# 遇到 ### 时，拼接父级：
+# section_en = "Non-Insurance Operations > See's Candies"
+# section_zh = "非保险经营 > 喜诗糖果店"
+```
+
+#### 跳过的行类型
+
+| 行类型 | 识别方式 | 处理 |
+|--------|---------|------|
+| 章节标题 | `^#{1,4}\s` | 更新 section metadata |
+| 日期行 | `^[A-Z][a-z]+ \d+, \d{4}` 或纯中文日期 | 跳过 |
+| 信头地址（Kiewit Plaza 等） | 纯英文短行，无中文对应 | 跳过或附加至下一 chunk |
+| 签名行（Warren E. Buffett / Chairman） | 末尾几行 | 附加至最后一个 chunk 的 en_text/zh_text |
+| 表格行（含 `\|`） | `\|` 分隔 | 单独成 chunk，`skip_embedding: true` |
+| `[^*]:` 脚注定义 | `^\[\^\*\]:` | 附加至含 `[^*]` 引用的 chunk |
+
+#### Chunk 数据结构示例
+
+```json
+{
+  "chunk_id": "shareholder_1989_12",
+  "source": "1989_Letter_to_Berkshire_Shareholders.md",
+  "corpus": "shareholder",
+  "year": 1989,
+  "date": null,
+  "letter_type": "shareholder_letter",
+  "section_en": "Non-Insurance Operations > See's Candies",
+  "section_zh": "非保险经营 > 喜诗糖果店",
+  "chunk_index": 12,
+  "en_text": "See's Candies had a record year in 1989...",
+  "zh_text": "喜诗糖果1989年创下历史记录……",
+  "skip_embedding": false
+}
+```
+
+Partnership 信件额外有 `date` 字段（`YYYYMMDD`）：
+
+```json
+{
+  "chunk_id": "partnership_19680124_8",
+  "source": "19680124_Letter_RR.md",
+  "corpus": "partnership",
+  "year": 1968,
+  "date": "19680124",
+  "letter_type": "partnership_letter",
+  "section_en": "Our Performance in 1967",
+  "section_zh": "1967 年业绩",
+  "chunk_index": 8,
+  "en_text": "By most standards, we had a good year in 1967...",
+  "zh_text": "按照大多数标准衡量，我们 1967 年的业绩都相当好……",
+  "skip_embedding": false
+}
+```
+
+#### 边界情况处理
+
+| 文件 | 情况 | 处理方式 |
+|------|------|---------|
+| `1965` | 无章节标题 | `section = null` |
+| `2000` | 含 `[^*]` 脚注 | 脚注附加至引用 chunk |
+| `2023` | 芒格纪念章节开头 | 正常切分 |
+| Partnership `195802` | 信头地址行（Kiewit Plaza） | 跳过 |
 
 ### 阅读展示
 
@@ -75,6 +227,16 @@ Chunk（不变）
 - 中英交替显示（原始 markdown 格式）
 - 支持单语过滤（EN / 中文模式：渲染时按段落语言过滤）
 - 有视频的内容类型，阅读页顶部嵌入视频播放器
+
+**三种阅读模式：**
+
+| 模式 | 展示字段 | 章节标题 |
+|------|---------|---------|
+| 中文 | `zh_text` | `section_zh` |
+| 英文 | `en_text` | `section_en` |
+| 双语对照 | `en_text` + `zh_text` 并列 | `section_en` + `section_zh` |
+
+---
 
 ## 交互系统
 
@@ -144,6 +306,8 @@ interview     → "2023年CNBC采访 · Becky Quick"
 
 点击引用 → 在 Canvas 中打开对应内容，定位到引用段落。
 
+---
+
 ## 检索系统（v2）
 
 当前阶段对话检索范围**只包含股东信 + 合伙人信**：
@@ -154,54 +318,111 @@ Source.type IN ('shareholder', 'partnership')
 
 股东大会、采访、文章继续保留阅读能力，但不进入对话检索主链路，等 v2 稳定后再扩容。
 
-### D1: 不再使用“单点路由二选一”
+### 架构决策
 
-**方案**：LLM 不负责决定“只跑关键词或只跑语义”，而是只负责输出结构化问题理解。
+| # | 决策 | 理由 |
+|---|------|------|
+| D1 | 不再使用"单点路由二选一" | LLM 不负责决定只跑关键词或只跑语义；单点路由选错一次就全错，并行多路召回更稳健 |
+| D2 | Query Understanding 结构化输出 | 多轮追问、口语表达先归一化再检索；检索与生成解耦，定位问题更容易 |
+| D3 | 并行召回 + 融合重排 | 关键词擅长实体精确命中，向量擅长语义扩展；融合后对 query phrasing 变化更鲁棒 |
+| D4 | 只对英文建索引 | `searchVector` 与 `embedding` 都基于 `contentEn`；中文问题先做英文化检索表达 |
+| D5 | 全部在 PostgreSQL 内完成 | tsvector + GIN、pgvector + HNSW，不引入外部检索引擎 |
+| D6 | 引用精度升级为"段落级摘取" | 在 chunk 内做 query-aware passage 抽取，比固定截取前 N 字符更精准；用户点击引用时更容易验证答案 |
 
-**理由**：
-- 单点路由选错一次就全错
-- 并行多路召回更稳健，便于回归测试
+### Query Understanding 结构化输出（D2 细节）
 
-### D2: Query Understanding 结构化输出
-
-**方案**：先把用户问题解析为统一 JSON：
-- `intent`：fact / timeline / opinion / compare / chat
+LLM 把用户问题解析为统一 JSON：
+- `task_type`：`fact` / `method` / `chat`
+- `temporal_mode`（boolean）、`year_from` / `year_to`
 - `entities`：公司、人名、事件
-- `year_from` / `year_to`
 - `keyword_query`（精确召回）
 - `semantic_query`（语义召回）
-- `answer_mode`：concise / timeline / compare
+- `confidence`
 
-**理由**：
-- 多轮追问、口语表达可以先归一化再检索
-- 检索与生成解耦，定位问题更容易
+MVP 延后字段：complex `themes`、complex `evidence_target`。
 
-### D3: 并行召回 + 融合重排
+### 意图识别（简化版）
 
-**方案**：
-- 关键词路（tsvector）召回 top-k
-- 向量路（pgvector）召回 top-k
-- RRF/加权融合后去重，得到统一候选
+**3 种主任务类型：**
 
-**理由**：
-- 关键词擅长实体精确命中，向量擅长语义扩展
-- 融合后对 query phrasing 变化更鲁棒
+| 类型 | 说明 | 典型 query |
+|------|------|-----------|
+| `fact` | 事实/时间线查询 | "你最早哪年提到 GEICO？" |
+| `method` | 原则/方法/演变 | "你如何定义护城河？" |
+| `chat` | 闲聊/随机对话 | "你会给投资新手什么建议？" |
 
-### D4: 只对英文建索引（保持不变）
+**2 种辅助模式：**
+- `timeline`（boolean）：强制年份排序 + 扩大检索池
+- `compare`（boolean）：要求双侧覆盖
 
-**方案**：`searchVector` 与 `embedding` 都基于 `contentEn`。中文问题先做英文化检索表达。
+### 召回策略（混合检索）
 
-### D5: 全部在 PostgreSQL 内完成（保持不变）
+**三种查询意图对应路径：**
 
-**方案**：tsvector + GIN、pgvector + HNSW，不引入外部检索引擎。
+| 查询意图 | 路径 | 核心保证 |
+|---------|------|---------|
+| **实体/关键词**（公司名、人名、年份） | 关键词全扫 | 100% 召回，不遗漏 |
+| **概念/观点**（护城河、定价权） | 向量语义检索 top-N | 相关性最优 |
+| **混合**（巴菲特如何看喜诗糖果定价权） | 关键词定位 + 向量重排 | 完整 + 相关 |
 
-### D6: 引用精度升级为“段落级摘取”
+**按 task_type 的检索权重：**
 
-**方案**：检索命中 chunk 后，在 chunk 内做 query-aware passage 抽取，返回最小可读证据段落作为引用。
+| task_type | 策略 |
+|-----------|------|
+| `fact` | 关键词为主，语义为 fallback/补充 |
+| `method` | 关键词 + 语义均衡，语义略占优 |
+| `chat` | 最少检索或不检索 |
+| `timeline` 模式开启时 | 强制年份约束 + 扩大检索池 |
 
-**理由**：
-- 比“固定截取前 80/150 字符”更精准
-- 用户点击引用时更容易验证答案
+#### 关键词全扫（精确召回）
+
+用于"哪些年提到 X"、"所有关于 Y 的段落"等聚合类查询：
+
+```sql
+SELECT * FROM chunks
+WHERE (zh_text ILIKE '%喜诗糖果%' OR en_text ILIKE '%See''s Candies%')
+  AND skip_embedding = FALSE
+ORDER BY year, chunk_index;
+```
+
+**双语同时匹配**：同一实体用中英文各搜一遍，UNION 去重。
+
+#### 语义检索
+
+```sql
+SELECT chunk_id, year, section_en, zh_text, en_text,
+       1 - (embedding <=> $query_vector) AS score
+FROM chunks
+WHERE skip_embedding = FALSE
+ORDER BY embedding <=> $query_vector
+LIMIT 20;
+```
+
+#### 融合重排（RRF）
+
+关键词结果 + 向量结果各自排序，用 Reciprocal Rank Fusion 合并：
+
+```python
+def rrf(keyword_results, vector_results, k=60):
+    scores = {}
+    for rank, chunk_id in enumerate(keyword_results):
+        scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (k + rank + 1)
+    for rank, chunk_id in enumerate(vector_results):
+        scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (k + rank + 1)
+    return sorted(scores, key=scores.get, reverse=True)
+```
+
+**两条 hard post-filter：**
+1. 年份范围过滤
+2. timeline 模式：年份去重 + 升序排列
+
+**compare 模式：** 只强制最低双侧覆盖，MVP 不上重排序器。
+
+#### 聚合类查询
+
+"巴菲特在哪些年提到喜诗糖果" → 关键词全扫返回所有命中 chunk → LLM 汇总年份列表。**不走向量检索**（top-N 截断无法保证完整性）。
+
+---
 
 ## 生成机制（Evidence-first）
 
@@ -210,7 +431,19 @@ Source.type IN ('shareholder', 'partnership')
 1. 从融合候选中选出证据集合（覆盖实体/年份/子问题）
 2. 形成内部 evidence plan（不对用户展示）
 3. LLM 严格基于证据生成中文回答
-4. 若证据不足，明确告知“未检索到足够原文”
+4. 若证据不足，明确告知"未检索到足够原文"
+
+**按 task_type 的生成规则：**
+
+| task_type | 生成策略 |
+|-----------|---------|
+| `fact` | 先给结论，再用证据支撑 |
+| `method` | 先给原则，再给实操方法 |
+| `chat` | 简短对话式回应 |
+
+全局约束：不支持的断言不生成；证据不足时先明确说明；低 temperature 保稳定性。
+
+---
 
 ## 检索流程（v2）
 
@@ -218,25 +451,124 @@ Source.type IN ('shareholder', 'partnership')
 用户提问
   │
   ├─① Query Understanding（结构化）
-  │    输出 intent/entities/time/keyword_query/semantic_query
+  │    输出 task_type/entities/time/keyword_query/semantic_query
   │
   ├─② 并行召回（限定 shareholder + partnership）
   │    ├─ 关键词路：tsvector top-k
   │    └─ 语义路：pgvector top-k
   │
-  ├─③ 融合重排 + 去重（RRF/加权）
+  ├─③ 融合重排 + 去重（RRF + hard post-filter）
   │
   ├─④ 段落级证据抽取（query-aware passage）
   │
   └─⑤ Evidence-first 生成回答 + 返回来源
 ```
 
+---
+
 ## Embedding 方案
 
-- **模型**：火山引擎多模态 embedding API（`ep-20260322020312-4xfnx`）
+- **模型**：火山引擎多模态 embedding API（`ep-20260322020312-4xfnx`），doubao `text-embedding-v3`
 - **维度**：1024，HNSW 索引
+- **向量化字段**：`zh_text`（仅中文，跨语言匹配能力覆盖英文 query）
+- **跳过**：`skip_embedding = true` 的表格 chunk 不向量化
+- **批处理**：每批 50 个 chunk，避免 API 超时
 - **生成方式**：一次性脚本跑全量，新数据增量生成
 - **API 配置**：`EMBEDDING_API_KEY` / `EMBEDDING_API_BASE_URL` / `EMBEDDING_MODEL`
+
+---
+
+## 评测 Benchmark（MVP 30题）
+
+用于验证检索质量，按以下权重评分：
+- Facts Retrieval：60%
+- Principles/Methods：30%
+- Random Chat：10%
+
+**Release Gate（MVP）：**
+1. Fact 性能不低于 baseline
+2. 平均延迟不超过 baseline +20%
+3. 证据不足行为人工校验（无幻觉生成）
+
+### A. Facts Retrieval（10 题）
+
+1. 你最早在哪一年提到 GEICO？
+2. 你最早什么时候明确讨论可口可乐投资？
+3. 你在哪些年份重点谈过股票回购（share buyback）？
+4. 你在哪一年正式收购了 BNSF？当时你怎么描述这笔交易？
+5. 你在哪些年份详细解释过保险浮存金（float）？
+6. 你最早哪一年公开承认过 IBM 投资失误？
+7. 你在哪一年首次系统阐述"伯克希尔不会分红"的立场？
+8. 你在哪些年份集中讨论过继任与管理层接班问题？
+9. 你最早在哪一年提到对苹果的持仓逻辑？
+10. 在 2008-2009 金融危机阶段，你在信里重点说了哪些具体动作？
+
+### B. Principles / Methods / Evolution（10 题）
+
+1. 你如何定义"能力圈（circle of competence）"？
+2. 你怎么判断一家公司有没有"护城河（moat）"？
+3. 你如何在"好公司合理价"和"普通公司便宜价"之间取舍？
+4. 你对杠杆（leverage）的态度是什么？哪些情况绝不碰？
+5. 你如何评估管理层的诚信、能力与股东导向？
+6. 你如何看待市场择时（market timing）？
+7. 你在资本配置上如何权衡回购、并购和持有现金？
+8. 你对"分散投资 vs 集中投资"的观点是怎样的？
+9. 你关于科技公司投资的态度，这些年发生了哪些变化？
+10. 你如何把"安全边际"落实到实际买入决策里？
+
+### C. Random Chat（10 题）
+
+1. 如果我今天只能记住一句你的投资建议，你会选哪句？
+2. 你现在还会每天读很多年报吗？怎么安排阅读节奏？
+3. 芒格对你影响最大的一条思维习惯是什么？
+4. 如果我是投资新手，你会让我先改掉哪三个坏习惯？
+5. 你觉得普通人最容易误解你的哪条观点？
+6. 面对连续下跌的市场，你会怎么让自己保持冷静？
+7. 你会怎么向完全不懂投资的人解释"复利"？
+8. 如果我总想追热门题材，你会怎么劝我？
+9. 你今天还会建议年轻人长期持有指数基金吗？
+10. 除了投资，你觉得一个人长期成功最重要的品质是什么？
+
+---
+
+## 迭代方法论（Benchmark-Driven）
+
+### 标准循环（必须遵守）
+
+1. 确认 baseline commit 和 baseline summary 文件
+2. 只实施一个聚焦优化（单变量优先）
+3. 运行：`npm run eval:mvp:benchmark`
+4. 对比：`npm run eval:mvp:compare -- --base <baseline_summary> --candidate tests/evals/mvp_benchmark_30_summary.json`
+5. 决策：指标实质改善且通过 gate → keep + commit；无实质改善或关键指标退步 → rollback
+6. 归档 summary/results 至 `tests/evals/history/`
+
+### Keep / Rollback 规则
+
+**Keep 条件（全部满足）：**
+1. `fact.avgHits` 不低于对比 baseline
+2. `avgLatencyMsAll` ≤ +20% vs baseline
+3. weighted score 有实质提升，或 fact zero-hit 明显改善
+4. 人工校验确认幻觉没有增加
+
+**Rollback 条件（任一满足）：**
+1. `fact.avgHits` 低于上一个 kept round
+2. weighted score 退步且无 fact 质量补偿
+3. 延迟变差且无明显检索收益
+
+### 迭代日志（2026-03-24）
+
+Baseline：commit `fe74056`，summary `tests/evals/history/mvp_benchmark_30_summary_2026-03-24T12-43-59.080Z.json`
+
+| Round | 状态 | Commit | 变更 | 结果 |
+|-------|------|--------|------|------|
+| A | ✅ kept | `eec2cd6` | strict token filter fix + keyword anchor enrichment + compare script | weightedAvgHits `6.11→6.85`，fact.avgHits `6.1→7.4`，latency `+2.11%` |
+| B | ❌ rollback | — | broader strict token relaxation + extra anchors | weighted/fact 退步 |
+| C | ❌ rollback | — | entity synonym rewrite only | 强退步（weighted 和 fact 均下降） |
+| D | ✅ kept（当前最优） | `76a69ce` | `mention + timeline` 中保留 semantic fallback（`semanticLimit >= 8`）而非强制 `0` | weightedAvgHits `6.85→7.54`，fact.avgHits `7.4→8.0`，fact.zeroHitCount `2→0`，latency `+4.45%` |
+
+**当前推荐下一目标：** 修复意图误分类——投资方法类问题（`M006`、`M009`）被错误归入 `chat`。
+
+---
 
 ## 视频播放
 
@@ -263,6 +595,8 @@ Source.type IN ('shareholder', 'partnership')
 │  💬 点击"对话"进入工作区分屏            │
 └─────────────────────────────────────┘
 ```
+
+---
 
 ## 用户数据与反馈系统
 
@@ -348,6 +682,8 @@ PostHog 额外提供（无需开发）：
 | D17 | PostHog Cloud 优先，自托管备选 | 零运维快速上线；中国不可达时切换 Docker 自托管 |
 | D18 | 评分数据双写 | ChatMessage 存结构化关联（哪条消息、哪些来源），PostHog 存行为趋势（时间分布、用户画像） |
 
+---
+
 ## 商业化
 
 ### 收费模式
@@ -373,6 +709,8 @@ PostHog 额外提供（无需开发）：
 | D19 | 免费 + 订阅制，不按次收费 | 订阅制收入可预测，用户无"每次点击都在花钱"的焦虑 |
 | D20 | LemonSqueezy 种子期 | 零门槛接入，验证付费意愿；种子用户（投资者/金融从业者）多数有信用卡 |
 
+---
+
 ## 项目级决策
 
 | # | 决策 | 理由 |
@@ -385,12 +723,16 @@ PostHog 额外提供（无需开发）：
 | P6 | 数据库：Supabase PostgreSQL | Vercel serverless 不支持 SQLite；Prisma schema 迁移成本极低 |
 | P7 | 认证：当前 Credentials，未来手机号短信 | GitHub/Google OAuth 在中国被封；手机号是国内最低摩擦的注册方式 |
 
+---
+
 ## 迁移兼容性
 
 | 环境 | tsvector + GIN | pgvector + HNSW | 迁移成本 |
 |------|:-:|:-:|------|
 | Supabase（当前） | 内置 | 内置扩展 | — |
 | 阿里云 RDS PostgreSQL | 内置 | 支持（PG ≥ 14） | 换 DATABASE_URL |
+
+---
 
 ## 基础设施状态
 
@@ -403,6 +745,8 @@ PostHog 额外提供（无需开发）：
 | 行为追踪 | 🆕 PostHog Cloud | PostHog 自托管 |
 | 日志监控 | 未接入 | Vercel Analytics + Sentry |
 
+---
+
 ## NOT in scope（明确延后）
 
 | 事项 | 理由 |
@@ -412,6 +756,8 @@ PostHog 额外提供（无需开发）：
 | 微信登录 | 需要公众号资质，个人开发者暂时做不了 |
 | Ping++ 支付 | 需要营业执照，MVP 阶段用 LemonSqueezy |
 | Fine-tune 模型 | RAG 方案已满足需求，fine-tune 是优化项 |
+
+---
 
 ## 实施优先级
 
@@ -466,3 +812,22 @@ Phase E：公开文章 + 采访
   ├─ 采访视频 + 转录导入
   └─ 首页对应分区
 ```
+
+### Pipeline 实现顺序
+
+1. **实现 `chunk_file(filepath) -> List[Chunk]`**
+   - 用 `1984_Letter_to_Berkshire_Shareholders.md` 做单元测试（典型结构）
+   - 验证：每封信约 30–100 个 chunk
+
+2. **处理边界情况**（见上文切分策略边界情况表）
+
+3. **批量处理**
+   - Shareholder：63 个文件
+   - Partnership：33 个文件
+
+4. **向量化**：调用 doubao API，批量写入 `embedding` 列
+
+5. **验证检索**
+   - 关键词测试："喜诗糖果" 命中所有年份
+   - 语义测试："what is intrinsic value" → 召回相关段落
+   - 聚合测试："哪些年提到 GEICO" → 完整年份列表

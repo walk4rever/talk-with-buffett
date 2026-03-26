@@ -1,244 +1,298 @@
 {
   "meta": {
-    "generatedAt": "2026-03-25T03:32:11.829Z",
+    "generatedAt": "2026-03-26T03:24:14.936Z",
     "baseUrl": "http://127.0.0.1:3000",
     "questionFile": "/Users/rafael/R129/talk-with-buffett/tests/evals/mvp_benchmark_30_questions.json",
-    "gitSha": "3846a7268b4cc4aa1cb87923d7e47e63b41d62db"
+    "gitSha": "22ed86ad696bf29807cafa084d882388767f134b"
   },
   "rows": [
     {
       "id": "F001",
       "type": "fact",
       "question": "你最早在哪一年提到 GEICO？",
-      "hits": 9,
+      "hits": 13,
       "years": [
-        1980,
-        1986,
         1995,
-        1997,
-        1999,
         2000,
+        2005,
         2009,
         2010,
-        2011
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2018,
+        2020
       ],
       "first": {
-        "year": 1980,
-        "title": "GEICO Corp. GEICO保险公司 (1)",
+        "year": 1995,
+        "title": "GEICO Corporation GEICO",
         "sourceType": "shareholder",
-        "chunkId": "edca1889-20cc-4cd1-853b-c82c6c8b6dda",
-        "excerpt": "GEICO 保险或许是一个例外，从 1976 年几乎破产的边缘东山再起了，从新任管理层杰克·伯恩 (Jack Byrne) 上任的第一天起优异的表现，正是它能获得重生的最大因素。",
-        "excerptZh": "目前我们最大的非控股的股权投资是 GEICO 保险，持有 33% 股权约 720 万股，通常若持有一家公司股权超过 20% 的比例，便必须采用权益法每年依比例认列其投资损益，但由于伯克希尔当初系依照政府部门一特别命令购买该公司股份，该命令要求股票的投票权交给独立方，失去投票权，意…"
+        "chunkId": "6b493ab0-f97e-4e02-811f-76e033b3b08c",
+        "excerpt": "By yearend 1980, we had put $45.7 million into GEICO and owned 33.3% of its shares.",
+        "excerptZh": "由于我相信Jack以及该公司原本拥有的竞争优势，伯克希尔在1976年下半年大量买进GEICO保险股份，之后又小幅加码，到了1980年底，我们总共投入4,570万美元取得该公司33.3%的股权，然而在往后的15年内，我们并没有再增加持股，不过由于该公司不断地回购股份，使得我们的持股…",
+        "retrieval": "semantic",
+        "semanticScore": 0.48299818529929595,
+        "keywordScore": null
       },
-      "elapsedMs": 23869,
+      "elapsedMs": 14460,
       "error": null
     },
     {
       "id": "F002",
       "type": "fact",
       "question": "你最早什么时候明确讨论可口可乐投资？",
-      "hits": 5,
+      "hits": 10,
       "years": [
+        1985,
         1989,
         1991,
         1993,
+        1994,
+        1996,
+        2004,
+        2011,
         2022,
         2023
       ],
       "first": {
-        "year": 1989,
-        "title": "Long-term Common Stock Investments (1)",
+        "year": 1985,
+        "title": "Miscellaneous",
         "sourceType": "shareholder",
-        "chunkId": "82192679-7b1c-4efa-b7a7-e68ebb6a9be0",
-        "excerpt": "This Coca-Cola investment provides yet another example of the incredible speed with which your Chairman responds to investment opportunities, no matter how obscure or well-disguised they may be.",
-        "excerptZh": "下表是我们市值超过一亿美元以上的普通股投资，一部分的投资系属于伯克希尔关系企业所持有。"
+        "chunkId": "1ac363dc-3071-4a0c-93ff-a66937c0c0c7",
+        "excerpt": "I hope you come to this year’s meeting, which will be held on May 20 in Omaha.",
+        "excerptZh": "伯克希尔的股东年会预计于1986年5月20日在奥马哈举行，我希望各位届时都能参加，今年将会有一项改变：忠于一款软饮料48年后，本人将进行一项前所未有的习惯改变，将平常喝的百事可乐改成新的樱桃可口可乐，此后，它将成为伯克希尔年度会议的官方饮料。",
+        "retrieval": "semantic",
+        "semanticScore": 0.46252083956444334,
+        "keywordScore": null
       },
-      "elapsedMs": 20743,
+      "elapsedMs": 14353,
       "error": null
     },
     {
       "id": "F003",
       "type": "fact",
       "question": "你在哪些年份重点谈过股票回购（share buyback）？",
-      "hits": 8,
+      "hits": 10,
       "years": [
-        1988,
+        1984,
+        1985,
         1999,
         2011,
+        2012,
         2016,
-        2018,
-        2019,
         2020,
-        2021
+        2021,
+        2022,
+        2023
       ],
       "first": {
-        "year": 1988,
-        "title": "New York Stock Exchange Listing (2)",
+        "year": 1984,
+        "title": "Sources of Reported Earnings",
         "sourceType": "shareholder",
-        "chunkId": "a23e8978-b636-4bda-bf52-43560b715885",
-        "excerpt": "Therefore we try, through our policies, performance, and communications, to attract new shareholders who understand our operations, share our time horizons, and measure us as we measure ourselves.",
-        "excerptZh": "当然还是有些伯克希尔股东需要或是想要偶尔把他持有的股份卖掉，而我们希望能够找到合适的人以适当的价格来接手，因此我们试着通过我们的政策、表现与沟通，吸引真正了解我们营运、认同我们理念并用同样的方式来对待我们的新股东，如果我们能够持续地吸引这种类型的股东，同时很重要的，让那些短视近利…"
+        "chunkId": "f6e46c52-9887-4d8d-9777-aed0708db8fb",
+        "excerpt": "The key word is “demonstrated”.",
+        "excerptZh": "不要看他说什么，得看他做什么。当回购显然是为了维护股东利益时，一个总是拒绝回购的管理层所揭示的动机远比他所知道的要多。无论他多么频繁或多么雄辩地说些为维护公共关系而炮制的说辞，如本年度最受欢迎的：股东财富最大化，市场都会正确地估值他们所管理的资产。总是说一套做一套，一段时间后，市…",
+        "retrieval": "semantic",
+        "semanticScore": 0.4509734357231103,
+        "keywordScore": null
       },
-      "elapsedMs": 33353,
+      "elapsedMs": 29533,
       "error": null
     },
     {
       "id": "F004",
       "type": "fact",
       "question": "你在哪一年正式收购了 BNSF？当时你怎么描述这笔交易？",
-      "hits": 11,
+      "hits": 1,
       "years": [
-        2009,
-        2010,
-        2011,
-        2012,
-        2013,
-        2014,
-        2015,
-        2016,
-        2020,
-        2021,
-        2023
+        2009
       ],
       "first": {
         "year": 2009,
-        "title": "An Inconvenient Truth (Boardroom Overheating) (1)",
+        "title": null,
         "sourceType": "shareholder",
-        "chunkId": "5b79414d-53d0-4f6d-8eda-d3f3db08feb8",
-        "excerpt": "In our BNSF acquisition, the selling shareholders quite properly evaluated our offer at $100 per share.",
-        "excerptZh": "我们旗下的子公司去年为了现金做了几项小型并购案，但是我们对 BNSF 铁路的大型收购要求我们发行 95,000 股伯克希尔 A 类股份，这接近已公开发行的 6.1% 。我和查理对发行伯克希尔股票的喜爱，正如我们享受结肠镜检查前的准备工作一样。"
+        "chunkId": "ae7f90a3-9ad2-4a9b-8fc4-0387b8f34e17",
+        "excerpt": "Berkshire’s recent acquisition of Burlington Northern Santa Fe (BNSF) has added at least 65,000 shareholders to the 500,000 or so already on our books.",
+        "excerptZh": "公司最近收购了伯灵顿北方圣太菲铁路公司（BNSF），这使我们已有的约 50 万名股东至少增加了 6.5 万名。对于我和我的长期合伙人查理芒格而言，最重要的是所有的股东都能了解公司的业务、目标、局限性和文化。因此，在每次的年报中，我们都重述了指导我们的经济原则。我强烈建议所有人尤其…",
+        "retrieval": "both",
+        "semanticScore": 0.5148767537352579,
+        "keywordScore": 0.05
       },
-      "elapsedMs": 10461,
+      "elapsedMs": 10555,
       "error": null
     },
     {
       "id": "F005",
       "type": "fact",
       "question": "你在哪些年份详细解释过保险浮存金（float）？",
-      "hits": 17,
+      "hits": 16,
       "years": [
-        1990,
-        1994,
+        1996,
         1997,
-        1998,
         1999,
-        2000,
-        2002,
-        2004,
+        2003,
+        2005,
+        2006,
+        2007,
+        2008,
         2009,
+        2010,
         2011,
-        2012,
-        2013,
-        2014,
         2015,
-        2016,
         2017,
-        2018
+        2020,
+        2021,
+        2022
       ],
       "first": {
-        "year": 1990,
-        "title": "Measuring Insurance Performance (3)",
+        "year": 1996,
+        "title": "Insurance Operations - Overview",
         "sourceType": "shareholder",
-        "chunkId": "d321aa7d-52b7-4c58-8096-bbb82a0e866e",
-        "excerpt": "Many years later, the bills keep arriving for these mistakes: In the insurance business, there is no statute of limitations on stupidity.",
-        "excerptZh": "分析保险业务的资金成本使得任何人都可以据此判断这家公司的营运对于股东到底是正面的还是负面的，若是这项成本(包含租税惩罚)高于其它替代性的资金来源，其价值就是负的，若是成本更低，那么对股东便能产生正面的价值，而若是成本远低于一般水准，那么这个业务就是一项相当有价值的资产。"
+        "chunkId": "a3e2eeaf-76a9-455f-af70-0191c77e4bab",
+        "excerpt": "As we've explained in past reports, what counts in our insurance business is, first, the amount of \"float\" we generate and, second, its cost to us.",
+        "excerptZh": "就像是在过去年报中一再跟各位解释的，对于我们的保险业务来说，真正重要的，第一是我们取得的保险浮存金规模，第二就是取得它的成本，这两点相当的重要，大家必须了解浮存金虽然不会反应在公司账面价值之上，但却是伯克希尔内在价值构成的关键因素之一。",
+        "retrieval": "semantic",
+        "semanticScore": 0.524972427255056,
+        "keywordScore": null
       },
-      "elapsedMs": 45055,
+      "elapsedMs": 28097,
       "error": null
     },
     {
       "id": "F006",
       "type": "fact",
       "question": "你最早哪一年公开承认过 IBM 投资失误？",
-      "hits": 4,
+      "hits": 12,
       "years": [
         1989,
         1991,
+        1994,
+        2008,
         2011,
-        2020
+        2012,
+        2013,
+        2014,
+        2015,
+        2021,
+        2023,
+        2024
       ],
       "first": {
         "year": 1989,
-        "title": "Missing Great Opportunities",
+        "title": "Mistakes of the First Twenty-five Years (A Condensed Version) > Leverage",
         "sourceType": "shareholder",
-        "chunkId": "c409a2d3-58b0-40f4-9b81-add7dd5988a0",
-        "excerpt": "Some of my worst mistakes were not publicly visible.",
-        "excerptZh": "我犯下的一些更为严重的错误却没有那么明显：一些明明我很熟悉了解的股票或公司，却因故没有投资。错失一些能力圈之外的大好机会当然没有罪，但是我却白白错过一些自动送上门，应该把握却没有好好把握的好生意，对于伯克希尔的股东，当然包括我自己在内，这种损失是难以估计的。"
+        "chunkId": "c3419d5a-dd4d-4642-bb28-4e67bd51cede",
+        "excerpt": "We hope in another 25 years to report on the mistakes of the first 50.",
+        "excerptZh": "我们希望25年后还能向各位报告伯克希尔头50年所犯的错误，我想公元2015年的年报，大家应该可以确定这一部分将占据更多的版面。",
+        "retrieval": "semantic",
+        "semanticScore": 0.5116775834780537,
+        "keywordScore": null
       },
-      "elapsedMs": 10832,
+      "elapsedMs": 18552,
       "error": null
     },
     {
       "id": "F007",
       "type": "fact",
       "question": "你在哪一年首次系统阐述“伯克希尔不会分红”的立场？",
-      "hits": 8,
+      "hits": 14,
       "years": [
         1969,
-        1980,
         1981,
-        1983,
         1984,
+        1997,
+        2000,
+        2006,
         2012,
-        2017,
-        2019
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2023,
+        2024
       ],
       "first": {
         "year": 1969,
         "title": null,
         "sourceType": "partnership",
-        "chunkId": "1416d01c-a9b9-40d8-92f5-802c0bd46398",
-        "excerpt": "The odds are that I will take an important position on matters of policy, but I want no moral obligation to be other than a passive shareholder, should my interests develop elsewhere.",
-        "excerptZh": "在多元零售公司和伯克希尔哈撒韦旗下，我们有四大主要业务，按照一般的标准，不管怎么评估，其中三项业务都绝对是一流的。这三项业务的经理人都超过了 60 岁，这些业务基本上是他们白手起家营造的。他们工作努力、生活富足，而且人品很好，无可挑剔。他们的年龄是大了些，但他们只有这么一个小缺点…"
+        "chunkId": "0e796c0a-d05f-4943-a46e-2f1eaa7771ee",
+        "excerpt": "DRC and B-H presently pay no dividends and will probably pay either no dividends or very modest dividends for some years to come.",
+        "excerptZh": "多元零售公司和伯克希尔哈撒韦公司目前都不发放股息，将来几年，可能仍然不发放股息，或者只发放很低的股息。原因有很多：这两家公司都有负债，我们希望能为银行的储户和保险公司的投保人提供良好的保护，我们的一些公司通过追加投资可以获得非常令人满意的回报，而且我们希望通过寻找新生意来扩展和提…",
+        "retrieval": "semantic",
+        "semanticScore": 0.6148054020298926,
+        "keywordScore": null
       },
-      "elapsedMs": 24378,
+      "elapsedMs": 31958,
       "error": null
     },
     {
       "id": "F008",
       "type": "fact",
       "question": "你在哪些年份集中讨论过继任与管理层接班问题？",
-      "hits": 7,
+      "hits": 13,
       "years": [
+        1984,
         1993,
+        2000,
+        2001,
         2002,
         2003,
         2005,
+        2006,
+        2008,
         2010,
-        2019,
+        2011,
+        2018,
         2025
       ],
       "first": {
-        "year": 1993,
-        "title": "Corporate Governance (3)",
+        "year": 1984,
+        "title": "Miscellaneous",
         "sourceType": "shareholder",
-        "chunkId": "4f08a058-549b-474f-bad3-0905f28505a1",
-        "excerpt": "When my stock is transferred to either my wife or the foundation, Berkshire will enter the third governance mode, going forward with a vitally interested, but non-management, owner and with a management that must perform…",
-        "excerptZh": "在第三种情况下，老板本身不必衡量自己的表现也不必费心去取得多数人的支持，同时他也可以确保所遴选出来的外部董事将可对董事会的素质有所提升，而这些被选中的董事，也可以确定所提出的建议会真正被听进去，而不是被消极抵制的管理层当作是耳边风，而若是大股东本身够聪明且有自信，那么他就能够找到…"
+        "chunkId": "d55f0f14-fcc8-46c9-9d9c-89e76ef745cd",
+        "excerpt": "Sometimes that is true because management is reluctant to open up on matters of business substance.",
+        "excerptZh": "伯克希尔的股东年会预计于1985年5月21日在奥马哈举行，我希望各位届时都能参加。许多年会对于股东和管理层来说都是浪费时间，有时是因为管理层不愿公开深入讨论公司的实质问题，有时通常是因为一些股东只顾自己出风头而不是真正关心公司的事务，本来应该是经营业务的讨论会最后往往变成了演戏、…",
+        "retrieval": "semantic",
+        "semanticScore": 0.38442586833073544,
+        "keywordScore": null
       },
-      "elapsedMs": 28157,
+      "elapsedMs": 32637,
       "error": null
     },
     {
       "id": "F009",
       "type": "fact",
       "question": "你最早在哪一年提到对苹果的持仓逻辑？",
-      "hits": 4,
+      "hits": 11,
       "years": [
+        1996,
+        2004,
+        2012,
+        2016,
         2017,
         2019,
         2020,
-        2021
+        2021,
+        2022,
+        2023,
+        2024
       ],
       "first": {
-        "year": 2017,
-        "title": "Investments (2)",
+        "year": 1996,
+        "title": "Super-Cat Insurance",
         "sourceType": "shareholder",
-        "chunkId": "8107dfca-481a-449f-bc5d-13fc81604298",
-        "excerpt": "From our stock portfolio -- call our holdings “minority interests” in a diversified group of publicly-owned businesses -- Berkshire received $3.7 billion of dividends in 2017.",
-        "excerptZh": "但当大跌来临时，市场为那些没有债务缠身的人提供了非凡的投资机会。是时候想到吉卜林(Kipling)的这些诗句了："
+        "chunkId": "9bec6679-4979-4d12-b328-fdc99a4965f5",
+        "excerpt": "(Robert Woodruff, the business genius who built Coca-Cola over many decades and who owned a huge position in the company, was once asked when it might be a good time to sell Coke stock.",
+        "excerptZh": "我之所以会把丑话说在前头，是因为我不希望某天你突然听到伯克希尔因为一场大灾难而须赔付一大笔钱时，恐慌地拋售手中的持股。如果你倾向这种反应，那么你现在就不应该持有我们的股票，就如同你碰到股市崩盘，恐慌性的拋售手中股票，我建议你最好不要投资股票。听到坏消息而把手中的好股票卖掉通常不会…",
+        "retrieval": "semantic",
+        "semanticScore": 0.43180572523885163,
+        "keywordScore": null
       },
-      "elapsedMs": 13766,
+      "elapsedMs": 30239,
       "error": null
     },
     {
@@ -252,71 +306,97 @@
       ],
       "first": {
         "year": 2008,
-        "title": "Investments (2)",
+        "title": "Tax-Exempt Bond Insurance",
         "sourceType": "shareholder",
-        "chunkId": "fb1588a1-2e99-41db-b45a-4559531208b2",
-        "excerpt": "Treasury bond bubble of late 2008 may be regarded as almost equally extraordinary.",
-        "excerptZh": "然而投资的目的不是为了获得赞许。事实上，赞许往往会适得其反。因为它束缚了你的思维，让你的大脑停止接受新的事实，或重新审视早先形成的结论。谨防那些让人夸赞的投资行为，那些伟大的举动通常都会让人觉得枯燥无聊。"
+        "chunkId": "1158c8b7-2e6e-41c7-844f-1e60229917b7",
+        "excerpt": "At a minimum, Berkshire would have been asked to “share” in the required sacrifices.",
+        "excerptZh": "现在想象一下，所有城市的债券都由伯克希尔承保。类似的紧缩开支，增加税收，劳工让步等等让步措施会到来吗？当然不会。至少，伯克希尔会被要求一起承担应有的牺牲。考虑到我们财务实力，被要求的贡献一定是非常巨大的。",
+        "retrieval": "semantic",
+        "semanticScore": 0.41778476113661434,
+        "keywordScore": null
       },
-      "elapsedMs": 22218,
+      "elapsedMs": 15760,
       "error": null
     },
     {
       "id": "M001",
       "type": "method",
       "question": "你如何定义“能力圈（circle of competence）”？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 9790,
+      "hits": 7,
+      "years": [
+        1992,
+        1999,
+        2002,
+        2010,
+        2013,
+        2015,
+        2019
+      ],
+      "first": {
+        "year": 1999,
+        "title": "Investments",
+        "sourceType": "shareholder",
+        "chunkId": "936d6572-a3ad-4ef8-8d5a-8753b269d523",
+        "excerpt": "If we have a strength, it is in recognizing when we are operating well within our circle of competence and when we are approaching the perimeter.",
+        "excerptZh": "如果说我们有什么能力，那就是我们深知要在具竞争优势的范围内，把事情尽量做好，以及明了可能的极限在哪里(最差会如何)，而要预测在变化快速产业中经营的公司，其长期的经营前景如何，很明显的已超过我们的能力范围之外。如果有人宣称有能力做类似的预测，且以公司的股价表现做为左证，则我们一点也…",
+        "retrieval": "semantic",
+        "semanticScore": 0.4967895804562066,
+        "keywordScore": null
+      },
+      "elapsedMs": 11803,
       "error": null
     },
     {
       "id": "M002",
       "type": "method",
       "question": "你怎么判断一家公司有没有“护城河（moat）”？",
-      "hits": 5,
+      "hits": 7,
       "years": [
-        1993,
-        1996,
-        2007
+        1988,
+        2005,
+        2007,
+        2014
       ],
       "first": {
         "year": 2007,
-        "title": "Businesses -- The Great, the Good and the Gruesome (1)",
+        "title": "Businesses -- The Great, the Good and the Gruesome",
         "sourceType": "shareholder",
-        "chunkId": "3279beb7-5128-49c3-8962-70510fb75c9d",
-        "excerpt": "A moat that must be continuously rebuilt will eventually be no moat at all.",
-        "excerptZh": "让我们来看看，什么样的企业能让我们兴奋不已。在关注于此时，我们同样也要探讨，哪些是我们期望极力避开的企业。"
+        "chunkId": "8348d9f2-8891-43b0-9c3c-0ea8a6e9a891",
+        "excerpt": "A truly great business must have an enduring “moat” that protects excellent returns on invested capital.",
+        "excerptZh": "一家真正伟大的企业必须要有一道持久的\"护城河\"来保护投资资本获得高额回报。但资本主义的竞争活力使得，任何正赚取高额回报的商业\"城堡\"，都会受到竞争对手的反复攻击。因此，一道难以逾越的屏障，比如一家公司成为低成本生产商(GEICO保险或Costco好事多超市)，或者拥有强大的世界性…",
+        "retrieval": "semantic",
+        "semanticScore": 0.630938707206342,
+        "keywordScore": null
       },
-      "elapsedMs": 20618,
+      "elapsedMs": 19438,
       "error": null
     },
     {
       "id": "M003",
       "type": "method",
       "question": "你如何在“好公司合理价”和“普通公司便宜价”之间取舍？",
-      "hits": 12,
+      "hits": 7,
       "years": [
-        1984,
-        1985,
-        1987,
+        1983,
         1989,
-        1992,
-        1993,
-        1995,
-        1996,
-        2001
+        1991,
+        1994,
+        2012,
+        2019,
+        2023
       ],
       "first": {
         "year": 1989,
-        "title": "Bargain Purchase",
+        "title": "Mistakes of the First Twenty-five Years (A Condensed Version) > Bargain Purchase",
         "sourceType": "shareholder",
-        "chunkId": "6a7f7caf-f165-4d3d-ad00-1f846a502471",
+        "chunkId": "3e512b5f-b4f0-4a7d-b3e0-5bea04f3cc5a",
         "excerpt": "I could give you other personal examples of \"bargain-purchase\" folly but I'm sure you get the picture: It's far better to buy a wonderful company at a fair price than a fair company at a wonderful price.",
-        "excerptZh": "首先我所犯的第一个错误，就是买下伯克希尔纺织的控制权，虽然我很清楚纺织这个产业没什么前景，却因为它的价格实在很便宜而受其所引诱，虽然在早期投资这样的股票确实让我获利颇丰，但在1965年投资伯克希尔后，我就开始发现这终究不是个理想的投资模式。"
+        "excerptZh": "我可以给各位其他廉价购买的愚蠢例子，但我相信你已经明白：以合理的价格买下一家好公司，要比用便宜的价格买下一家普通的公司要好的多。查理老早就明白这个道理，我的反应则比较慢，不过现在当我们投资公司或股票时，我们不但选择最好的公司，同时这些公司还要有好的经理人。",
+        "retrieval": "semantic",
+        "semanticScore": 0.7335504222472577,
+        "keywordScore": null
       },
-      "elapsedMs": 24079,
+      "elapsedMs": 18044,
       "error": null
     },
     {
@@ -325,22 +405,26 @@
       "question": "你对杠杆（leverage）的态度是什么？哪些情况绝不碰？",
       "hits": 7,
       "years": [
+        1964,
         1987,
         1989,
-        2002,
         2005,
-        2009,
-        2010
+        2017,
+        2022,
+        2023
       ],
       "first": {
-        "year": 2010,
-        "title": "Life and Debt (1)",
+        "year": 2005,
+        "title": "Debt and Risk",
         "sourceType": "shareholder",
-        "chunkId": "ddee80c4-1d47-4732-91b6-f0ec7c50b938",
-        "excerpt": "But leverage is addictive.",
-        "excerptZh": "汽车比赛的基本法则是， 比赛第一的前提是你必须先能完成比赛。 该准则同样适合经营企业，指导我们在伯克希尔的每一项活动。"
+        "chunkId": "5681f65b-2d0a-4bd1-9177-1071ad327972",
+        "excerpt": "Conventional business wisdom, of course, would argue that we are being too conservative and that there are added profits that could be safely earned if we injected moderate leverage into our balance sheet.",
+        "excerptZh": "我们对债务的态度基本上就是这样。我们对于伯克希尔为了并购或经营的目的，而发生任何大量的债务根本不感兴趣。当然，根据传统的商业智慧，我们在财务上显得太过保守，如果我们在资产负债表中加入适当的财务杠杆，无疑能够安全地增加盈利。",
+        "retrieval": "semantic",
+        "semanticScore": 0.6433417969256977,
+        "keywordScore": null
       },
-      "elapsedMs": 31761,
+      "elapsedMs": 18660,
       "error": null
     },
     {
@@ -349,32 +433,51 @@
       "question": "你如何评估管理层的诚信、能力与股东导向？",
       "hits": 7,
       "years": [
-        1964,
-        1988,
-        1998,
+        1996,
         2002,
-        2003,
-        2019
+        2006,
+        2015,
+        2019,
+        2024
       ],
       "first": {
-        "year": 1988,
-        "title": "Long-term Common Stock Investments (2)",
+        "year": 2002,
+        "title": "Corporate Governance",
         "sourceType": "shareholder",
-        "chunkId": "b94e3c48-3072-4408-b3d6-a2c0c4776dc3",
-        "excerpt": "They love their businesses, they think like owners, and they exude integrity and ability.",
-        "excerptZh": ""
+        "chunkId": "ef9a7cbb-8311-420f-80ea-934ed6359143",
+        "excerpt": "Individuals making that cut should automatically meet two of our tests, namely that they be interested in Berkshire and shareholder-oriented.",
+        "excerptZh": "为了寻找新任董事，我们会先从现有股东名单中着手，挑选其个人或其家族长期持有数百万美元伯克希尔股份的股东。达到标准的这些人很自然的已经符合前两项要求，也就是他们关心伯克希尔，在乎股东利益。至于第三项标准，我们将挑选具有丰富商业经验的人士，这就相对不那么好找。",
+        "retrieval": "semantic",
+        "semanticScore": 0.49061333121082074,
+        "keywordScore": null
       },
-      "elapsedMs": 20526,
+      "elapsedMs": 20170,
       "error": null
     },
     {
       "id": "M006",
       "type": "method",
       "question": "你如何看待市场择时（market timing）？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 12111,
+      "hits": 7,
+      "years": [
+        1994,
+        2004,
+        2022,
+        2023,
+        2024
+      ],
+      "first": {
+        "year": 2022,
+        "title": "Nothing Beats Having a Great Partner",
+        "sourceType": "shareholder",
+        "chunkId": "b791625f-ca56-45eb-92b3-e210011515fc",
+        "excerpt": "- Warren and I don’t focus on the froth of the market.",
+        "excerptZh": "沃伦和我不关注市场的泡沫。我们寻找好的长期投资，并顽固地长期持有。",
+        "retrieval": "semantic",
+        "semanticScore": 0.5737159562783805,
+        "keywordScore": null
+      },
+      "elapsedMs": 11021,
       "error": null
     },
     {
@@ -383,120 +486,199 @@
       "question": "你在资本配置上如何权衡回购、并购和持有现金？",
       "hits": 7,
       "years": [
+        1984,
+        1986,
         1994,
-        1997,
-        1999,
+        2003,
         2011,
         2012,
-        2016,
-        2021
+        2023
       ],
       "first": {
         "year": 2012,
-        "title": "Dividends (1)",
+        "title": "Dividends",
         "sourceType": "shareholder",
-        "chunkId": "06fab293-54f3-4a1e-85e8-472332315e0f",
-        "excerpt": "Our record $12.1 billion of fixed-asset investments and bolt-on acquisitions in 2012 demonstrate that this is a fertile field for capital allocation at Berkshire.",
-        "excerptZh": "伯克希尔的一些股东(包括我一些最好的朋友)，可能都希望伯克希尔进行现金分红。让他们疑惑的是，我们从伯克希尔拥有的大多数子公司那里收到很多分红，却从来不向大家分红。我们有必要来了解一下，什么时候分红对股东有意义，什么时候没有意义。"
+        "chunkId": "b89ced1f-9669-4dde-b4e8-fb4b8f8fde97",
+        "excerpt": "Even after we deploy hefty amounts of capital in our current operations, Berkshire will regularly generate a lot of additional cash.",
+        "excerptZh": "即使在我们在伯克希尔现有业务中部署了大量资本后，伯克希尔依然源源不断产出富余的现金。因此，我们的下一步则是，寻找与当前业务无关的收购机会。我们的标准也很简单：查理和我认为，我们是否能够达成一项交易，让我们的股东在每股基础上，比收购之前更加富有？",
+        "retrieval": "semantic",
+        "semanticScore": 0.6265239846071794,
+        "keywordScore": null
       },
-      "elapsedMs": 23305,
+      "elapsedMs": 20721,
       "error": null
     },
     {
       "id": "M008",
       "type": "method",
       "question": "你对“分散投资 vs 集中投资”的观点是怎样的？",
-      "hits": 8,
+      "hits": 7,
       "years": [
         1966,
-        1991,
+        1967,
+        1984,
         1993,
-        1996,
         2014,
-        2020,
-        2024
+        2023
       ],
       "first": {
-        "year": 1991,
-        "title": "Marketable Common Stocks (2)",
+        "year": 1984,
+        "title": "Washington Public Power Supply System",
         "sourceType": "shareholder",
-        "chunkId": "dab86be8-3543-42f5-98d6-4048912642cd",
-        "excerpt": "If my universe of business possibilities was limited, say, to private companies in Omaha, I would, first, try to assess the long-term economic characteristics of each business; second, assess the quality of the people in…",
-        "excerptZh": "著名经济学家凯恩斯，他的投资绩效跟他的理论思想一样杰出，在1934年8月15日他曾经写了一封信给生意伙伴Scott，上面写到：\"随着时光的流逝，我越来越相信正确的投资方式是，将大部分的资金投入到自己了解的企业和自己完全信任的管理层之上，将资金分散到自己知之甚少且没有特别理由信任的…"
+        "chunkId": "29594bee-cd7b-4680-9abd-fbf513ad969b",
+        "excerpt": "(Billy Rose described the problem of over-diversification: “If you have a harem of forty women, you never get to know any of them very well.”) Over time our policy of concentration should produce superior results, though…",
+        "excerptZh": "以我们的财务实力，那些我们经过深思熟虑的少数股票，我们可以以有吸引力的价格买下一大笔。Bill Rose这样描述过度多样化的问题：如果你的后宫有四十个女人，你永远都不会对她们中的任何一个非常了解(If you have a harem of forty women， you ne…",
+        "retrieval": "semantic",
+        "semanticScore": 0.5427161802917608,
+        "keywordScore": null
       },
-      "elapsedMs": 27469,
+      "elapsedMs": 23257,
       "error": null
     },
     {
       "id": "M009",
       "type": "method",
       "question": "你关于科技公司投资的态度，这些年发生了哪些变化？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 12440,
+      "hits": 15,
+      "years": [
+        1969,
+        1991,
+        1999,
+        2000,
+        2001,
+        2006,
+        2009,
+        2011,
+        2012,
+        2016,
+        2017,
+        2019,
+        2021,
+        2023,
+        2024
+      ],
+      "first": {
+        "year": 1969,
+        "title": null,
+        "sourceType": "partnership",
+        "chunkId": "5eb13669-c0c7-4998-8ade-010e6a814057",
+        "excerpt": "My personal opinion is that the intrinsic value of DRC and B-H will grow substantially over the years.",
+        "excerptZh": "我的个人看法是，多年以后，多元零售公司和伯克希尔哈撒韦公司的内在价值会实现巨大增长。谁都不知道未来会怎样，但如果它们的增长率达不到每年 10%，我会很失望。股票的市场价格围绕内在价值剧烈波动，但是，长期来看，市场价格总有反映内在价值的时候。综上所述，我认为这两家公司都值得长期持有…",
+        "retrieval": "semantic",
+        "semanticScore": 0.4253551843767931,
+        "keywordScore": null
+      },
+      "elapsedMs": 40211,
       "error": null
     },
     {
       "id": "M010",
       "type": "method",
       "question": "你如何把“安全边际”落实到实际买入决策里？",
-      "hits": 4,
+      "hits": 7,
       "years": [
-        1962,
-        1966,
+        1986,
+        1990,
+        1991,
         1992,
-        1993
+        2010,
+        2011
       ],
       "first": {
         "year": 1992,
-        "title": "Common Stock Investments (4)",
+        "title": "Common Stock Investments",
         "sourceType": "shareholder",
-        "chunkId": "31b64aa8-9113-4fa5-a8be-007c6f5f828d",
-        "excerpt": "We believe this margin-of-safety principle, so strongly emphasized by Ben Graham, to be the cornerstone of investment success.",
-        "excerptZh": ""
+        "chunkId": "183644ef-7e0e-4fa5-8b79-0d9bfb0112f3",
+        "excerpt": "Though the mathematical calculations required to evaluate equities are not difficult, an analyst - even one who is experienced and intelligent - can easily go wrong in estimating future \"coupons.\" At Berkshire, we attemp…",
+        "excerptZh": "虽然评估股权投资的数学计算并不难，但是即使是一个经验老到、聪明过人的分析师，在估计未来年度票息时也很容易发生错误，在伯克希尔我们试图以两种方法来解决这个问题。首先，我们试着坚守在我们自认为理解的业务之上，这意味着他们通常相当简单和稳定。如果企业很复杂并且产业环境也一直在变化，我们…",
+        "retrieval": "semantic",
+        "semanticScore": 0.633618305514332,
+        "keywordScore": null
       },
-      "elapsedMs": 27287,
+      "elapsedMs": 14003,
       "error": null
     },
     {
       "id": "C001",
       "type": "chat",
       "question": "如果我今天只能记住一句你的投资建议，你会选哪句？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 8073,
+      "hits": 7,
+      "years": [
+        1992,
+        1993,
+        1996,
+        2005,
+        2019,
+        2021,
+        2023
+      ],
+      "first": {
+        "year": 1992,
+        "title": "Common Stock Investments",
+        "sourceType": "shareholder",
+        "chunkId": "183644ef-7e0e-4fa5-8b79-0d9bfb0112f3",
+        "excerpt": "What counts for most people in investing is not how much they know, but rather how realistically they define what they don't know.",
+        "excerptZh": "虽然评估股权投资的数学计算并不难，但是即使是一个经验老到、聪明过人的分析师，在估计未来年度票息时也很容易发生错误，在伯克希尔我们试图以两种方法来解决这个问题。首先，我们试着坚守在我们自认为理解的业务之上，这意味着他们通常相当简单和稳定。如果企业很复杂并且产业环境也一直在变化，我们…",
+        "retrieval": "semantic",
+        "semanticScore": 0.6027675188971882,
+        "keywordScore": null
+      },
+      "elapsedMs": 8081,
       "error": null
     },
     {
       "id": "C002",
       "type": "chat",
       "question": "你现在还会每天读很多年报吗？怎么安排阅读节奏？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 9764,
+      "hits": 7,
+      "years": [
+        1990,
+        2012,
+        2015,
+        2018,
+        2021,
+        2022,
+        2025
+      ],
+      "first": {
+        "year": 2025,
+        "title": null,
+        "sourceType": "shareholder",
+        "chunkId": "e5348f71-68fc-4e80-9f2c-d5284a3f3f42",
+        "excerpt": "Buffett’s comments to his fellow shareholders follow:",
+        "excerptZh": "以下为巴菲特先生致股东的信：",
+        "retrieval": "semantic",
+        "semanticScore": 0.589051778008999,
+        "keywordScore": null
+      },
+      "elapsedMs": 14368,
       "error": null
     },
     {
       "id": "C003",
       "type": "chat",
       "question": "芒格对你影响最大的一条思维习惯是什么？",
-      "hits": 2,
+      "hits": 7,
       "years": [
-        2022,
-        2023
+        1982,
+        1985,
+        1986,
+        2009,
+        2023,
+        2024
       ],
       "first": {
         "year": 2023,
-        "title": null,
+        "title": "Charlie Munger - The Architect of Berkshire Hathaway > What is it with Omaha?",
         "sourceType": "shareholder",
-        "chunkId": "090770e7-9c2d-43d7-b550-c872542fce78",
-        "excerpt": "Nevertheless, Charlie, in 1965, promptly advised me: “Warren, forget about ever buying another company like Berkshire.",
-        "excerptZh": "尽管如此，查理在1965年及时地建议我：“沃伦，别再买伯克希尔这样的公司了。不过你现已控制了公司，就用它来以合理价格购买优秀企业，而不是以优秀价格购买合理企业。换句话说，放弃从你的英雄——本·格雷厄姆那里学到的一切吧，它管用，但仅限于小资金。”兜兜转转中，最后我还是听从了他的建议…"
+        "chunkId": "6f9d2376-49a1-4a12-9033-1e4b18df749c",
+        "excerpt": "Charlie's wisdom will improve your life as it has mine.",
+        "excerptZh": "更重要的是，我们将推出第四版《穷查理宝典》。带回去一本，查理的智慧将会改善你的生活，正如我这样。",
+        "retrieval": "semantic",
+        "semanticScore": 0.5371121009884293,
+        "keywordScore": null
       },
-      "elapsedMs": 14050,
+      "elapsedMs": 12996,
       "error": null
     },
     {
@@ -505,31 +687,54 @@
       "question": "如果我是投资新手，你会让我先改掉哪三个坏习惯？",
       "hits": 7,
       "years": [
-        1987,
         1989,
-        1994,
-        1996,
-        2013
+        1992,
+        2011,
+        2019,
+        2021,
+        2023,
+        2024
       ],
       "first": {
-        "year": 1989,
-        "title": "Bargain Purchase",
+        "year": 1992,
+        "title": "Acquisitions",
         "sourceType": "shareholder",
-        "chunkId": "6a7f7caf-f165-4d3d-ad00-1f846a502471",
-        "excerpt": "But the investment will disappoint if the business is sold for $10 million in ten years and in the interim has annually earned and distributed only a few percent on cost.",
-        "excerptZh": "首先我所犯的第一个错误，就是买下伯克希尔纺织的控制权，虽然我很清楚纺织这个产业没什么前景，却因为它的价格实在很便宜而受其所引诱，虽然在早期投资这样的股票确实让我获利颇丰，但在1965年投资伯克希尔后，我就开始发现这终究不是个理想的投资模式。"
+        "chunkId": "83ed5e6b-14a8-4ab7-befa-71b56e5a5829",
+        "excerpt": "After several failures of this type, I finally remembered some useful advice I once got from a golf pro (who, like all pros who have had anything to do with my game, wishes to remain anonymous).",
+        "excerptZh": "在失败过几次之后，我终于想起我曾经从某位职业高尔夫选手那儿得到的建议（像所有职业选手一样，只要和我打过球的，通常都不太愿意让我提起他们的名字），他说：“练习无法变得完美，练习只会巩固习惯。”，也因此我决定改变我的投资策略，试着以合理的价格买进好公司，而不是以便宜的价格买进普通的公…",
+        "retrieval": "semantic",
+        "semanticScore": 0.5190785215661606,
+        "keywordScore": null
       },
-      "elapsedMs": 18371,
+      "elapsedMs": 19096,
       "error": null
     },
     {
       "id": "C005",
       "type": "chat",
       "question": "你觉得普通人最容易误解你的哪条观点？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 10930,
+      "hits": 7,
+      "years": [
+        1995,
+        2000,
+        2004,
+        2011,
+        2016,
+        2021,
+        2022
+      ],
+      "first": {
+        "year": 2004,
+        "title": "Investments",
+        "sourceType": "shareholder",
+        "chunkId": "556534d3-7f05-4dd2-8931-f4f85cf43be7",
+        "excerpt": "The media continue to report that \"Buffett buys\" this or that stock.",
+        "excerptZh": "不论我如何澄清，媒体还是一再报导，“巴菲特买进某些股票”，这些讯息主要的来源是伯克希尔向证券主管机关申报的文件，这样的说法其实并不正确，就像我一再强调的，他们应该要说，这是“*伯克希尔*买进的”。",
+        "retrieval": "semantic",
+        "semanticScore": 0.5713141756513282,
+        "keywordScore": null
+      },
+      "elapsedMs": 21258,
       "error": null
     },
     {
@@ -538,72 +743,133 @@
       "question": "面对连续下跌的市场，你会怎么让自己保持冷静？",
       "hits": 7,
       "years": [
-        1966,
-        1987,
         1994,
-        2013,
-        2016,
-        2023
+        1995,
+        2002,
+        2005,
+        2008,
+        2021,
+        2025
       ],
       "first": {
-        "year": 2013,
-        "title": "Some Thoughts About Investing (4)",
+        "year": 2008,
+        "title": "Berkshire in 2008",
         "sourceType": "shareholder",
-        "chunkId": "2901be13-eaf8-4141-a443-92ca2d7ab265",
-        "excerpt": "But they will not be the disasters that occur, for example, when a long-rising market induces purchases that are based on anticipated price behavior and a desire to be where the action is.",
-        "excerptZh": "我的钱将会投到指数基金里，因此我还得再为此说两句：我在这里所建议的和已经写在遗嘱中的内容基本是一致的。一份遗赠规定，现金将被交付到我妻子设立的信托中。(我必须使用现金进行个人遗赠，因为我所持有的全部伯克希尔股票将在我去世后的十年内会分配给一些慈善组织。)我对受托人的要求非常简单：…"
+        "chunkId": "61fef399-dc85-4456-ba1e-823408ea1565",
+        "excerpt": "Additionally, the market value of the bonds and stocks that we continue to hold suffered a significant decline along with the general market.",
+        "excerptZh": "另外，我们长期持有的债券及股票市值受到市场大跌的影响。这并不让我和查理恼怒。的确，当我们有足够的资金去增加我们仓位的时候，我们反而很享受这样的价格下跌。很久以前，格雷厄姆告诉我“价格是你所支付的，价值是你所得到的”。无论我们所谈论是袜子或者是股票，我总是喜欢在市场下跌时，购买足够…",
+        "retrieval": "semantic",
+        "semanticScore": 0.6210833136152998,
+        "keywordScore": null
       },
-      "elapsedMs": 14216,
+      "elapsedMs": 15105,
       "error": null
     },
     {
       "id": "C007",
       "type": "chat",
       "question": "你会怎么向完全不懂投资的人解释“复利”？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 9770,
+      "hits": 7,
+      "years": [
+        1964,
+        1992,
+        1993,
+        2013,
+        2019,
+        2024
+      ],
+      "first": {
+        "year": 1993,
+        "title": "Taxes",
+        "sourceType": "shareholder",
+        "chunkId": "077a50ca-5fd3-4fa0-91cb-7b870cb093a3",
+        "excerpt": "What this little tale tells us is that tax-paying investors will realize a far, far greater sum from a single investment that compounds internally at a given rate than from a succession of investments compounding at the…",
+        "excerptZh": "这个小故事告诉我们的是，对于必须纳税的投资人来说，在回报率确定的情况下，一笔不断复利的投资(最后纳税)，远比连续做一系列相同的投资(每轮纳税)，回报要多的多，不过我怀疑许多伯克希尔的股东很早就已经知道这个道理了。",
+        "retrieval": "semantic",
+        "semanticScore": 0.579087518368539,
+        "keywordScore": null
+      },
+      "elapsedMs": 14487,
       "error": null
     },
     {
       "id": "C008",
       "type": "chat",
       "question": "如果我总想追热门题材，你会怎么劝我？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 7818,
+      "hits": 7,
+      "years": [
+        1967,
+        1995,
+        1996,
+        2016
+      ],
+      "first": {
+        "year": 1967,
+        "title": null,
+        "sourceType": "partnership",
+        "chunkId": "11711a9b-fd5d-4c1f-b3fb-1a0b76a6851c",
+        "excerpt": "It represents an investment technique whose soundness I can neither affirm nor deny.",
+        "excerptZh": "> “在证券投资中，预测市场走势，忽略商业估值的行为经常盛行。我们不会效仿。近年来，这种投资风气经常能迅速赚大钱，就在我写这封信的这个月就是如此。这个投资方法是否合理？我无法证实，也无法否认。我的理智（或许是我的偏见）不完全认同这种投资方法，我的秉性也绝对不适合这种投资方法。我不…",
+        "retrieval": "semantic",
+        "semanticScore": 0.5882691080230563,
+        "keywordScore": null
+      },
+      "elapsedMs": 16607,
       "error": null
     },
     {
       "id": "C009",
       "type": "chat",
       "question": "你今天还会建议年轻人长期持有指数基金吗？",
-      "hits": 2,
+      "hits": 7,
       "years": [
-        2024,
-        2025
+        1965,
+        1969,
+        2003,
+        2004,
+        2016,
+        2021
       ],
       "first": {
-        "year": 2024,
-        "title": "Where Your Money Is (1)",
+        "year": 2003,
+        "title": null,
         "sourceType": "shareholder",
-        "chunkId": "e21f42ec-fae3-49d3-9c29-7cabbafcef4c",
-        "excerpt": "In one hand we own control of many businesses, holding at least 80% of the investee's shares.",
-        "excerptZh": "伯克希尔的股权运作是双管齐下的。一方面，我们拥有许多企业的控制权，持有被投资公司至少 80% 的股份。通常情况下，我们的持股比例达到 100%。"
+        "chunkId": "aa5fd138-57dd-419f-ba9b-cadcff1096a4",
+        "excerpt": "Nonetheless, Berkshire's long-term performance versus the S&P remains all-important.",
+        "excerptZh": "不过即便如此，伯克希尔相对于标普 500 长期的表现还是顶重要的，因为股东们现在可以非常低的手续费买到指数型基金，间接投资标普 500 ，因此除非在未来我们能够以高于标普 500 的速度累积每股内在价值，否则查理跟我就没有存在的价值。",
+        "retrieval": "semantic",
+        "semanticScore": 0.5882480048536672,
+        "keywordScore": null
       },
-      "elapsedMs": 12560,
+      "elapsedMs": 14014,
       "error": null
     },
     {
       "id": "C010",
       "type": "chat",
       "question": "除了投资，你觉得一个人长期成功最重要的品质是什么？",
-      "hits": 0,
-      "years": [],
-      "first": null,
-      "elapsedMs": 9525,
+      "hits": 7,
+      "years": [
+        1969,
+        1997,
+        2006,
+        2007,
+        2008,
+        2010,
+        2019
+      ],
+      "first": {
+        "year": 2006,
+        "title": "Investments",
+        "sourceType": "shareholder",
+        "chunkId": "c528d832-f60d-4c98-887f-b7f18205dcbe",
+        "excerpt": "Independent thinking, emotional stability, and a keen understanding of both human and institutional behavior is vital to long-term investment success.",
+        "excerptZh": "秉性也十分重要。独立思考、情绪稳定、以及对人性及机构行为的敏锐理解，这些对于长期投资的成功都至关重要。我看过很多聪明绝顶的人，但都缺乏这些特质。",
+        "retrieval": "semantic",
+        "semanticScore": 0.580455055905092,
+        "keywordScore": null
+      },
+      "elapsedMs": 19505,
       "error": null
     }
   ]
