@@ -5,6 +5,9 @@ import { buildSystemPrompt } from "@/lib/prompts/buffett";
 import type { EvidencePlan, RetrievedChunk } from "@/lib/prompts/buffett";
 import { searchChunks } from "@/lib/search";
 
+// Allow up to 60s for cross-border API calls to 火山引擎
+export const maxDuration = 60;
+
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
 const AI_MODEL = process.env.AI_MODEL!;
@@ -228,6 +231,7 @@ export async function POST(req: Request) {
       max_tokens: 1000,
       stream: true,
     }),
+    signal: AbortSignal.timeout(55000),
   });
 
   if (!aiRes.ok) {

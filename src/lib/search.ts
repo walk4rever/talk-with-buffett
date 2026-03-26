@@ -252,6 +252,7 @@ async function understandQuery(query: string): Promise<QueryPlan> {
         temperature: 0,
         max_tokens: 260,
       }),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!res.ok) throw new Error(`API ${res.status}`);
@@ -499,6 +500,7 @@ async function getEmbedding(text: string): Promise<number[]> {
       dimensions: 1024,
       encoding_format: "float",
     }),
+    signal: AbortSignal.timeout(25000),
   });
   if (!res.ok) throw new Error(`Embedding API ${res.status}`);
   const data = await res.json();
