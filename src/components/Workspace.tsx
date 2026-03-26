@@ -344,6 +344,7 @@ export function Workspace() {
   const canvasExcerptZh = params.get("qzh") ?? "";
   const canvasTitle = params.get("t") ?? "";
   const hasReader = !!canvasType && canvasYear > 0;
+  const initialQuestion = params.get("ask") ?? "";
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const restored = readTransferFromSessionStorage();
@@ -384,6 +385,16 @@ export function Workspace() {
 
   useEffect(() => {
     sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
+  }, []);
+
+  const sendRef = useRef<((text: string) => void) | null>(null);
+
+  useEffect(() => {
+    if (initialQuestion && sendRef.current && messages.length === 0) {
+      sendRef.current(initialQuestion);
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -437,7 +448,7 @@ export function Workspace() {
       const qzh = excerptZh ? `&qzh=${encodeURIComponent(excerptZh.slice(0, 100))}` : "";
       const t = title ? `&t=${encodeURIComponent(title)}` : "";
       const c = chunkId ? `&c=${encodeURIComponent(chunkId)}` : "";
-      router.push(`/workspace?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
+      router.push(`/chat?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
       setMobilePanel("canvas");
     },
     [router, posthog],
@@ -447,7 +458,7 @@ export function Workspace() {
     if (hasReader && canvasScrollRef.current) {
       scrollPositions.set(canvasKey(canvasType, canvasYear), canvasScrollRef.current.scrollTop);
     }
-    router.push("/workspace", { scroll: false });
+    router.push("/chat", { scroll: false });
     setMobilePanel("canvas");
   }, [router, hasReader, canvasType, canvasYear]);
 
@@ -521,8 +532,12 @@ export function Workspace() {
         },
       );
     },
-    [messages, loading],
+    [messages, loading, posthog],
   );
+
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,14 +1,14 @@
 import { Suspense } from "react";
-import { ChatPage } from "@/components/ChatPage";
+import { Workspace } from "@/components/Workspace";
 
 export const metadata = {
   title: "与巴菲特对话 — Talk with Buffett",
 };
 
-export default function Chat() {
+export default function ChatPage() {
   return (
     <Suspense>
-      <ChatPage />
+      <Workspace />
     </Suspense>
   );
 }

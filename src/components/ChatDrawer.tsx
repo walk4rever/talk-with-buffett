@@ -219,7 +219,7 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="workspace-source-chip-row">
                       <Link
-                        href="/workspace"
+                        href="/chat"
                         className="workspace-source-chip"
                         onClick={persistChatForWorkspace}
                         aria-label={`${msg.sources.length} sources`}

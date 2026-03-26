@@ -329,7 +329,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
       {/* FAB → navigate to workspace with this source open */}
       <button
         className="chat-fab"
-        onClick={() => router.push(`/workspace?source=${sourceType}&year=${year}`)}
+        onClick={() => router.push(`/chat?source=${sourceType}&year=${year}`)}
         aria-label="与巴菲特对话"
         title="与巴菲特对话"
       >
