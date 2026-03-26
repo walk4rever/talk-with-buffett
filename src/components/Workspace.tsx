@@ -16,6 +16,7 @@ import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import { usePostHog } from "posthog-js/react";
 import { WaitlistModal } from "@/components/WaitlistModal";
 import {
   type ChatMessage,
@@ -335,6 +336,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
 export function Workspace() {
   const params = useSearchParams();
   const router = useRouter();
+  const posthog = usePostHog();
 
   const canvasType = params.get("source") ?? "";
   const canvasYear = parseInt(params.get("year") ?? "0", 10);
@@ -430,6 +432,7 @@ export function Workspace() {
 
   const openReader = useCallback(
     (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => {
+      posthog?.capture("reader_opened", { source_type: type, year });
       const q = excerpt ? `&q=${encodeURIComponent(excerpt.slice(0, 100))}` : "";
       const qzh = excerptZh ? `&qzh=${encodeURIComponent(excerptZh.slice(0, 100))}` : "";
       const t = title ? `&t=${encodeURIComponent(title)}` : "";
@@ -437,7 +440,7 @@ export function Workspace() {
       router.push(`/workspace?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
       setMobilePanel("canvas");
     },
-    [router],
+    [router, posthog],
   );
 
   const closeReader = useCallback(() => {
@@ -457,6 +460,11 @@ export function Workspace() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || loading) return;
+
+      posthog?.capture("chat_sent", {
+        message_length: trimmed.length,
+        turn_count: messages.filter((m) => m.role === "user").length + 1,
+      });
 
       const userMsg: ChatMessage = { role: "user", content: trimmed };
       setMessages((prev) => [...prev, userMsg]);
@@ -760,6 +768,7 @@ function ReferenceList({
   items: ChatSource[];
   onOpen: (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => void;
 }) {
+  const posthog = usePostHog();
   if (items.length === 0) {
     return (
       <div className="workspace-reference-empty">
@@ -792,7 +801,10 @@ function ReferenceList({
         <button
           key={item.chunkId ?? `${item.sourceType}-${item.year}-${item.title ?? ""}-${item.excerpt.slice(0, 40)}`}
           className="workspace-reference-item"
-          onClick={() => onOpen(item.sourceType, item.year, item.excerpt, item.title, item.chunkId, item.excerptZh)}
+          onClick={() => {
+            posthog?.capture("source_clicked", { source_type: item.sourceType, year: item.year, retrieval: item.retrieval });
+            onOpen(item.sourceType, item.year, item.excerpt, item.title, item.chunkId, item.excerptZh);
+          }}
         >
           <div className="workspace-reference-meta">
             <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>
