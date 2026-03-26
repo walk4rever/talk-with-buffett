@@ -716,6 +716,7 @@ export interface SearchResult {
   order: "asc" | "desc" | "relevance";
   distinctByYear: boolean;
   evidenceQuery: string;
+  taskType: TaskType | "chat";
   intent: QueryIntent;
   answerMode: AnswerMode;
   entities: string[];
@@ -734,6 +735,7 @@ export async function searchChunks(query: string): Promise<SearchResult> {
       order: "relevance",
       distinctByYear: false,
       evidenceQuery: query,
+      taskType: "chat",
       intent: "chat",
       answerMode: "concise",
       entities: [],
@@ -827,6 +829,7 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     order,
     distinctByYear,
     evidenceQuery: u.keywordQuery || u.semanticQuery || query,
+    taskType: u.taskType,
     intent,
     answerMode,
     entities: u.entities,

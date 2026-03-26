@@ -149,6 +149,7 @@ export async function POST(req: Request) {
     order,
     distinctByYear,
     evidenceQuery,
+    taskType,
     intent,
     answerMode,
     entities,
@@ -198,7 +199,7 @@ export async function POST(req: Request) {
       ip,
       question: lastUserMsg.content,
       sourceIds: chunks.map((c) => c.id),
-      taskType: intent,
+      taskType,
       needsRetrieval,
     },
   });
