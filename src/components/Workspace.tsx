@@ -491,13 +491,14 @@ export function Workspace() {
             return updated;
           });
         },
-        (sources) => {
+        (sources, chatMessageId) => {
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
               ...updated[updated.length - 1],
               sources,
               streaming: false,
+              chatMessageId,
             };
             return updated;
           });
@@ -527,6 +528,19 @@ export function Workspace() {
     e.preventDefault();
     send(input);
   }
+
+  const handleRate = useCallback((chatMessageId: string, rating: 1 | -1) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.chatMessageId === chatMessageId ? { ...m, rating } : m,
+      ),
+    );
+    fetch(`/api/chat/${chatMessageId}/rating`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating }),
+    }).catch((err) => console.error("[rating] failed:", err));
+  }, []);
 
   return (
     <div className="workspace workspace--split">
@@ -573,6 +587,7 @@ export function Workspace() {
                     setActiveSources(sources);
                     setMobilePanel("canvas");
                   }}
+                  onRate={handleRate}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -683,9 +698,11 @@ export function Workspace() {
 function WorkspaceMessage({
   msg,
   onOpenSources,
+  onRate,
 }: {
   msg: ChatMessage;
   onOpenSources: (sources: ChatSource[]) => void;
+  onRate: (chatMessageId: string, rating: 1 | -1) => void;
 }) {
   const openSources = () => onOpenSources(msg.sources ?? []);
 
@@ -741,8 +758,8 @@ function WorkspaceMessage({
             {msg.content}
           </ReactMarkdown>
         </div>
-        {msg.sources && msg.sources.length > 0 ? (
-          <div className="workspace-source-chip-row">
+        <div className="workspace-msg-footer">
+          {msg.sources && msg.sources.length > 0 ? (
             <button
               type="button"
               className="workspace-source-chip"
@@ -754,8 +771,28 @@ function WorkspaceMessage({
               </svg>
               <span>{msg.sources.length} sources</span>
             </button>
-          </div>
-        ) : null}
+          ) : null}
+          {msg.chatMessageId && !msg.streaming ? (
+            <div className="msg-rating">
+              <button
+                type="button"
+                className={`msg-rating-btn${msg.rating === 1 ? " msg-rating-btn--active" : ""}`}
+                aria-label="thumbs up"
+                onClick={() => onRate(msg.chatMessageId!, 1)}
+              >
+                👍
+              </button>
+              <button
+                type="button"
+                className={`msg-rating-btn${msg.rating === -1 ? " msg-rating-btn--active" : ""}`}
+                aria-label="thumbs down"
+                onClick={() => onRate(msg.chatMessageId!, -1)}
+              >
+                👎
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );

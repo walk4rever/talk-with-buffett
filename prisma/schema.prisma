@@ -107,3 +107,17 @@ model WaitlistEntry {
   source    String?
   createdAt DateTime @default(now())
 }
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  ip             String
+  userId         String?
+  question       String
+  answer         String?
+  sourceIds      String[] @default([])
+  taskType       String?  // "fact" | "method"
+  needsRetrieval Boolean  @default(true)
+  rating         Int?     // 1 = thumbs up, -1 = thumbs down
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

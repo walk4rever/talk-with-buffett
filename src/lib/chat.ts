@@ -20,6 +20,8 @@ export interface ChatMessage {
   content: string;
   sources?: ChatSource[];
   streaming?: boolean;
+  chatMessageId?: string;
+  rating?: 1 | -1 | null;
 }
 
 export const SOURCE_TYPE_LABELS: Record<string, string> = {
@@ -40,7 +42,7 @@ export function getSourceTypeLabel(type: string): string {
 export async function streamChatAPI(
   messages: ChatMessage[],
   onDelta: (text: string) => void,
-  onDone: (sources: ChatSource[]) => void,
+  onDone: (sources: ChatSource[], chatMessageId?: string) => void,
   onError: (msg: string) => void,
 ) {
   const res = await fetch("/api/chat", {
@@ -79,7 +81,7 @@ export async function streamChatAPI(
           // Sources arrive first, before AI streaming starts.
           try {
             const data = JSON.parse(payload);
-            onDone(data.sources ?? []);
+            onDone(data.sources ?? [], data.chatMessageId);
           } catch {
             onDone([]);
           }

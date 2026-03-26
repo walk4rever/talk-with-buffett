@@ -192,6 +192,17 @@ export async function POST(req: Request) {
     keywordScore: c.keywordScore,
   }));
 
+  // Create ChatMessage record (answer filled in after streaming completes)
+  const chatRecord = await prisma.chatMessage.create({
+    data: {
+      ip,
+      question: lastUserMsg.content,
+      sourceIds: chunks.map((c) => c.id),
+      taskType: intent,
+      needsRetrieval,
+    },
+  });
+
   const aiMessages = [
     { role: "system", content: systemPrompt },
     ...body.messages
@@ -231,25 +242,26 @@ export async function POST(req: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Send sources immediately before AI streaming begins so it always arrives.
+      // Send sources + chatMessageId immediately before AI streaming begins.
       controller.enqueue(
         encoder.encode(
-          `event: sources\ndata: ${JSON.stringify({ sources, remaining: usage.remaining })}\n\n`,
+          `event: sources\ndata: ${JSON.stringify({ sources, remaining: usage.remaining, chatMessageId: chatRecord.id })}\n\n`,
         ),
       );
 
       const reader = aiRes.body!.getReader();
       const decoder = new TextDecoder();
-      let buffer = "";
+      let sseBuffer = "";
+      let answerBuffer = "";
 
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split("\n");
+          sseBuffer = lines.pop() ?? "";
 
           for (const line of lines) {
             const trimmed = line.trim();
@@ -262,6 +274,7 @@ export async function POST(req: Request) {
               const json = JSON.parse(payload);
               const delta = json.choices?.[0]?.delta?.content;
               if (delta) {
+                answerBuffer += delta;
                 controller.enqueue(
                   encoder.encode(`event: delta\ndata: ${JSON.stringify(delta)}\n\n`),
                 );
@@ -273,6 +286,12 @@ export async function POST(req: Request) {
         }
 
         controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
+
+        // Persist the completed answer (fire-and-forget, don't block the stream)
+        prisma.chatMessage.update({
+          where: { id: chatRecord.id },
+          data: { answer: answerBuffer },
+        }).catch((err) => console.error("[chat] failed to save answer:", err));
       } catch (err) {
         console.error("Stream processing error:", err);
         controller.enqueue(
