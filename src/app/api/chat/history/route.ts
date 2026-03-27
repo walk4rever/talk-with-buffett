@@ -31,6 +31,7 @@ export async function GET() {
       chatMessageId: r.id,
       rating: r.rating as 1 | -1 | null | undefined,
       sources: Array.isArray(r.sourcesJson) ? (r.sourcesJson as unknown as ChatMessage["sources"]) : undefined,
+      question: r.question,
     },
   ]);
 

@@ -557,7 +557,7 @@ export function Workspace() {
       setLoading(true);
       streamingTextRef.current = "";
 
-      const placeholderMsg: ChatMessage = { role: "assistant", content: "", streaming: true };
+      const placeholderMsg: ChatMessage = { role: "assistant", content: "", streaming: true, question: trimmed };
       setMessages((prev) => [...prev, placeholderMsg]);
 
       // Throttle streaming state updates to ~80ms to avoid per-token re-renders
@@ -682,6 +682,10 @@ export function Workspace() {
                     setMobilePanel("canvas");
                   }}
                   onRate={handleRate}
+                  onShare={(question, answer) => {
+                    const url = `/api/share/preview?q=${encodeURIComponent(question)}&a=${encodeURIComponent(answer)}`;
+                    window.open(url, "_blank");
+                  }}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -793,10 +797,12 @@ function WorkspaceMessage({
   msg,
   onOpenSources,
   onRate,
+  onShare,
 }: {
   msg: ChatMessage;
   onOpenSources: (sources: ChatSource[]) => void;
   onRate: (chatMessageId: string, rating: 1 | -1) => void;
+  onShare: (question: string, answer: string) => void;
 }) {
   const openSources = () => onOpenSources(msg.sources ?? []);
 
@@ -868,6 +874,20 @@ function WorkspaceMessage({
           ) : null}
           {msg.chatMessageId && !msg.streaming ? (
             <div className="msg-rating">
+              <button
+                type="button"
+                className="msg-rating-btn msg-share-btn"
+                aria-label="分享"
+                onClick={() => onShare(msg.question ?? "", msg.content)}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                  <circle cx="6" cy="12" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                  <circle cx="18" cy="19" r="3" stroke="currentColor" strokeWidth="1.8"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </button>
               <button
                 type="button"
                 className={`msg-rating-btn${msg.rating === 1 ? " msg-rating-btn--active" : ""}`}

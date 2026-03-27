@@ -2157,6 +2157,7 @@ body.layout-no-header {
 .msg-rating {
   display: flex;
   gap: 0.2rem;
+  margin-left: auto;
 }
 
 .msg-rating-btn {
@@ -2176,6 +2177,14 @@ body.layout-no-header {
 
 .msg-rating-btn--active {
   opacity: 1;
+}
+
+.msg-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-right: 0.25rem;
 }
 
 .workspace-source-chip {

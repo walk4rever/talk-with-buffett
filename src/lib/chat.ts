@@ -22,6 +22,8 @@ export interface ChatMessage {
   streaming?: boolean;
   chatMessageId?: string;
   rating?: 1 | -1 | null;
+  /** The user question that preceded this assistant message (for share image). */
+  question?: string;
 }
 
 export const SOURCE_TYPE_LABELS: Record<string, string> = {
