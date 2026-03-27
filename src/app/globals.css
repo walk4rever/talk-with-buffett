@@ -2380,15 +2380,23 @@ body.layout-no-header {
 }
 
 .share-modal-image-wrap {
-  width: 100%;
+  width: auto;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 16px rgba(0,0,0,0.12);
+  /* Center the image if narrower than container */
+  display: flex;
+  justify-content: center;
 }
 
 .share-modal-image {
-  width: 100%;
+  /* Fit the full portrait card within the visible modal area.
+     The src data-URL is full-res; user saves full size on long-press. */
   display: block;
+  max-height: calc(70vh - 80px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .share-modal-hint {
