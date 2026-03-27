@@ -213,8 +213,16 @@ export async function POST(req: Request) {
     },
   });
 
+  // Include last 3 Q&A pairs as context so follow-up questions work correctly
+  const CONTEXT_TURNS = 3;
+  const historyMessages = body.messages
+    .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
+    .slice(-(CONTEXT_TURNS * 2 + 1), -1) // last 6 messages before the current one
+    .map((m: { role: string; content: string }) => ({ role: m.role, content: m.content }));
+
   const aiMessages = [
     { role: "system", content: systemPrompt },
+    ...historyMessages,
     { role: "user", content: lastUserMsg.content },
   ];
 

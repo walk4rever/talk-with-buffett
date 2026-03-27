@@ -573,7 +573,7 @@ export function Workspace() {
       }
 
       await streamChatAPI(
-        [userMsg],
+        [...messages, userMsg],
         (delta) => {
           streamingTextRef.current += delta;
           if (!rafId) rafId = requestAnimationFrame(flushStreamingText);
