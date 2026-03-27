@@ -10,12 +10,27 @@ export function LoginForm() {
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") ?? "/";
 
-  const [tab, setTab] = useState<"login" | "register">("login");
+  const [tab, setTab] = useState<"login" | "register" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    setLoading(true);
+    await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setLoading(false);
+    setInfo("如果该邮箱已注册，重置链接已发送，请查收邮件。");
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -63,19 +78,19 @@ export function LoginForm() {
         <div className="login-tabs">
           <button
             className={`login-tab${tab === "login" ? " login-tab--active" : ""}`}
-            onClick={() => { setTab("login"); setError(""); }}
+            onClick={() => { setTab("login"); setError(""); setInfo(""); }}
           >
             登录
           </button>
           <button
             className={`login-tab${tab === "register" ? " login-tab--active" : ""}`}
-            onClick={() => { setTab("register"); setError(""); }}
+            onClick={() => { setTab("register"); setError(""); setInfo(""); }}
           >
             注册
           </button>
         </div>
 
-        <form onSubmit={tab === "login" ? handleLogin : handleRegister} className="login-form">
+        <form onSubmit={tab === "login" ? handleLogin : tab === "register" ? handleRegister : handleForgot} className="login-form">
           {tab === "register" && (
             <input
               className="login-input"
@@ -104,10 +119,21 @@ export function LoginForm() {
           />
 
           {error && <p className="login-error">{error}</p>}
+          {info && <p className="login-info">{info}</p>}
 
           <button className="login-submit" type="submit" disabled={loading}>
-            {loading ? "请稍候…" : tab === "login" ? "登录" : "注册"}
+            {loading ? "请稍候…" : tab === "login" ? "登录" : tab === "register" ? "注册" : "发送重置链接"}
           </button>
+
+          {tab === "login" && (
+            <button
+              type="button"
+              className="login-forgot"
+              onClick={() => { setTab("forgot"); setError(""); setInfo(""); }}
+            >
+              忘记密码？
+            </button>
+          )}
         </form>
       </div>
     </div>

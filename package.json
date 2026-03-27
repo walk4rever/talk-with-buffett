@@ -27,7 +27,8 @@
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "rehype-raw": "^7.0.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "resend": "^6.9.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
