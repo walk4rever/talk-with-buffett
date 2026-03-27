@@ -10,6 +10,23 @@ const FALLBACK_ANSWER = `一家真正伟大的企业，必须有一道持久的\
 
 const SITE_URL = "https://buffett.air7.fun";
 
+/** Strip markdown syntax to plain text for satori rendering */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")   // **bold**
+    .replace(/\*(.+?)\*/g, "$1")        // *italic*
+    .replace(/__(.+?)__/g, "$1")        // __bold__
+    .replace(/_(.+?)_/g, "$1")          // _italic_
+    .replace(/#{1,6}\s+/g, "")          // # headings
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")  // `code` / ```code```
+    .replace(/^\s*[-*+]\s+/gm, "• ")    // unordered list items
+    .replace(/^\s*\d+\.\s+/gm, "")      // ordered list items
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // [text](url)
+    .replace(/^>\s+/gm, "")             // blockquotes
+    .replace(/\n{3,}/g, "\n\n")         // collapse excess blank lines
+    .trim();
+}
+
 // Portrait: 9:16-ish, good for WeChat Moments
 const W = 900;
 const H = 1400;
@@ -64,7 +81,7 @@ export async function GET(req: Request) {
 
   // Truncate answer to fit portrait card (already capped at 600 chars above)
   const maxLen = 300;
-  const displayAnswer = ANSWER.replace(/\n+/g, "\n");
+  const displayAnswer = stripMarkdown(ANSWER).replace(/\n+/g, "\n");
   const truncated = displayAnswer.length > maxLen
     ? displayAnswer.slice(0, maxLen).trimEnd() + "…"
     : displayAnswer;
