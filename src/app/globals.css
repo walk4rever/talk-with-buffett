@@ -2422,6 +2422,34 @@ body.layout-no-header {
   padding: 20px 0;
 }
 
+@media (max-width: 600px) {
+  .share-modal {
+    max-height: 92vh;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .share-modal-body {
+    padding: 14px 12px 20px;
+    gap: 12px;
+    /* Smooth momentum scroll on iOS */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .share-modal-image {
+    /* On small screens give image a bit more height room */
+    max-height: calc(75vh - 70px);
+  }
+
+  .share-modal-header {
+    padding: 14px 16px 10px;
+  }
+
+  /* Larger tap target for close button on mobile */
+  .share-modal-close {
+    padding: 8px;
+  }
+}
+
 /* ── Canvas excerpt highlight ── */
 .canvas-highlight {
   background: rgba(212, 175, 55, 0.18);
