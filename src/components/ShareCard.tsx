@@ -104,14 +104,16 @@ export function ShareCard({ question, answer }: ShareCardProps) {
         borderBottom: "1px solid rgba(180,150,60,0.2)",
         flexShrink: 0,
       }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/buffett-avarta.jpg"
-          width={40}
-          height={40}
-          style={{ borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-          alt=""
-        />
+        {/* Use background-image for reliable html2canvas rendering (objectFit not supported) */}
+        <div style={{
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          backgroundImage: "url(/buffett-avarta.jpg)",
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          flexShrink: 0,
+        }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
           <span style={{ color: "#2D2A1E", fontSize: 16, fontWeight: "bold" }}>与巴菲特对话</span>
           <span style={{ color: "#B8A060", fontSize: 11 }}>Talk with Buffett</span>
@@ -146,7 +148,7 @@ export function ShareCard({ question, answer }: ShareCardProps) {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer — follows body naturally, no marginTop:auto needed */}
       <div style={{
         display: "flex",
         alignItems: "center",
@@ -154,7 +156,6 @@ export function ShareCard({ question, answer }: ShareCardProps) {
         padding: "12px 24px 16px",
         borderTop: "1px solid rgba(180,150,60,0.18)",
         flexShrink: 0,
-        marginTop: "auto",
       }}>
         <span style={{ color: "#B8A060", fontSize: 12, letterSpacing: "0.04em" }}>{timestamp}</span>
         <div style={{
