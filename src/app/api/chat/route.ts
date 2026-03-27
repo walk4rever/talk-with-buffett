@@ -119,14 +119,25 @@ async function checkAndIncrementUsage(
   userId: string | undefined,
 ): Promise<{ allowed: boolean; remaining: number; limit: number }> {
   const date = todayStr();
+
+  let entry;
+  if (userId) {
+    // Authenticated: count per userId (cross-device, not tied to IP)
+    entry = await prisma.chatUsage.upsert({
+      where: { userId_date: { userId, date } },
+      update: { count: { increment: 1 } },
+      create: { ip, userId, date, count: 1 },
+    });
+  } else {
+    // Anonymous: count per IP
+    entry = await prisma.chatUsage.upsert({
+      where: { ip_date: { ip, date } },
+      update: { count: { increment: 1 } },
+      create: { ip, date, count: 1 },
+    });
+  }
+
   const limit = userId ? FREE_DAILY_AUTH_LIMIT : FREE_DAILY_ANON_LIMIT;
-
-  const entry = await prisma.chatUsage.upsert({
-    where: { ip_date: { ip, date } },
-    update: { count: { increment: 1 } },
-    create: { ip, date, count: 1 },
-  });
-
   const allowed = entry.count <= limit;
   const remaining = Math.max(0, limit - entry.count);
   return { allowed, remaining, limit };

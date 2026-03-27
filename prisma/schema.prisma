@@ -94,11 +94,13 @@ model Chunk {
 model ChatUsage {
   id        String   @id @default(cuid())
   ip        String
+  userId    String?  // null = anonymous (count by IP); set = authenticated (count by userId)
   date      String
   count     Int      @default(0)
   createdAt DateTime @default(now())
 
   @@unique([ip, date])
+  @@unique([userId, date])
 }
 
 model WaitlistEntry {
