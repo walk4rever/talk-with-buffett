@@ -686,6 +686,7 @@ export function Workspace() {
                   }}
                   onRate={handleRate}
                   onShare={(question, answer) => setShareData({ question, answer })}
+                  isAuthenticated={sessionStatus === "authenticated"}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -806,11 +807,13 @@ function WorkspaceMessage({
   onOpenSources,
   onRate,
   onShare,
+  isAuthenticated,
 }: {
   msg: ChatMessage;
   onOpenSources: (sources: ChatSource[]) => void;
   onRate: (chatMessageId: string, rating: 1 | -1) => void;
   onShare: (question: string, answer: string) => void;
+  isAuthenticated: boolean;
 }) {
   const openSources = () => onOpenSources(msg.sources ?? []);
 
@@ -829,14 +832,20 @@ function WorkspaceMessage({
         <Image src="/buffett-avarta.jpg" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <p className="msg-text">{limitMsg}</p>
-          <WaitlistModal
-            source="chat_limit"
-            title="解锁无限对话"
-            desc="留下邮箱或微信，付费版上线时第一时间通知你。"
-            trigger={
-              <button className="waitlist-btn waitlist-btn--inline">我想要更多 →</button>
-            }
-          />
+          {isAuthenticated ? (
+            <WaitlistModal
+              source="chat_limit"
+              title="解锁无限对话"
+              desc="留下邮箱或微信，付费版上线时第一时间通知你。"
+              trigger={
+                <button className="waitlist-btn waitlist-btn--inline">我想要更多 →</button>
+              }
+            />
+          ) : (
+            <a href="/login" className="waitlist-btn waitlist-btn--inline">
+              注册免费账号 →
+            </a>
+          )}
         </div>
       </div>
     );
