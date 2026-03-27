@@ -1960,6 +1960,7 @@ body.layout-no-header {
   align-items: center;
   padding: 0 1.25rem;
   height: 52px;
+  line-height: 1;
   border-bottom: 1px solid var(--secondary);
   flex-shrink: 0;
   gap: 0.75rem;
@@ -1997,6 +1998,7 @@ body.layout-no-header {
   align-items: center;
   padding: 0 1.25rem;
   height: 52px;
+  line-height: 1;
   border-bottom: 1px solid var(--secondary);
   flex-shrink: 0;
   gap: 0.75rem;
@@ -2265,6 +2267,10 @@ body.layout-no-header {
   .workspace-reader-mode-inline .reader-mode-btn {
     padding: 0.12rem 0.32rem;
     font-size: 0.66rem;
+  }
+
+  .workspace-reader-mode-inline {
+    margin: 0;
   }
 
   /* Hide chat title on mobile to save header space */
