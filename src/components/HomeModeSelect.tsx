@@ -15,7 +15,7 @@ export function HomeModeSelect() {
         </div>
         <div className="home-preview-msg home-preview-msg--assistant">
           <Image
-            src="/buffett-avarta.png"
+            src="/buffett-avarta.jpg"
             alt="Buffett"
             className="home-preview-avatar"
             width={30}
@@ -59,7 +59,7 @@ export function HomeModeSelect() {
           <span className="home-mode-badge">✦ 增值</span>
           <span className="home-mode-icon">
             <Image
-              src="/buffett-avarta.png"
+              src="/buffett-avarta.jpg"
               alt="数字人"
               className="home-mode-avatar-img"
               width={36}

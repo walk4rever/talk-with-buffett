@@ -560,19 +560,23 @@ export function Workspace() {
       const placeholderMsg: ChatMessage = { role: "assistant", content: "", streaming: true };
       setMessages((prev) => [...prev, placeholderMsg]);
 
+      // Throttle streaming state updates to ~80ms to avoid per-token re-renders
+      let rafId: ReturnType<typeof requestAnimationFrame> | null = null;
+      function flushStreamingText() {
+        const currentText = streamingTextRef.current;
+        setMessages((prev) => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { ...updated[updated.length - 1], content: currentText };
+          return updated;
+        });
+        rafId = null;
+      }
+
       await streamChatAPI(
         [userMsg],
         (delta) => {
           streamingTextRef.current += delta;
-          const currentText = streamingTextRef.current;
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = {
-              ...updated[updated.length - 1],
-              content: currentText,
-            };
-            return updated;
-          });
+          if (!rafId) rafId = requestAnimationFrame(flushStreamingText);
         },
         (sources, chatMessageId) => {
           setMessages((prev) => {
@@ -587,9 +591,12 @@ export function Workspace() {
           });
           setActiveSources(sources);
 
+          // Flush any pending streaming text before marking done
+          if (rafId) { cancelAnimationFrame(rafId); flushStreamingText(); }
           setLoading(false);
         },
         (errorMsg) => {
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
@@ -651,7 +658,7 @@ export function Workspace() {
         <div className="workspace-chat-body">
           {messages.length === 0 ? (
             <div className="empty-chat">
-              <Image src="/buffett-avarta.png" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
+              <Image src="/buffett-avarta.jpg" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
               <h2 className="empty-chat-title">与巴菲特对话</h2>
               <p className="empty-chat-sub">
                 基于 1957–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧
@@ -805,7 +812,7 @@ function WorkspaceMessage({
     const limitMsg = msg.content.slice(9);
     return (
       <div className="msg msg--assistant">
-        <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
+        <Image src="/buffett-avarta.jpg" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <p className="msg-text">{limitMsg}</p>
           <WaitlistModal
@@ -824,7 +831,7 @@ function WorkspaceMessage({
   if (msg.streaming && !msg.content) {
     return (
       <div className="msg msg--assistant">
-        <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
+        <Image src="/buffett-avarta.jpg" alt="Buffett" className="msg-avatar" width={34} height={34} />
         <div className="msg-body">
           <div className="thinking-dots">
             <span className="dot" />
@@ -838,7 +845,7 @@ function WorkspaceMessage({
 
   return (
     <div className="msg msg--assistant">
-      <Image src="/buffett-avarta.png" alt="Buffett" className="msg-avatar" width={34} height={34} />
+      <Image src="/buffett-avarta.jpg" alt="Buffett" className="msg-avatar" width={34} height={34} />
       <div className="msg-body">
         <div className="msg-text msg-markdown">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={messageMarkdownComponents}>

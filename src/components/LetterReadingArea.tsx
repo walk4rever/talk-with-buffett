@@ -335,7 +335,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
       >
         <span className="chat-fab-ring" />
         <Image
-          src="/buffett-avarta.png"
+          src="/buffett-avarta.jpg"
           alt="Warren Buffett"
           className="chat-fab-img"
           width={44}
