@@ -53,8 +53,8 @@ export function HomeModeSelect() {
         </button>
 
         <button
-          className="home-mode-card home-mode-card--premium"
-          onClick={() => router.push("/chat")}
+          className="home-mode-card home-mode-card--premium home-mode-card--disabled"
+          disabled
         >
           <span className="home-mode-badge">✦ 增值</span>
           <span className="home-mode-icon">
@@ -68,7 +68,7 @@ export function HomeModeSelect() {
           </span>
           <span className="home-mode-name">数字人对话</span>
           <span className="home-mode-desc">视频 + 声音，沉浸式体验</span>
-          <span className="home-mode-cta">体验预览 →</span>
+          <span className="home-mode-cta">即将上线</span>
         </button>
       </div>
     </div>
