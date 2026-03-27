@@ -14,7 +14,8 @@ const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
 const AI_MODEL = process.env.AI_MODEL!;
 
-const FREE_DAILY_LIMIT = parseInt(process.env.FREE_DAILY_CHAT_LIMIT ?? "30", 10);
+const FREE_DAILY_ANON_LIMIT = parseInt(process.env.FREE_DAILY_ANON_LIMIT ?? "3", 10);
+const FREE_DAILY_AUTH_LIMIT = parseInt(process.env.FREE_DAILY_AUTH_LIMIT ?? "30", 10);
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -113,8 +114,12 @@ function buildEvidencePlan(params: {
   };
 }
 
-async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; remaining: number }> {
+async function checkAndIncrementUsage(
+  ip: string,
+  userId: string | undefined,
+): Promise<{ allowed: boolean; remaining: number; limit: number }> {
   const date = todayStr();
+  const limit = userId ? FREE_DAILY_AUTH_LIMIT : FREE_DAILY_ANON_LIMIT;
 
   const entry = await prisma.chatUsage.upsert({
     where: { ip_date: { ip, date } },
@@ -122,9 +127,9 @@ async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; r
     create: { ip, date, count: 1 },
   });
 
-  const allowed = entry.count <= FREE_DAILY_LIMIT;
-  const remaining = Math.max(0, FREE_DAILY_LIMIT - entry.count);
-  return { allowed, remaining };
+  const allowed = entry.count <= limit;
+  const remaining = Math.max(0, limit - entry.count);
+  return { allowed, remaining, limit };
 }
 
 // ── Route handler (SSE streaming) ─────────────────────────────────────────
@@ -148,7 +153,7 @@ export async function POST(req: Request) {
 
   // Parallel: usage check + tool-use search
   const [usage, searchResult] = await Promise.all([
-    checkAndIncrementUsage(ip),
+    checkAndIncrementUsage(ip, userId),
     searchChunks(lastUserMsg.content),
   ]);
   const {
@@ -167,10 +172,10 @@ export async function POST(req: Request) {
   console.log(`[search] query="${lastUserMsg.content.slice(0, 60)}" chunks=${chunks.length} order=${order} distinct=${distinctByYear}`);
 
   if (!usage.allowed) {
-    return NextResponse.json(
-      { error: `今日免费次数已用完（${FREE_DAILY_LIMIT}次/天），请明天再来或登录获取更多次数。` },
-      { status: 429 },
-    );
+    const error = userId
+      ? `今日免费次数已用完（${FREE_DAILY_AUTH_LIMIT}次/天），请明天再来。`
+      : `__LIMIT__今日免费次数已用完（${FREE_DAILY_ANON_LIMIT}次），注册后每天可免费对话 ${FREE_DAILY_AUTH_LIMIT} 次，并可保存对话历史、使用社交分享等更多功能。`;
+    return NextResponse.json({ error }, { status: 429 });
   }
 
   const evidencePlan = needsRetrieval

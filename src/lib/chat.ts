@@ -55,7 +55,9 @@ export async function streamChatAPI(
 
   if (res.status === 429) {
     const data = await res.json().catch(() => null);
-    onError("__LIMIT__" + (data?.error ?? "今日免费次数已用完，请明天再来。"));
+    const msg = data?.error ?? "今日免费次数已用完，请明天再来。";
+    // Server may already include __LIMIT__ prefix for anonymous users
+    onError(msg.startsWith("__LIMIT__") ? msg : `__LIMIT__${msg}`);
     return;
   }
 
