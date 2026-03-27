@@ -423,8 +423,10 @@ export function Workspace() {
     if (historyLoadedRef.current) return;
     historyLoadedRef.current = true;
 
-    // Don't overwrite messages already restored from sessionStorage transfer
-    if (messages.length > 0) return;
+    // Only skip if messages came from an in-page navigation transfer (same session),
+    // not from anon sessionStorage — auth history should always take precedence.
+    const transfer = readTransferFromSessionStorage();
+    if (transfer?.messages.length) return;
 
     fetch("/api/chat/history")
       .then((res) => (res.ok ? res.json() : null))
