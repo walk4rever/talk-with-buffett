@@ -10,21 +10,79 @@ const FALLBACK_ANSWER = `一家真正伟大的企业，必须有一道持久的\
 
 const SITE_URL = "https://buffett.air7.fun";
 
-/** Strip markdown syntax to plain text for satori rendering */
-function stripMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, "$1")   // **bold**
-    .replace(/\*(.+?)\*/g, "$1")        // *italic*
-    .replace(/__(.+?)__/g, "$1")        // __bold__
-    .replace(/_(.+?)_/g, "$1")          // _italic_
-    .replace(/#{1,6}\s+/g, "")          // # headings
-    .replace(/`{1,3}[^`]*`{1,3}/g, "")  // `code` / ```code```
-    .replace(/^\s*[-*+]\s+/gm, "• ")    // unordered list items
-    .replace(/^\s*\d+\.\s+/gm, "")      // ordered list items
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // [text](url)
-    .replace(/^>\s+/gm, "")             // blockquotes
-    .replace(/\n{3,}/g, "\n\n")         // collapse excess blank lines
-    .trim();
+type InlineSegment = { text: string; bold: boolean; italic: boolean };
+
+/** Parse a single line into styled segments for satori rendering */
+function parseInline(line: string): InlineSegment[] {
+  const segments: InlineSegment[] = [];
+  const regex = /\*\*(.+?)\*\*|__(.+?)__|(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(line)) !== null) {
+    if (m.index > last) {
+      segments.push({ text: line.slice(last, m.index), bold: false, italic: false });
+    }
+    if (m[1] ?? m[2]) {
+      segments.push({ text: (m[1] ?? m[2]), bold: true, italic: false });
+    } else {
+      segments.push({ text: (m[3] ?? m[4]), bold: false, italic: true });
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < line.length) {
+    segments.push({ text: line.slice(last), bold: false, italic: false });
+  }
+  return segments;
+}
+
+/** Render markdown text as satori-compatible JSX (bold, italic, lists, headings) */
+function renderMarkdown(text: string, baseStyle: { color: string; fontSize: number; lineHeight: number; letterSpacing: string }) {
+  const lines = text
+    .replace(/\n{3,}/g, "\n\n")
+    .split("\n");
+
+  return lines.map((line, i) => {
+    // Heading
+    const headingMatch = line.match(/^#{1,3}\s+(.*)/);
+    if (headingMatch) {
+      const segs = parseInline(headingMatch[1]);
+      return (
+        <div key={i} style={{ display: "flex", flexWrap: "wrap", ...baseStyle, fontWeight: "bold", fontSize: baseStyle.fontSize + 2, marginBottom: 4 }}>
+          {segs.map((s, j) => (
+            <span key={j} style={{ fontWeight: s.bold ? "bold" : "inherit", fontStyle: s.italic ? "italic" : "normal" }}>{s.text}</span>
+          ))}
+        </div>
+      );
+    }
+    // List item
+    const listMatch = line.match(/^\s*[-*+]\s+(.*)/);
+    if (listMatch) {
+      const segs = parseInline(listMatch[1]);
+      return (
+        <div key={i} style={{ display: "flex", flexWrap: "wrap", ...baseStyle }}>
+          <span style={{ marginRight: 8, flexShrink: 0 }}>•</span>
+          <div style={{ display: "flex", flexWrap: "wrap", flex: 1 }}>
+            {segs.map((s, j) => (
+              <span key={j} style={{ fontWeight: s.bold ? "bold" : "normal", fontStyle: s.italic ? "italic" : "normal" }}>{s.text}</span>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    // Empty line → spacer
+    if (!line.trim()) {
+      return <div key={i} style={{ display: "flex", height: baseStyle.fontSize * 0.6 }} />;
+    }
+    // Normal paragraph line
+    const segs = parseInline(line);
+    return (
+      <div key={i} style={{ display: "flex", flexWrap: "wrap", ...baseStyle }}>
+        {segs.map((s, j) => (
+          <span key={j} style={{ fontWeight: s.bold ? "bold" : "normal", fontStyle: s.italic ? "italic" : "normal" }}>{s.text}</span>
+        ))}
+      </div>
+    );
+  });
 }
 
 // Portrait: 9:16-ish, good for WeChat Moments
@@ -81,10 +139,11 @@ export async function GET(req: Request) {
 
   // Truncate answer to fit portrait card (already capped at 600 chars above)
   const maxLen = 300;
-  const displayAnswer = stripMarkdown(ANSWER).replace(/\n+/g, "\n");
-  const truncated = displayAnswer.length > maxLen
-    ? displayAnswer.slice(0, maxLen).trimEnd() + "…"
-    : displayAnswer;
+  const truncated = ANSWER.length > maxLen
+    ? ANSWER.slice(0, maxLen).trimEnd() + "…"
+    : ANSWER;
+
+  const answerStyle = { color: "#2D2A1E", fontSize: 26, lineHeight: 2.1, letterSpacing: "0.03em" };
 
   return new ImageResponse(
     (
@@ -175,17 +234,11 @@ export async function GET(req: Request) {
           {/* Answer */}
           <div style={{
             display: "flex",
+            flexDirection: "column",
             flex: 1,
             overflow: "hidden",
           }}>
-            <span style={{
-              color: "#2D2A1E",
-              fontSize: 26,
-              lineHeight: 2.1,
-              letterSpacing: "0.03em",
-            }}>
-              {truncated}
-            </span>
+            {renderMarkdown(truncated, answerStyle)}
           </div>
         </div>
 
