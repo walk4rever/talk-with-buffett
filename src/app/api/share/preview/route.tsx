@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { ImageResponse } from "next/og";
 import { encode } from "uqr";
 
@@ -10,79 +11,109 @@ const FALLBACK_ANSWER = `一家真正伟大的企业，必须有一道持久的\
 
 const SITE_URL = "https://buffett.air7.fun";
 
-type InlineSegment = { text: string; bold: boolean; italic: boolean };
+type Segment = { text: string; bold: boolean };
 
-/** Parse a single line into styled segments for satori rendering */
-function parseInline(line: string): InlineSegment[] {
-  const segments: InlineSegment[] = [];
-  const regex = /\*\*(.+?)\*\*|__(.+?)__|(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g;
+/**
+ * Parse inline markdown (**bold** / __bold__) into segments.
+ * Italic is intentionally ignored — satori CJK fonts don't support italic.
+ * Bold is rendered as gold accent color instead of font-weight (no CJK bold font loaded).
+ */
+function parseInline(text: string): Segment[] {
+  const segments: Segment[] = [];
+  const regex = /\*\*(.+?)\*\*|__(.+?)__/g;
   let last = 0;
   let m: RegExpExecArray | null;
-  while ((m = regex.exec(line)) !== null) {
-    if (m.index > last) {
-      segments.push({ text: line.slice(last, m.index), bold: false, italic: false });
-    }
-    if (m[1] ?? m[2]) {
-      segments.push({ text: (m[1] ?? m[2]), bold: true, italic: false });
-    } else {
-      segments.push({ text: (m[3] ?? m[4]), bold: false, italic: true });
-    }
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) segments.push({ text: text.slice(last, m.index), bold: false });
+    segments.push({ text: m[1] ?? m[2], bold: true });
     last = m.index + m[0].length;
   }
-  if (last < line.length) {
-    segments.push({ text: line.slice(last), bold: false, italic: false });
-  }
+  if (last < text.length) segments.push({ text: text.slice(last), bold: false });
   return segments;
 }
 
-/** Render markdown text as satori-compatible JSX (bold, italic, lists, headings) */
-function renderMarkdown(text: string, baseStyle: { color: string; fontSize: number; lineHeight: number; letterSpacing: string }) {
-  const lines = text
-    .replace(/\n{3,}/g, "\n\n")
-    .split("\n");
+/**
+ * Render markdown as satori JSX.
+ * - Splits on double newline for paragraphs; single \n treated as space within a paragraph.
+ * - List items (- / * / +) each become their own row.
+ * - Bold shown as gold accent color (font-weight bold not reliable for CJK without font loading).
+ */
+function renderMarkdown(
+  raw: string,
+  base: { color: string; fontSize: number; lineHeight: number; letterSpacing: string },
+) {
+  const BOLD_COLOR = "#B8860B";
+  const GAP = base.fontSize * 0.5;
 
-  return lines.map((line, i) => {
-    // Heading
-    const headingMatch = line.match(/^#{1,3}\s+(.*)/);
-    if (headingMatch) {
-      const segs = parseInline(headingMatch[1]);
-      return (
-        <div key={i} style={{ display: "flex", flexWrap: "wrap", ...baseStyle, fontWeight: "bold", fontSize: baseStyle.fontSize + 2, marginBottom: 4 }}>
-          {segs.map((s, j) => (
-            <span key={j} style={{ fontWeight: s.bold ? "bold" : "inherit", fontStyle: s.italic ? "italic" : "normal" }}>{s.text}</span>
-          ))}
-        </div>
-      );
+  // Normalise: collapse 3+ newlines, strip leading/trailing whitespace
+  const text = raw.replace(/\n{3,}/g, "\n\n").trim();
+
+  // Split into paragraph blocks on blank lines
+  const blocks = text.split(/\n\n+/);
+  const elements: ReactElement[] = [];
+
+  blocks.forEach((block, bi) => {
+    if (bi > 0) {
+      // Spacer between paragraphs
+      elements.push(<div key={`gap-${bi}`} style={{ display: "flex", height: GAP }} />);
     }
-    // List item
-    const listMatch = line.match(/^\s*[-*+]\s+(.*)/);
-    if (listMatch) {
-      const segs = parseInline(listMatch[1]);
-      return (
-        <div key={i} style={{ display: "flex", flexWrap: "wrap", ...baseStyle }}>
-          <span style={{ marginRight: 8, flexShrink: 0 }}>•</span>
-          <div style={{ display: "flex", flexWrap: "wrap", flex: 1 }}>
-            {segs.map((s, j) => (
-              <span key={j} style={{ fontWeight: s.bold ? "bold" : "normal", fontStyle: s.italic ? "italic" : "normal" }}>{s.text}</span>
+
+    const lines = block.split("\n");
+
+    lines.forEach((line, li) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      // Heading
+      const hm = trimmed.match(/^#{1,3}\s+(.*)/);
+      if (hm) {
+        const segs = parseInline(hm[1]);
+        elements.push(
+          <div key={`${bi}-${li}`} style={{ display: "flex", flexWrap: "wrap", ...base }}>
+            {segs.map((s, si) => (
+              <span key={si} style={{ color: s.bold ? BOLD_COLOR : base.color }}>{s.text}</span>
             ))}
-          </div>
-        </div>
+          </div>,
+        );
+        return;
+      }
+
+      // List item
+      const lm = trimmed.match(/^[-*+]\s+(.*)/);
+      if (lm) {
+        const segs = parseInline(lm[1]);
+        elements.push(
+          <div key={`${bi}-${li}`} style={{ display: "flex", flexWrap: "wrap", ...base }}>
+            <span style={{ color: BOLD_COLOR, marginRight: 10, flexShrink: 0 }}>•</span>
+            <div style={{ display: "flex", flexWrap: "wrap", flex: 1 }}>
+              {segs.map((s, si) => (
+                <span key={si} style={{ color: s.bold ? BOLD_COLOR : base.color }}>{s.text}</span>
+              ))}
+            </div>
+          </div>,
+        );
+        return;
+      }
+
+      // Normal text — strip remaining inline markers (* _ `) and render
+      const cleaned = trimmed
+        .replace(/\*(.+?)\*/g, "$1")
+        .replace(/_(.+?)_/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+
+      const segs = parseInline(cleaned);
+      elements.push(
+        <div key={`${bi}-${li}`} style={{ display: "flex", flexWrap: "wrap", ...base }}>
+          {segs.map((s, si) => (
+            <span key={si} style={{ color: s.bold ? BOLD_COLOR : base.color }}>{s.text}</span>
+          ))}
+        </div>,
       );
-    }
-    // Empty line → spacer
-    if (!line.trim()) {
-      return <div key={i} style={{ display: "flex", height: baseStyle.fontSize * 0.6 }} />;
-    }
-    // Normal paragraph line
-    const segs = parseInline(line);
-    return (
-      <div key={i} style={{ display: "flex", flexWrap: "wrap", ...baseStyle }}>
-        {segs.map((s, j) => (
-          <span key={j} style={{ fontWeight: s.bold ? "bold" : "normal", fontStyle: s.italic ? "italic" : "normal" }}>{s.text}</span>
-        ))}
-      </div>
-    );
+    });
   });
+
+  return elements;
 }
 
 // Portrait: 9:16-ish, good for WeChat Moments
