@@ -15,7 +15,6 @@ export async function GET() {
   const records = await prisma.chatMessage.findMany({
     where: {
       userId: session.user.id,
-      answer: { not: null },
     },
     orderBy: { createdAt: "desc" },
     take: HISTORY_LIMIT,
@@ -23,11 +22,12 @@ export async function GET() {
   });
 
   // Reverse to chronological order, then build message pairs
+  // Include records even if answer is NULL (stream may have been interrupted)
   const messages: ChatMessage[] = records.reverse().flatMap((r) => [
     { role: "user" as const, content: r.question },
     {
       role: "assistant" as const,
-      content: r.answer!,
+      content: r.answer ?? "",
       chatMessageId: r.id,
       rating: r.rating as 1 | -1 | null | undefined,
       sources: Array.isArray(r.sourcesJson) ? (r.sourcesJson as unknown as ChatMessage["sources"]) : undefined,

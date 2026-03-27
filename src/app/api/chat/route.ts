@@ -317,13 +317,16 @@ export async function POST(req: Request) {
           }
         }
 
-        controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
+        // Persist answer before sending done — fire-and-forget is unreliable in serverless
+        // because the function may terminate before the promise resolves.
+        if (answerBuffer) {
+          await prisma.chatMessage.update({
+            where: { id: chatRecord.id },
+            data: { answer: answerBuffer },
+          }).catch((err) => console.error("[chat] failed to save answer:", err));
+        }
 
-        // Persist the completed answer (fire-and-forget, don't block the stream)
-        prisma.chatMessage.update({
-          where: { id: chatRecord.id },
-          data: { answer: answerBuffer },
-        }).catch((err) => console.error("[chat] failed to save answer:", err));
+        controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
       } catch (err) {
         console.error("Stream processing error:", err);
         controller.enqueue(
