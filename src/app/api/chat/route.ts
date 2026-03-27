@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { getClientIp } from "@/lib/ratelimit";
 import { buildSystemPrompt } from "@/lib/prompts/buffett";
@@ -129,6 +131,8 @@ async function checkAndIncrementUsage(ip: string): Promise<{ allowed: boolean; r
 
 export async function POST(req: Request) {
   const ip = getClientIp(req);
+  const session = await getServerSession(authOptions);
+  const userId = session?.user?.id ?? undefined;
 
   const body = await req.json().catch(() => null);
   if (!body?.messages || !Array.isArray(body.messages)) {
@@ -200,8 +204,10 @@ export async function POST(req: Request) {
   const chatRecord = await prisma.chatMessage.create({
     data: {
       ip,
+      userId,
       question: lastUserMsg.content,
       sourceIds: chunks.map((c) => c.id),
+      sourcesJson: sources,
       taskType,
       needsRetrieval,
     },

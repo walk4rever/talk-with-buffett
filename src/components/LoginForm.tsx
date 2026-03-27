@@ -22,7 +22,7 @@ export function LoginForm() {
     setError("");
     setLoading(true);
     const res = await signIn("credentials", {
-      email,
+      email: email.trim().toLowerCase(),
       password,
       redirect: false,
     });
@@ -50,7 +50,7 @@ export function LoginForm() {
       return;
     }
     // Auto-login after register
-    await signIn("credentials", { email, password, redirect: false });
+    await signIn("credentials", { email: email.trim().toLowerCase(), password, redirect: false });
     setLoading(false);
     router.push(callbackUrl);
   }

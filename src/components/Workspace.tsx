@@ -10,6 +10,7 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
+import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -33,6 +34,7 @@ const STARTERS = [
 ];
 
 const WORKSPACE_CHAT_TRANSFER_KEY = "workspace-chat-transfer-v1";
+const ANON_SESSION_KEY = "chat-anon-session-v1";
 
 type ReadingMode = "all" | "en" | "zh";
 
@@ -80,6 +82,26 @@ function latestSourcesFromMessages(restored: ChatMessage[]): ChatSource[] {
     (msg) => msg.role === "assistant" && msg.sources && msg.sources.length > 0,
   );
   return last?.sources ?? [];
+}
+
+function readAnonSessionFromStorage(): ChatMessage[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(ANON_SESSION_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as Array<{ role: string; content: string; sources?: ChatSource[]; chatMessageId?: string; rating?: number }>;
+    return parsed
+      .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        sources: m.sources,
+        chatMessageId: m.chatMessageId,
+        rating: m.rating as 1 | -1 | undefined,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 function readTransferFromSessionStorage() {
@@ -337,6 +359,7 @@ export function Workspace() {
   const params = useSearchParams();
   const router = useRouter();
   const posthog = usePostHog();
+  const { data: session, status: sessionStatus } = useSession();
 
   const canvasType = params.get("source") ?? "";
   const canvasYear = parseInt(params.get("year") ?? "0", 10);
@@ -347,12 +370,14 @@ export function Workspace() {
   const initialQuestion = params.get("ask") ?? "";
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const restored = readTransferFromSessionStorage();
-    return restored?.messages ?? [];
+    const transfer = readTransferFromSessionStorage();
+    if (transfer?.messages.length) return transfer.messages;
+    return readAnonSessionFromStorage();
   });
   const [activeSources, setActiveSources] = useState<ChatSource[]>(() => {
-    const restored = readTransferFromSessionStorage();
-    return restored ? latestSourcesFromMessages(restored.messages) : [];
+    const transfer = readTransferFromSessionStorage();
+    const msgs = transfer?.messages.length ? transfer.messages : readAnonSessionFromStorage();
+    return latestSourcesFromMessages(msgs);
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -386,6 +411,42 @@ export function Workspace() {
   useEffect(() => {
     sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
   }, []);
+
+  // Load chat history for authenticated users on mount.
+  // Only runs once when session resolves; skips if messages already exist
+  // (e.g. transferred from sessionStorage during in-page navigation).
+  const historyLoadedRef = useRef(false);
+  useEffect(() => {
+    if (sessionStatus !== "authenticated" || !session?.user?.id) return;
+    if (historyLoadedRef.current) return;
+    historyLoadedRef.current = true;
+
+    // Don't overwrite messages already restored from sessionStorage transfer
+    if (messages.length > 0) return;
+
+    fetch("/api/chat/history")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { messages: ChatMessage[] } | null) => {
+        if (data?.messages?.length) {
+          setMessages(data.messages);
+          setActiveSources(latestSourcesFromMessages(data.messages));
+        }
+      })
+      .catch((err) => console.error("[history] failed to load:", err));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStatus]);
+
+  // Persist messages to sessionStorage for anonymous users so navigation
+  // away and back within the same tab restores the conversation.
+  useEffect(() => {
+    if (sessionStatus === "authenticated") return;
+    if (messages.length === 0) return;
+    try {
+      sessionStorage.setItem(ANON_SESSION_KEY, JSON.stringify(messages));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [messages, sessionStatus]);
 
   const sendRef = useRef<((text: string) => void) | null>(null);
 

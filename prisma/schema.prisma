@@ -115,6 +115,7 @@ model ChatMessage {
   question       String
   answer         String?
   sourceIds      String[] @default([])
+  sourcesJson    Json?    // snapshot of ChatSource[] for history restoration
   taskType       String?  // "fact" | "method"
   needsRetrieval Boolean  @default(true)
   rating         Int?     // 1 = thumbs up, -1 = thumbs down
