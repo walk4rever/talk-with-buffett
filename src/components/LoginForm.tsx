@@ -109,14 +109,16 @@ export function LoginForm() {
             required
             autoFocus
           />
-          <input
-            className="login-input"
-            type="password"
-            placeholder={tab === "register" ? "密码（至少 6 位）" : "密码"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+          {tab !== "forgot" && (
+            <input
+              className="login-input"
+              type="password"
+              placeholder={tab === "register" ? "密码（至少 6 位）" : "密码"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          )}
 
           {error && <p className="login-error">{error}</p>}
           {info && <p className="login-info">{info}</p>}
