@@ -418,16 +418,17 @@ export function Workspace() {
   // Only runs once when session resolves; skips if messages already exist
   // (e.g. transferred from sessionStorage during in-page navigation).
   const historyLoadedRef = useRef(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   useEffect(() => {
+    if (sessionStatus === "loading") return;
     if (sessionStatus !== "authenticated" || !session?.user?.id) return;
     if (historyLoadedRef.current) return;
     historyLoadedRef.current = true;
 
-    // Only skip if messages came from an in-page navigation transfer (same session),
-    // not from anon sessionStorage — auth history should always take precedence.
     const transfer = readTransferFromSessionStorage();
     if (transfer?.messages.length) return;
 
+    setHistoryLoading(true);
     fetch("/api/chat/history")
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { messages: ChatMessage[] } | null) => {
@@ -436,7 +437,8 @@ export function Workspace() {
           setActiveSources(latestSourcesFromMessages(data.messages));
         }
       })
-      .catch((err) => console.error("[history] failed to load:", err));
+      .catch((err) => console.error("[history] failed to load:", err))
+      .finally(() => setHistoryLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStatus]);
 
@@ -661,7 +663,11 @@ export function Workspace() {
         </div>
 
         <div className="workspace-chat-body">
-          {messages.length === 0 ? (
+          {historyLoading ? (
+            <div className="history-loading">
+              <div className="history-loading-spinner" />
+            </div>
+          ) : messages.length === 0 ? (
             <div className="empty-chat">
               <Image src="/buffett-avarta.jpg" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
               <h2 className="empty-chat-title">与巴菲特对话</h2>
