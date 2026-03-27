@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import type { ChatMessage } from "@/lib/chat";
 
-const HISTORY_LIMIT = 30;
+const HISTORY_LIMIT = 10;
 
 export async function GET() {
   const session = await getServerSession(authOptions);

@@ -560,10 +560,8 @@ export function Workspace() {
       const placeholderMsg: ChatMessage = { role: "assistant", content: "", streaming: true };
       setMessages((prev) => [...prev, placeholderMsg]);
 
-      const allMessages = [...messages, userMsg];
-
       await streamChatAPI(
-        allMessages,
+        [userMsg],
         (delta) => {
           streamingTextRef.current += delta;
           const currentText = streamingTextRef.current;

@@ -138,10 +138,8 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
     const placeholder: Message = { role: "assistant", content: "", streaming: true };
     setMessages((prev) => [...prev, placeholder]);
 
-    const allMessages = [...messages, userMsg];
-
     await streamChatAPI(
-      allMessages,
+      [userMsg],
       (delta) => {
         streamingTextRef.current += delta;
         const currentText = streamingTextRef.current;

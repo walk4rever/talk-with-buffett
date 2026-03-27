@@ -215,12 +215,7 @@ export async function POST(req: Request) {
 
   const aiMessages = [
     { role: "system", content: systemPrompt },
-    ...body.messages
-      .filter((m: { role: string }) => m.role !== "system")
-      .map((m: { role: string; content: string }) => ({
-        role: m.role,
-        content: m.content,
-      })),
+    { role: "user", content: lastUserMsg.content },
   ];
 
   // Call AI with streaming
