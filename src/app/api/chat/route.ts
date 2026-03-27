@@ -122,11 +122,13 @@ async function checkAndIncrementUsage(
 
   let entry;
   if (userId) {
-    // Authenticated: count per userId (cross-device, not tied to IP)
+    // Authenticated: count per userId. Use synthetic ip to avoid conflicting
+    // with an existing anonymous row that shares the same real ip + date.
+    const syntheticIp = `__user__${userId}`;
     entry = await prisma.chatUsage.upsert({
       where: { userId_date: { userId, date } },
       update: { count: { increment: 1 } },
-      create: { ip, userId, date, count: 1 },
+      create: { ip: syntheticIp, userId, date, count: 1 },
     });
   } else {
     // Anonymous: count per IP

@@ -252,7 +252,7 @@ async function understandQuery(query: string): Promise<QueryPlan> {
         temperature: 0,
         max_tokens: 260,
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!res.ok) throw new Error(`API ${res.status}`);
