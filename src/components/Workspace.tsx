@@ -19,6 +19,7 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { usePostHog } from "posthog-js/react";
 import { WaitlistModal } from "@/components/WaitlistModal";
+import { ShareModal } from "@/components/ShareModal";
 import {
   type ChatMessage,
   type ChatSource,
@@ -392,6 +393,7 @@ export function Workspace() {
   const [mobilePanel, setMobilePanel] = useState<"chat" | "canvas">(
     hasReader ? "canvas" : "chat",
   );
+  const [shareData, setShareData] = useState<{ question: string; answer: string } | null>(null);
 
   const filteredCanvasContent = useMemo(() => {
     if (!canvasContent?.contentMd) return "";
@@ -637,6 +639,7 @@ export function Workspace() {
   }, []);
 
   return (
+    <>
     <div className="workspace workspace--split">
       <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
         <div className="workspace-chat-header">
@@ -682,10 +685,7 @@ export function Workspace() {
                     setMobilePanel("canvas");
                   }}
                   onRate={handleRate}
-                  onShare={(question, answer) => {
-                    const url = `/api/share/preview?q=${encodeURIComponent(question)}&a=${encodeURIComponent(answer)}`;
-                    window.open(url, "_blank");
-                  }}
+                  onShare={(question, answer) => setShareData({ question, answer })}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -790,6 +790,14 @@ export function Workspace() {
         </div>
       </div>
     </div>
+    {shareData && (
+      <ShareModal
+        question={shareData.question}
+        answer={shareData.answer}
+        onClose={() => setShareData(null)}
+      />
+    )}
+    </>
   );
 }
 
