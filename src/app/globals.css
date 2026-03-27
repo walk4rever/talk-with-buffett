@@ -1370,7 +1370,7 @@ body.layout-no-header {
 
 /* Escape the .container padding to go full-bleed */
 .chat-page {
-  margin: -0.75rem -2rem 0;
+  margin: -0.25rem -2rem 0;
   height: calc(100dvh - var(--header-height));
   display: flex;
   flex-direction: column;
@@ -1916,7 +1916,7 @@ body.layout-no-header {
 
 /* Mobile */
 @media (max-width: 600px) {
-  .chat-page { margin: -0.75rem -1rem 0; }
+  .chat-page { margin: -0.25rem -1rem 0; }
 
   .chat-header { padding: 0 1rem; }
   .chat-header-brand { display: none; }
@@ -1933,7 +1933,7 @@ body.layout-no-header {
    ============================================================ */
 
 .workspace {
-  margin: -0.75rem -2rem 0;
+  margin: -0.25rem -2rem 0;
   height: calc(100dvh - var(--header-height));
   min-height: calc(100dvh - var(--header-height));
   display: flex;
@@ -2230,7 +2230,7 @@ body.layout-no-header {
 /* ── Workspace mobile ── */
 @media (max-width: 768px) {
   .workspace {
-    margin: -0.75rem -1rem 0;
+    margin: -0.25rem -1rem 0;
     flex-direction: column;
   }
 
