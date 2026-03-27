@@ -646,12 +646,12 @@ export function Workspace() {
             </svg>
             返回
           </Link>
-          <span className="workspace-chat-title">与巴菲特对话</span>
+          <span className="workspace-chat-title workspace-chat-title--desktop">与巴菲特对话</span>
           <button
             className="workspace-mobile-toggle"
             onClick={() => setMobilePanel("canvas")}
           >
-            相关原文
+            原文
           </button>
         </div>
 

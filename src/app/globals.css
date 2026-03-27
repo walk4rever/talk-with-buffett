@@ -2043,6 +2043,7 @@ body.layout-no-header {
 .workspace-canvas-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 2rem 2.5rem;
   scrollbar-width: thin;
   scrollbar-color: var(--secondary) transparent;
@@ -2264,6 +2265,23 @@ body.layout-no-header {
   .workspace-reader-mode-inline .reader-mode-btn {
     padding: 0.12rem 0.32rem;
     font-size: 0.66rem;
+  }
+
+  /* Hide chat title on mobile to save header space */
+  .workspace-chat-title--desktop {
+    display: none;
+  }
+
+  /* Remove fixed table min-width on mobile to prevent horizontal overflow */
+  .md-reader table,
+  .msg-markdown table {
+    min-width: 0;
+    width: 100%;
+    font-size: 0.78em;
+  }
+
+  .workspace-canvas-body {
+    padding: 1rem 1.25rem;
   }
 }
 
