@@ -226,7 +226,7 @@ export async function GET(req: Request) {
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ color: "#2D2A1E", fontSize: 28, fontWeight: "bold", letterSpacing: 0.5 }}>
-              与巴菲特对话
+              Text Room
             </span>
             <span style={{ color: "#B8A060", fontSize: 18 }}>
               Talk with Buffett

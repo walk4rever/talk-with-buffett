@@ -11,8 +11,8 @@ export function Header() {
   const pathname = usePathname();
 
   const hideOnImmersivePages =
-    pathname === "/chat" ||
-    pathname.startsWith("/chat?") ||
+    pathname.startsWith("/text/room") ||
+    pathname.startsWith("/live/room") ||
     pathname.startsWith("/letters/");
 
   useEffect(() => {

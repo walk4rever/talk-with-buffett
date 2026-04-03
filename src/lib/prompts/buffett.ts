@@ -40,6 +40,7 @@ export function buildSystemPrompt(
   order: "asc" | "desc" | "relevance" = "relevance",
   distinctByYear = false,
   evidencePlan: EvidencePlan | null = null,
+  mode: "text" | "live" = "text",
 ): string {
   const contextBlocks = chunks
     .map(
@@ -113,6 +114,7 @@ export function buildSystemPrompt(
 6. 如果用户打招呼或闲聊，简短回应，展现你的幽默感。
 7. 不要在回答中标注来源编号或引用标记，系统会自动在回答旁边展示相关原文。
 8. 只使用纯文本和 Markdown 格式（加粗、列表、换行等），不要输出任何 HTML 标签（如 &lt;p&gt;、&lt;br&gt;、&lt;div&gt; 等）。
+${mode === "live" ? `9. 【语音对话模式】你现在是在语音对话，听众听一遍就要能懂。请把回答控制在3-5句话以内（100-150字），只说最核心的一个观点，不用列表或标题，用自然口语。如果话题复杂，说完核心后加一句"如果你想深入聊某一方面，可以继续问我"。` : ""}
 
 ## 参考原文
 ${temporalHint}

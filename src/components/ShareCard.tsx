@@ -115,7 +115,7 @@ export function ShareCard({ question, answer }: ShareCardProps) {
           flexShrink: 0,
         }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-          <span style={{ color: "#2D2A1E", fontSize: 16, fontWeight: "bold" }}>与巴菲特对话</span>
+          <span style={{ color: "#2D2A1E", fontSize: 16, fontWeight: "bold" }}>Text Room</span>
           <span style={{ color: "#B8A060", fontSize: 11 }}>Talk with Buffett</span>
         </div>
       </div>

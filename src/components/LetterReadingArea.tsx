@@ -14,7 +14,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 
-type ReadingMode = "all" | "en" | "zh";
+type ReadingMode = "all";
 
 interface LetterReadingAreaProps {
   year: number;
@@ -46,12 +46,6 @@ function getInitialLineIdx() {
   return Math.max(0, Math.min(LINE_HEIGHTS.length - 1, parsed));
 }
 
-function getInitialReadingMode(): ReadingMode {
-  if (typeof window === "undefined") return "all";
-  const saved = window.localStorage.getItem("reader-mode");
-  if (saved === "all" || saved === "en" || saved === "zh") return saved;
-  return "all";
-}
 
 function hasCJK(text: string): boolean {
   return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text);
@@ -212,12 +206,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
   const router = useRouter();
   const [fontIdx, setFontIdx] = useState(getInitialFontIdx);
   const [lineIdx, setLineIdx] = useState(getInitialLineIdx);
-  const [readingMode, setReadingMode] = useState<ReadingMode>(getInitialReadingMode);
-
-  function changeReadingMode(mode: ReadingMode) {
-    setReadingMode(mode);
-    localStorage.setItem("reader-mode", mode);
-  }
+  const readingMode: ReadingMode = "all";
 
   function changeFontIdx(next: number) {
     const clamped = Math.max(0, Math.min(FONT_SIZES.length - 1, next));
@@ -246,28 +235,6 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
         <span className="letter-bar-title">
           {year} {{ shareholder: "致股东信", partnership: "致合伙人信", annual_meeting: "股东大会", article: "文章", interview: "采访" }[sourceType] ?? sourceType}
         </span>
-
-        {/* Reading mode — centered */}
-        <div className="reader-mode-group" title="阅读模式">
-          <button
-            className={`reader-mode-btn${readingMode === "all" ? " reader-mode-btn--active" : ""}`}
-            onClick={() => changeReadingMode("all")}
-          >
-            中英
-          </button>
-          <button
-            className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
-            onClick={() => changeReadingMode("en")}
-          >
-            EN
-          </button>
-          <button
-            className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
-            onClick={() => changeReadingMode("zh")}
-          >
-            中文
-          </button>
-        </div>
 
         <div className="reader-controls">
           {/* Font size */}
@@ -329,9 +296,9 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
       {/* FAB → navigate to workspace with this source open */}
       <button
         className="chat-fab"
-        onClick={() => router.push(`/chat?source=${sourceType}&year=${year}`)}
-        aria-label="与巴菲特对话"
-        title="与巴菲特对话"
+        onClick={() => router.push(`/text/room?source=${sourceType}&year=${year}`)}
+        aria-label="进入 Text Room"
+        title="进入 Text Room"
       >
         <span className="chat-fab-ring" />
         <Image
@@ -341,7 +308,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
           width={44}
           height={44}
         />
-        <span className="chat-fab-label">问问他</span>
+        <span className="chat-fab-label">进入 Text Room</span>
       </button>
     </>
   );

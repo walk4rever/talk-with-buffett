@@ -39,7 +39,7 @@ export function HomeModeSelect() {
       <div className="home-mode-cards">
         <button
           className="home-mode-card"
-          onClick={() => router.push("/chat")}
+          onClick={() => router.push("/text/room")}
         >
           <span className="home-mode-icon">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
@@ -47,16 +47,16 @@ export function HomeModeSelect() {
               <path d="M8 10h12M8 14h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
             </svg>
           </span>
-          <span className="home-mode-name">文字对话</span>
-          <span className="home-mode-desc">先聊天，再查看原文索引</span>
-          <span className="home-mode-cta">开始对话 →</span>
+          <span className="home-mode-name">文字对话模式</span>
+          <span className="home-mode-desc">进入 Text Room，对话并查看原文索引</span>
+          <span className="home-mode-cta">进入 Text Room →</span>
         </button>
 
         <button
-          className="home-mode-card home-mode-card--premium home-mode-card--disabled"
-          disabled
+          className="home-mode-card home-mode-card--premium"
+          onClick={() => router.push("/live/room")}
         >
-          <span className="home-mode-badge">✦ 增值</span>
+          <span className="home-mode-badge">开发中</span>
           <span className="home-mode-icon">
             <Image
               src="/buffett-avarta.jpg"
@@ -66,9 +66,9 @@ export function HomeModeSelect() {
               height={36}
             />
           </span>
-          <span className="home-mode-name">数字人对话</span>
-          <span className="home-mode-desc">视频 + 声音，沉浸式体验</span>
-          <span className="home-mode-cta">即将上线</span>
+          <span className="home-mode-name">视频对话模式</span>
+          <span className="home-mode-desc">进入 Live Room，语音驱动沉浸式播报</span>
+          <span className="home-mode-cta">进入 Live Room →</span>
         </button>
       </div>
     </div>

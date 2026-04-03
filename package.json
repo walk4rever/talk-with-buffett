@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint",
@@ -12,11 +12,13 @@
     "test:coverage": "vitest run --coverage",
     "eval:retrieval:v2": "node --loader ts-node/esm scripts/eval-retrieval-v2.ts",
     "eval:mvp:benchmark": "node --loader ts-node/esm scripts/eval-mvp-benchmark.ts",
-    "eval:mvp:compare": "node --loader ts-node/esm scripts/compare-mvp-benchmark.ts"
+    "eval:mvp:compare": "node --loader ts-node/esm scripts/compare-mvp-benchmark.ts",
+    "test:asr": "node scripts/test-volc-asr.mjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
     "@prisma/client": "6.19.2",
+    "@types/ws": "^8.18.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
     "bcryptjs": "^3.0.3",
@@ -30,7 +32,8 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.9.4",
-    "uqr": "^0.1.2"
+    "uqr": "^0.1.2",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

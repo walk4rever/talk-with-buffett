@@ -156,6 +156,7 @@ export async function POST(req: Request) {
   if (!body?.messages || !Array.isArray(body.messages)) {
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
+  const mode: "text" | "live" = body.mode === "live" ? "live" : "text";
 
   const lastUserMsg = [...body.messages].reverse().find(
     (m: { role: string }) => m.role === "user",
@@ -203,7 +204,7 @@ export async function POST(req: Request) {
       })
     : null;
 
-  const systemPrompt = buildSystemPrompt(chunks, order, distinctByYear, evidencePlan);
+  const systemPrompt = buildSystemPrompt(chunks, order, distinctByYear, evidencePlan, mode);
 
   // Build sources from search results (always shown, independent of AI output)
   const sources = chunks.map((c) => ({
@@ -255,7 +256,7 @@ export async function POST(req: Request) {
       model: AI_MODEL,
       messages: aiMessages,
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: mode === "live" ? 350 : 1000,
       stream: true,
     }),
     signal: AbortSignal.timeout(55000),

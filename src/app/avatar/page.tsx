@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-export default async function ChatPage({
+export default async function AvatarPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -12,5 +12,5 @@ export default async function ChatPage({
     if (Array.isArray(value)) value.forEach((item) => params.append(key, item));
   });
   const query = params.toString();
-  redirect(query ? `/text/room?${query}` : "/text/room");
+  redirect(query ? `/live/room?${query}` : "/live/room");
 }

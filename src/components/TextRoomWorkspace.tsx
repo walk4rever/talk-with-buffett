@@ -12,7 +12,6 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -20,6 +19,7 @@ import rehypeRaw from "rehype-raw";
 import { usePostHog } from "posthog-js/react";
 import { WaitlistModal } from "@/components/WaitlistModal";
 import { ShareModal } from "@/components/ShareModal";
+import { RoomHeader } from "@/components/RoomHeader";
 import {
   type ChatMessage,
   type ChatSource,
@@ -139,12 +139,6 @@ function readTransferFromSessionStorage() {
   }
 }
 
-function getInitialReadingMode(): ReadingMode {
-  if (typeof window === "undefined") return "all";
-  const saved = window.localStorage.getItem("reader-mode");
-  if (saved === "all" || saved === "en" || saved === "zh") return saved;
-  return "all";
-}
 
 function hasCJK(text: string): boolean {
   return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(text);
@@ -356,7 +350,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
   return filtered;
 }
 
-export function Workspace() {
+export function TextRoomWorkspace() {
   const params = useSearchParams();
   const router = useRouter();
   const posthog = usePostHog();
@@ -382,7 +376,7 @@ export function Workspace() {
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [readingMode, setReadingMode] = useState<ReadingMode>(getInitialReadingMode);
+  const readingMode: ReadingMode = "all";
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingTextRef = useRef("");
 
@@ -528,7 +522,7 @@ export function Workspace() {
       const qzh = excerptZh ? `&qzh=${encodeURIComponent(excerptZh.slice(0, 100))}` : "";
       const t = title ? `&t=${encodeURIComponent(title)}` : "";
       const c = chunkId ? `&c=${encodeURIComponent(chunkId)}` : "";
-      router.push(`/chat?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
+      router.push(`/text/room?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
       setMobilePanel("canvas");
     },
     [router, posthog],
@@ -538,14 +532,10 @@ export function Workspace() {
     if (hasReader && canvasScrollRef.current) {
       scrollPositions.set(canvasKey(canvasType, canvasYear), canvasScrollRef.current.scrollTop);
     }
-    router.push("/chat", { scroll: false });
+    router.push("/text/room", { scroll: false });
     setMobilePanel("canvas");
   }, [router, hasReader, canvasType, canvasYear]);
 
-  function changeReadingMode(mode: ReadingMode) {
-    setReadingMode(mode);
-    localStorage.setItem("reader-mode", mode);
-  }
 
   const send = useCallback(
     async (text: string) => {
@@ -646,21 +636,7 @@ export function Workspace() {
     <>
     <div className="workspace workspace--split">
       <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
-        <div className="workspace-chat-header">
-          <Link href="/" className="chat-back">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            返回
-          </Link>
-          <span className="workspace-chat-title workspace-chat-title--desktop">与巴菲特对话</span>
-          <button
-            className="workspace-mobile-toggle"
-            onClick={() => setMobilePanel("canvas")}
-          >
-            原文
-          </button>
-        </div>
+        <RoomHeader title="Text Room" onOpenSide={() => setMobilePanel("canvas")} />
 
         <div className="workspace-chat-body">
           {historyLoading ? (
@@ -670,7 +646,7 @@ export function Workspace() {
           ) : messages.length === 0 ? (
             <div className="empty-chat">
               <Image src="/buffett-avarta.jpg" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
-              <h2 className="empty-chat-title">与巴菲特对话</h2>
+              <h2 className="empty-chat-title">Text Room</h2>
               <p className="empty-chat-sub">
                 基于 1957–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧
               </p>
@@ -745,28 +721,7 @@ export function Workspace() {
                 : "加载中…")
               : "相关原文"}
           </span>
-          {hasReader ? (
-            <div className="reader-mode-group workspace-reader-mode-inline" title="阅读模式">
-              <button
-                className={`reader-mode-btn${readingMode === "all" ? " reader-mode-btn--active" : ""}`}
-                onClick={() => changeReadingMode("all")}
-              >
-                中英
-              </button>
-              <button
-                className={`reader-mode-btn${readingMode === "en" ? " reader-mode-btn--active" : ""}`}
-                onClick={() => changeReadingMode("en")}
-              >
-                EN
-              </button>
-              <button
-                className={`reader-mode-btn${readingMode === "zh" ? " reader-mode-btn--active" : ""}`}
-                onClick={() => changeReadingMode("zh")}
-              >
-                中文
-              </button>
-            </div>
-          ) : null}
+          {null}
           {hasReader ? (
             <button className="workspace-canvas-close" onClick={closeReader} aria-label="关闭">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">

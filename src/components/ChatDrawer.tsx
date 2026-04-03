@@ -183,9 +183,9 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
         <div className="drawer-backdrop" onClick={onClose} aria-hidden="true" />
       )}
 
-      <aside className={`chat-drawer${open ? " chat-drawer--open" : ""}`} aria-label="与巴菲特对话">
+      <aside className={`chat-drawer${open ? " chat-drawer--open" : ""}`} aria-label="Text Room">
         <div className="drawer-header">
-          <span className="drawer-title">与巴菲特对话</span>
+          <span className="drawer-title">Text Room</span>
           <button className="drawer-close" onClick={onClose} aria-label="关闭">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M2 2l14 14M16 2L2 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -217,7 +217,7 @@ export function ChatDrawer({ open, onClose }: ChatDrawerProps) {
                   {msg.sources && msg.sources.length > 0 && (
                     <div className="workspace-source-chip-row">
                       <Link
-                        href="/chat"
+                        href="/text/room"
                         className="workspace-source-chip"
                         onClick={persistChatForWorkspace}
                         aria-label={`${msg.sources.length} sources`}

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function WorkspacePage() {
-  redirect("/chat");
+  redirect("/text/room");
 }
