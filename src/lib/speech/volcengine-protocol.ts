@@ -102,11 +102,23 @@ export function decodeVolcengineFrame(input: Buffer): VolcengineAsrResponse {
     const flags = second & 0x0f;
     const hintedHasSeq = (flags & 0x01) !== 0;
 
-    const tryParse = (hasSeq: boolean) => {
-      const sequence = hasSeq ? input.readInt32BE(offset) : 0;
+    const getPayloadBounds = (hasSeq: boolean) => {
+      const sequenceOffset = offset;
       const sizeOffset = hasSeq ? offset + 4 : offset;
+      if (hasSeq && input.length < sequenceOffset + 4) return null;
+      if (input.length < sizeOffset + 4) return null;
       const payloadSize = input.readUInt32BE(sizeOffset);
-      const payloadBuffer = input.subarray(sizeOffset + 4, sizeOffset + 4 + payloadSize);
+      const payloadStart = sizeOffset + 4;
+      const payloadEnd = payloadStart + payloadSize;
+      if (payloadEnd > input.length) return null;
+      return { sizeOffset, payloadStart, payloadEnd };
+    };
+
+    const tryParse = (hasSeq: boolean) => {
+      const bounds = getPayloadBounds(hasSeq);
+      if (!bounds) throw new Error("Invalid Volcengine payload bounds");
+      const sequence = hasSeq ? input.readInt32BE(offset) : 0;
+      const payloadBuffer = input.subarray(bounds.payloadStart, bounds.payloadEnd);
       const raw = compression === COMPRESSION_GZIP ? gunzipSync(payloadBuffer) : payloadBuffer;
       const payload = JSON.parse(raw.toString("utf8")) as VolcengineAsrPayload;
       const isLast =
@@ -114,11 +126,15 @@ export function decodeVolcengineFrame(input: Buffer): VolcengineAsrResponse {
       return { payload, isLast };
     };
 
+    const hintedBounds = getPayloadBounds(hintedHasSeq);
+    const fallbackBounds = hintedHasSeq ? null : getPayloadBounds(true);
+    const shouldTryFallbackFirst = !hintedBounds && !!fallbackBounds;
+
     try {
-      const parsed = tryParse(hintedHasSeq);
+      const parsed = tryParse(shouldTryFallbackFirst ? true : hintedHasSeq);
       return { type: "response", ...parsed };
     } catch (error) {
-      if (hintedHasSeq) throw error;
+      if (hintedHasSeq || shouldTryFallbackFirst) throw error;
       const parsed = tryParse(true);
       return { type: "response", ...parsed };
     }
