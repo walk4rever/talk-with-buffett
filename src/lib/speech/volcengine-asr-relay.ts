@@ -30,6 +30,7 @@ type Session = {
   nextSeq: number;
   initFallback: NodeJS.Timeout | null;
   pending: Array<{ chunk: Buffer; isLast: boolean }>;
+  sentAudio: boolean;
   listeners: Set<(event: RelayEvent) => void>;
 };
 
@@ -133,6 +134,7 @@ function buildInitPayload(session: Session) {
 
 function sendAudioFrame(session: Session, chunk: Buffer, isLast: boolean) {
   session.nextSeq += 1;
+  if (chunk.length > 0) session.sentAudio = true;
   session.ws.send(encodeAudioOnlyRequest(chunk, isLast));
 }
 
@@ -191,6 +193,7 @@ export async function createRealtimeAsrSession(uid?: string) {
     nextSeq: 1,
     initFallback: null,
     pending: [],
+    sentAudio: false,
     listeners: new Set(),
   };
   relayStore().set(id, session);
@@ -313,6 +316,15 @@ export function finishRealtimeAsrSession(sessionId: string) {
   const session = relayStore().get(sessionId);
   if (!session || session.closed || session.finishing) return;
   session.finishing = true;
+
+  // When no audio was ever sent, closing directly is more stable than sending
+  // an empty final frame (which often triggers backend code=1012).
+  const hasAudio = session.sentAudio || session.pending.some((item) => item.chunk.length > 0);
+  if (!hasAudio) {
+    session.ws.close(1000, "no_audio");
+    return;
+  }
+
   if (session.open && session.initAcked) {
     sendAudioFrame(session, Buffer.alloc(0), true);
   } else {
