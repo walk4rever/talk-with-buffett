@@ -86,6 +86,8 @@ async function runTurn(chunks: Buffer[], requireTranscript: boolean): Promise<nu
   const session = await createRealtimeAsrSession(randomUUID());
   const t0 = Date.now();
   let transcriptSeen = false;
+  const sendPaceMs = Number(process.env.BENCH_ASR_SEND_PACE_MS ?? "60");
+  const resolvedSendPaceMs = Number.isFinite(sendPaceMs) ? Math.max(0, sendPaceMs) : 60;
 
   const done = new Promise<number>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -116,6 +118,9 @@ async function runTurn(chunks: Buffer[], requireTranscript: boolean): Promise<nu
 
   for (const chunk of chunks) {
     sendRealtimeAsrChunk(session.sessionId, chunk, false);
+    if (resolvedSendPaceMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, resolvedSendPaceMs));
+    }
   }
   finishRealtimeAsrSession(session.sessionId);
 
@@ -151,6 +156,7 @@ async function main() {
   console.log(`full_turn_runs=${full.vals.join(",")}`);
   console.log(`short_turn_median=${short.med}`);
   console.log(`full_turn_median=${full.med}`);
+  console.log(`send_pace_ms=${process.env.BENCH_ASR_SEND_PACE_MS ?? "60"}`);
   console.log(`METRIC asr_response_time=${metric}`);
   setTimeout(() => process.exit(0), 50);
 }
