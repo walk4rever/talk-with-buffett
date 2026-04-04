@@ -2,4 +2,6 @@
 - [deprioritized] Rolling ACK-based auto-tuning of init fallback (p50/p90) was tried and regressed pending-audio startup latency; revisit only with richer traffic-segmented tuning data.
 - Add SSE reconnect-with-resume token for transient network drops so the live session can recover without forcing user restarts.
 - [observed] Mixed-workload stable timing profile now includes pending-age-aware guard: fallback=80ms + single-chunk-guard=20ms + guarded-delay=90ms + remainingGuard=max(0, guard-pendingElapsed). More aggressive values (single-guard=15ms or fallback below ~80ms) regressed in repeat runs.
+- [observed] Gating relay hot-path logs behind VOLCENGINE_ASR_DEBUG=1 significantly improved mixed-workload latency baseline; keep verbose logs off in production path.
+- [deprioritized] Relay micro-optimizations like caching parsed timing env values were tried and did not show reliable wins under mixed workload noise.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
