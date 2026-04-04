@@ -72,7 +72,7 @@
 
 ## 技术栈
 
-Next.js · TypeScript · Supabase · DashScope AI · Vercel
+Next.js · TypeScript · Supabase · DashScope AI · Vercel · 阿里云轻量服务器（ASR relay）
 
 ---
 

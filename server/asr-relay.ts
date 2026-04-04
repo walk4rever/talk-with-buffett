@@ -1,9 +1,9 @@
 /**
- * Standalone ASR relay server — deploy this to Railway.
+ * Standalone ASR relay server.
  * Exposes the same endpoints as the Next.js API routes so that
  * the Vercel-hosted frontend can proxy to it.
  *
- * Start: npx tsx server/asr-relay.ts
+ * Start: npm run relay:start
  */
 
 import http from "node:http";
