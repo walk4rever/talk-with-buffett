@@ -91,6 +91,13 @@ function relayStore() {
   return g[globalKey]!;
 }
 
+const ASR_DEBUG = process.env.VOLCENGINE_ASR_DEBUG === "1";
+
+function debugLog(message: string, payload: Record<string, unknown>) {
+  if (!ASR_DEBUG) return;
+  console.log(message, payload);
+}
+
 function emit(session: Session, event: RelayEvent) {
   for (const listener of [...session.listeners]) {
     try {
@@ -299,7 +306,7 @@ export async function createRealtimeAsrSession(uid?: string) {
         return;
       }
       if (frame.type === "error") {
-        console.error("[asr relay] volcengine error frame", {
+        debugLog("[asr relay] volcengine error frame", {
           sessionId: session.id,
           reqId: session.reqId,
           errorCode: frame.errorCode,
@@ -331,7 +338,7 @@ export async function createRealtimeAsrSession(uid?: string) {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "decode_failed";
-      console.error("[asr relay] decode failed", {
+      debugLog("[asr relay] decode failed", {
         sessionId: session.id,
         reqId: session.reqId,
         message,
@@ -343,7 +350,7 @@ export async function createRealtimeAsrSession(uid?: string) {
 
   ws.on("error", (error) => {
     const err = error as Error;
-    console.error("[asr relay] websocket error", {
+    debugLog("[asr relay] websocket error", {
       sessionId: session.id,
       reqId: session.reqId,
       message: err.message,
@@ -361,7 +368,7 @@ export async function createRealtimeAsrSession(uid?: string) {
       session.finalEmitted = true;
       emit(session, { type: "transcript", text: session.lastText, isFinal: true });
     }
-    console.log("[asr relay] websocket closed", {
+    debugLog("[asr relay] websocket closed", {
       sessionId: session.id,
       reqId: session.reqId,
       code: closeCode,

@@ -1,4 +1,4 @@
-- Add an end-to-end live-turn benchmark (mic chunk send -> ASR final -> first TTS utterance start) with fixed speech fixture, so optimizations are not overfit to session-ready latency.
+- Add an end-to-end live-turn benchmark (mic chunk send -> ASR final -> first TTS utterance start) with fixed **real speech** fixture; synthetic tone/silence crashes Volcengine validation and cannot serve as reliable turn-complete workload.
 - [deprioritized] Rolling ACK-based auto-tuning of init fallback (p50/p90) was tried and regressed pending-audio startup latency; revisit only with richer traffic-segmented tuning data.
 - Add SSE reconnect-with-resume token for transient network drops so the live session can recover without forcing user restarts.
 - [observed] Mixed-workload stable timing profile now includes pending-age-aware guard: fallback=80ms + single-chunk-guard=20ms + guarded-delay=90ms + remainingGuard=max(0, guard-pendingElapsed). More aggressive values (single-guard=15ms or fallback below ~80ms) regressed in repeat runs.
