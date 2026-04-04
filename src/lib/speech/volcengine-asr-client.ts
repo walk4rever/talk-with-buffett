@@ -110,7 +110,7 @@ function buildInitPayload(uid: string, reqId: string, language?: string) {
       sequence: 1,
       nbest: 1,
       workflow: "audio_in,resample,partition,vad,fe,decode",
-      show_utterances: true,
+      show_utterances: false,
       result_type: "single",
       vad_signal: true,
       start_silence_time: process.env.VOLCENGINE_ASR_START_SILENCE_TIME?.trim() || "10000",
