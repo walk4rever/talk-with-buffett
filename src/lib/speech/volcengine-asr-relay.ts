@@ -263,12 +263,12 @@ export async function createRealtimeAsrSession(uid?: string) {
     ws.send(encodeFullClientRequest(buildInitPayload(session)));
     const initFallbackMs = Number(process.env.VOLCENGINE_ASR_INIT_FALLBACK_MS ?? "80");
     const guardedDelayMs = Number(process.env.VOLCENGINE_ASR_INIT_GUARDED_DELAY_MS ?? "80");
-    const singleChunkGuardedDelayMs = Number(process.env.VOLCENGINE_ASR_INIT_SINGLE_CHUNK_GUARD_MS ?? "25");
+    const singleChunkGuardedDelayMs = Number(process.env.VOLCENGINE_ASR_INIT_SINGLE_CHUNK_GUARD_MS ?? "20");
     const resolvedFallbackMs = Number.isFinite(initFallbackMs) ? Math.max(0, initFallbackMs) : 80;
     const resolvedGuardedDelayMs = Number.isFinite(guardedDelayMs) ? Math.max(0, guardedDelayMs) : 80;
     const resolvedSingleChunkGuardedDelayMs = Number.isFinite(singleChunkGuardedDelayMs)
       ? Math.max(0, singleChunkGuardedDelayMs)
-      : 25;
+      : 20;
     session.initFallback = setTimeout(() => {
       if (!session.initAcked && session.pending.length > 0 && resolvedGuardedDelayMs > 0) {
         const pendingGuard = session.pending.length <= 1
