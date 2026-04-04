@@ -82,9 +82,10 @@ function slicePcmChunks(pcm: Buffer, chunkMs: number) {
   return chunks;
 }
 
-async function runTurn(chunks: Buffer[]): Promise<number> {
+async function runTurn(chunks: Buffer[], requireTranscript: boolean): Promise<number> {
   const session = await createRealtimeAsrSession(randomUUID());
   const t0 = Date.now();
+  let transcriptSeen = false;
 
   const done = new Promise<number>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -93,6 +94,9 @@ async function runTurn(chunks: Buffer[]): Promise<number> {
     }, 15000);
 
     const unsub = subscribeRealtimeAsrSession(session.sessionId, (event) => {
+      if (event.type === "transcript" && event.text.trim()) {
+        transcriptSeen = true;
+      }
       if (event.type === "error") {
         clearTimeout(timeout);
         unsub();
@@ -101,6 +105,10 @@ async function runTurn(chunks: Buffer[]): Promise<number> {
       if (event.type === "closed") {
         clearTimeout(timeout);
         unsub();
+        if (requireTranscript && !transcriptSeen) {
+          reject(new Error("no_transcript_observed"));
+          return;
+        }
         resolve(Date.now() - t0);
       }
     });
@@ -119,9 +127,9 @@ function median(values: number[]) {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-async function scenario(chunks: Buffer[], runs: number) {
+async function scenario(chunks: Buffer[], runs: number, requireTranscript: boolean) {
   const vals: number[] = [];
-  for (let i = 0; i < runs; i++) vals.push(await runTurn(chunks));
+  for (let i = 0; i < runs; i++) vals.push(await runTurn(chunks, requireTranscript));
   return { vals, med: median(vals) };
 }
 
@@ -135,8 +143,8 @@ async function main() {
   const fullChunks = allChunks;
 
   const runs = 5;
-  const short = await scenario(shortChunks, runs);
-  const full = await scenario(fullChunks, runs);
+  const short = await scenario(shortChunks, runs, false);
+  const full = await scenario(fullChunks, runs, true);
   const metric = Math.round((short.med + full.med) / 2);
 
   console.log(`short_turn_runs=${short.vals.join(",")}`);
