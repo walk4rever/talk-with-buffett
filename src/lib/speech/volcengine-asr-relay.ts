@@ -30,6 +30,7 @@ type Session = {
   nextSeq: number;
   initFallback: NodeJS.Timeout | null;
   pending: Array<{ chunk: Buffer; isLast: boolean }>;
+  firstPendingAt: number | null;
   sentAudio: boolean;
   listeners: Set<(event: RelayEvent) => void>;
 };
@@ -205,6 +206,7 @@ function flushPending(session: Session) {
     if (item.isLast) session.finishing = true;
   }
   session.pending = [];
+  session.firstPendingAt = null;
 }
 
 function markSessionReady(session: Session) {
@@ -253,6 +255,7 @@ export async function createRealtimeAsrSession(uid?: string) {
     nextSeq: 1,
     initFallback: null,
     pending: [],
+    firstPendingAt: null,
     sentAudio: false,
     listeners: new Set(),
   };
@@ -274,10 +277,14 @@ export async function createRealtimeAsrSession(uid?: string) {
         const pendingGuard = session.pending.length <= 1
           ? Math.min(resolvedGuardedDelayMs, resolvedSingleChunkGuardedDelayMs)
           : resolvedGuardedDelayMs;
-        session.initFallback = setTimeout(() => {
-          markSessionReady(session);
-        }, pendingGuard);
-        return;
+        const pendingElapsed = session.firstPendingAt ? Math.max(0, Date.now() - session.firstPendingAt) : 0;
+        const remainingGuard = Math.max(0, pendingGuard - pendingElapsed);
+        if (remainingGuard > 0) {
+          session.initFallback = setTimeout(() => {
+            markSessionReady(session);
+          }, remainingGuard);
+          return;
+        }
       }
       markSessionReady(session);
     }, resolvedFallbackMs);
@@ -381,6 +388,7 @@ export function sendRealtimeAsrChunk(sessionId: string, chunk: Buffer, isLast = 
     sendAudioFrame(session, chunk, isLast);
   } else {
     session.pending.push({ chunk, isLast });
+    if (!session.firstPendingAt) session.firstPendingAt = Date.now();
   }
 
   if (isLast) {
