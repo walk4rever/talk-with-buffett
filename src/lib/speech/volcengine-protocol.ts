@@ -1,4 +1,4 @@
-import { gzipSync, gunzipSync } from "node:zlib";
+import { constants as zlibConstants, gzipSync, gunzipSync } from "node:zlib";
 
 const VERSION = 0b0001;
 const HEADER_SIZE = 0b0001;
@@ -11,6 +11,10 @@ const MESSAGE_TYPE_AUDIO_ONLY = 0b0010;
 const MESSAGE_TYPE_FULL_SERVER = 0b1001;
 const MESSAGE_TYPE_ACK = 0b1011;
 const MESSAGE_TYPE_ERROR = 0b1111;
+
+const FAST_GZIP_OPTIONS = {
+  level: zlibConstants.Z_BEST_SPEED,
+} as const;
 
 export type VolcengineAsrPayload = {
   reqid?: string;
@@ -63,7 +67,7 @@ function encodeHeader(
 
 export function encodeFullClientRequest(payload: Record<string, unknown>) {
   const json = Buffer.from(JSON.stringify(payload), "utf8");
-  const compressed = gzipSync(json);
+  const compressed = gzipSync(json, FAST_GZIP_OPTIONS);
   const header = encodeHeader(MESSAGE_TYPE_FULL_CLIENT, 0b0000, SERIALIZATION_JSON, COMPRESSION_GZIP);
   const size = Buffer.alloc(4);
   size.writeUInt32BE(compressed.length, 0);
@@ -71,7 +75,7 @@ export function encodeFullClientRequest(payload: Record<string, unknown>) {
 }
 
 export function encodeAudioOnlyRequest(audioChunk: Buffer, isLast: boolean) {
-  const compressed = gzipSync(audioChunk);
+  const compressed = gzipSync(audioChunk, FAST_GZIP_OPTIONS);
   const header = encodeHeader(MESSAGE_TYPE_AUDIO_ONLY, isLast ? 0b0010 : 0b0000, SERIALIZATION_NONE, COMPRESSION_GZIP);
   const size = Buffer.alloc(4);
   size.writeUInt32BE(compressed.length, 0);
