@@ -261,10 +261,10 @@ export async function createRealtimeAsrSession(uid?: string) {
   ws.on("open", () => {
     session.open = true;
     ws.send(encodeFullClientRequest(buildInitPayload(session)));
-    const initFallbackMs = Number(process.env.VOLCENGINE_ASR_INIT_FALLBACK_MS ?? "80");
+    const initFallbackMs = Number(process.env.VOLCENGINE_ASR_INIT_FALLBACK_MS ?? "75");
     const guardedDelayMs = Number(process.env.VOLCENGINE_ASR_INIT_GUARDED_DELAY_MS ?? "90");
     const singleChunkGuardedDelayMs = Number(process.env.VOLCENGINE_ASR_INIT_SINGLE_CHUNK_GUARD_MS ?? "20");
-    const resolvedFallbackMs = Number.isFinite(initFallbackMs) ? Math.max(0, initFallbackMs) : 80;
+    const resolvedFallbackMs = Number.isFinite(initFallbackMs) ? Math.max(0, initFallbackMs) : 75;
     const resolvedGuardedDelayMs = Number.isFinite(guardedDelayMs) ? Math.max(0, guardedDelayMs) : 90;
     const resolvedSingleChunkGuardedDelayMs = Number.isFinite(singleChunkGuardedDelayMs)
       ? Math.max(0, singleChunkGuardedDelayMs)
