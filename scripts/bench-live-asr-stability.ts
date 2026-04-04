@@ -64,12 +64,14 @@ async function runTurn(chunks: Buffer[]): Promise<boolean> {
   let transcriptSeen = false;
   const sendPaceMs = Number(process.env.BENCH_ASR_SEND_PACE_MS ?? "60");
   const pace = Number.isFinite(sendPaceMs) ? Math.max(0, sendPaceMs) : 60;
+  const turnTimeoutMs = Number(process.env.BENCH_ASR_TURN_TIMEOUT_MS ?? "9000");
+  const timeoutMs = Number.isFinite(turnTimeoutMs) ? Math.max(2000, turnTimeoutMs) : 9000;
 
   const done = new Promise<boolean>((resolve) => {
     const timeout = setTimeout(() => {
       unsub();
       resolve(false);
-    }, 15000);
+    }, timeoutMs);
 
     const unsub = subscribeRealtimeAsrSession(session.sessionId, (event) => {
       if (event.type === "transcript" && event.text.trim()) transcriptSeen = true;
@@ -102,7 +104,8 @@ async function main() {
   const shortChunks = allChunks.slice(0, 3);
   const fullChunks = allChunks;
 
-  const totalTurns = 10;
+  const totalTurnsEnv = Number(process.env.BENCH_ASR_STABILITY_TURNS ?? "30");
+  const totalTurns = Number.isFinite(totalTurnsEnv) ? Math.max(6, Math.floor(totalTurnsEnv)) : 30;
   let success = 0;
   for (let i = 0; i < totalTurns; i++) {
     const ok = await runTurn(i % 2 === 0 ? shortChunks : fullChunks);
@@ -112,6 +115,7 @@ async function main() {
   const successRate = Math.round((success / totalTurns) * 1000) / 10; // 1 decimal
   console.log(`success=${success}`);
   console.log(`total=${totalTurns}`);
+  console.log(`turn_timeout_ms=${process.env.BENCH_ASR_TURN_TIMEOUT_MS ?? "9000"}`);
   console.log(`METRIC asr_stability_rate=${successRate}`);
 }
 
