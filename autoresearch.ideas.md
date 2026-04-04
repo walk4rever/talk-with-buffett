@@ -9,8 +9,9 @@
 - [deprioritized] Disabling `vad_signal` was tested and regressed latency versus current best config.
 - [deprioritized] Removing `resample,partition` from workflow was tested (`audio_in,vad,fe,decode`) and regressed versus current best realtime workflow.
 - [deprioritized] Removing `vad` from workflow (`audio_in,resample,partition,fe,decode`) also regressed paced real-speech turn latency.
-- [deprioritized] Request-shape micro-tweaks (e.g., dropping explicit `nbest`) were tested and did not beat the current decode-only workflow config.
+- [observed] Explicit `result_type: single` performs better than relying on default result_type under paced real-speech turn benchmark.
+- [deprioritized] Other request-shape micro-tweaks (e.g., dropping explicit `nbest` or `sequence`) were tested and did not beat the current decode-only workflow config.
 - [deprioritized] Lowering default `start_silence_time` (10000->8000) was retested on current config and regressed paced real-speech turn latency.
-- [observed] Stability benchmark saturates at 100% under loose timeouts; strict timeout workload (3500ms) is useful for exposing headroom but may require bigger architectural changes than timing micro-tunes.
+- [observed] Stability benchmark saturates at 100% under loose timeouts; strict timeout workload (3500ms) exposes headroom (currently ~50%), but fallback/guard micro-tunes did not move it—likely needs architectural recovery changes.
 - [deprioritized] Relay micro-optimizations (e.g., caching parsed timing env values, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
