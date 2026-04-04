@@ -1,4 +1,4 @@
 - Add an end-to-end live-turn benchmark (mic chunk send -> ASR final -> first TTS utterance start) with fixed speech fixture, so optimizations are not overfit to session-ready latency.
-- Add adaptive `VOLCENGINE_ASR_INIT_FALLBACK_MS` tuning based on rolling ACK latency (e.g., p50/p90) rather than a fixed default.
+- Extend current guarded fallback to true rolling auto-tuning (track ACK p50/p90 in memory and adjust fallback dynamically per process/runtime conditions).
 - Add SSE reconnect-with-resume token for transient network drops so the live session can recover without forcing user restarts.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
