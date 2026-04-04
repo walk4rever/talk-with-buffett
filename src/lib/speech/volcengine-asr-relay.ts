@@ -60,6 +60,27 @@ function optionalEnv(name: string) {
   return value ? value : null;
 }
 
+type AsrEnvConfig = {
+  appId: string;
+  accessToken: string;
+  cluster: string;
+  resourceId: string | null;
+};
+
+let cachedAsrEnvConfig: AsrEnvConfig | null = null;
+
+function getAsrEnvConfig(): AsrEnvConfig {
+  if (!cachedAsrEnvConfig) {
+    cachedAsrEnvConfig = {
+      appId: requiredEnv("VOLCENGINE_ASR_APP_ID"),
+      accessToken: requiredEnv("VOLCENGINE_ASR_ACCESS_TOKEN"),
+      cluster: requiredEnv("VOLCENGINE_ASR_CLUSTER"),
+      resourceId: optionalEnv("VOLCENGINE_ASR_RESOURCE_ID"),
+    };
+  }
+  return cachedAsrEnvConfig;
+}
+
 function relayStore() {
   const globalKey = "__VOLCENGINE_ASR_RELAY_STORE__" as const;
   const g = globalThis as typeof globalThis & {
@@ -102,11 +123,12 @@ function extractTranscriptText(payload: unknown): string {
 }
 
 function buildInitPayload(session: Session) {
+  const config = getAsrEnvConfig();
   return {
     app: {
-      appid: requiredEnv("VOLCENGINE_ASR_APP_ID"),
-      token: requiredEnv("VOLCENGINE_ASR_ACCESS_TOKEN"),
-      cluster: requiredEnv("VOLCENGINE_ASR_CLUSTER"),
+      appid: config.appId,
+      token: config.accessToken,
+      cluster: config.cluster,
     },
     user: { uid: session.uid },
     audio: {
@@ -127,7 +149,7 @@ function buildInitPayload(session: Session) {
       vad_signal: true,
       start_silence_time: process.env.VOLCENGINE_ASR_START_SILENCE_TIME?.trim() || "10000",
       vad_silence_time: process.env.VOLCENGINE_ASR_VAD_SILENCE_TIME?.trim() || "2000",
-      ...(optionalEnv("VOLCENGINE_ASR_RESOURCE_ID") ? { resource_id: optionalEnv("VOLCENGINE_ASR_RESOURCE_ID") } : {}),
+      ...(config.resourceId ? { resource_id: config.resourceId } : {}),
     },
   };
 }
@@ -166,15 +188,14 @@ export async function createRealtimeAsrSession(uid?: string) {
   const reqId = randomUUID();
   const resolvedUid = uid ?? id;
 
-  const resourceId = optionalEnv("VOLCENGINE_ASR_RESOURCE_ID");
-  const accessToken = requiredEnv("VOLCENGINE_ASR_ACCESS_TOKEN");
+  const config = getAsrEnvConfig();
   const WebSocketCtor = await getWebSocketCtor();
   const ws = new WebSocketCtor(url, {
     headers: {
-      Authorization: `Bearer; ${accessToken}`,
-      "X-Api-App-Key": requiredEnv("VOLCENGINE_ASR_APP_ID"),
+      Authorization: `Bearer; ${config.accessToken}`,
+      "X-Api-App-Key": config.appId,
       "X-Api-Connect-Id": reqId,
-      ...(resourceId ? { "X-Api-Resource-Id": resourceId } : {}),
+      ...(config.resourceId ? { "X-Api-Resource-Id": config.resourceId } : {}),
     },
   });
 
