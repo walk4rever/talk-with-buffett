@@ -4,6 +4,7 @@ const VERSION = 0b0001;
 const HEADER_SIZE = 0b0001;
 const SERIALIZATION_NONE = 0b0000;
 const SERIALIZATION_JSON = 0b0001;
+const COMPRESSION_NONE = 0b0000;
 const COMPRESSION_GZIP = 0b0001;
 
 const MESSAGE_TYPE_FULL_CLIENT = 0b0001;
@@ -75,11 +76,17 @@ export function encodeFullClientRequest(payload: Record<string, unknown>) {
 }
 
 export function encodeAudioOnlyRequest(audioChunk: Buffer, isLast: boolean) {
-  const compressed = gzipSync(audioChunk, FAST_GZIP_OPTIONS);
-  const header = encodeHeader(MESSAGE_TYPE_AUDIO_ONLY, isLast ? 0b0010 : 0b0000, SERIALIZATION_NONE, COMPRESSION_GZIP);
+  const disableAudioGzip = process.env.VOLCENGINE_ASR_AUDIO_GZIP === "0";
+  const payload = disableAudioGzip ? audioChunk : gzipSync(audioChunk, FAST_GZIP_OPTIONS);
+  const header = encodeHeader(
+    MESSAGE_TYPE_AUDIO_ONLY,
+    isLast ? 0b0010 : 0b0000,
+    SERIALIZATION_NONE,
+    disableAudioGzip ? COMPRESSION_NONE : COMPRESSION_GZIP,
+  );
   const size = Buffer.alloc(4);
-  size.writeUInt32BE(compressed.length, 0);
-  return Buffer.concat([header, size, compressed]);
+  size.writeUInt32BE(payload.length, 0);
+  return Buffer.concat([header, size, payload]);
 }
 
 export function decodeVolcengineFrame(input: Buffer): VolcengineAsrResponse {
