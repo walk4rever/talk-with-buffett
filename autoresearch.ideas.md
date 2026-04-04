@@ -10,5 +10,7 @@
 - [deprioritized] Removing `resample,partition` from workflow was tested (`audio_in,vad,fe,decode`) and regressed versus current best realtime workflow.
 - [deprioritized] Removing `vad` from workflow (`audio_in,resample,partition,fe,decode`) also regressed paced real-speech turn latency.
 - [deprioritized] Request-shape micro-tweaks (e.g., dropping explicit `nbest`) were tested and did not beat the current decode-only workflow config.
-- [deprioritized] Relay micro-optimizations like caching parsed timing env values were tried and did not show reliable wins under mixed workload noise.
+- [deprioritized] Lowering default `start_silence_time` (10000->8000) was retested on current config and regressed paced real-speech turn latency.
+- [observed] Stability benchmark saturates at 100% under loose timeouts; strict timeout workload (3500ms) is useful for exposing headroom but may require bigger architectural changes than timing micro-tunes.
+- [deprioritized] Relay micro-optimizations (e.g., caching parsed timing env values, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
