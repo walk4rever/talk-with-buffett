@@ -418,9 +418,19 @@ export function finishRealtimeAsrSession(sessionId: string) {
 
   if (session.open && session.initAcked) {
     sendAudioFrame(session, Buffer.alloc(0), true);
-  } else {
-    session.pending.push({ chunk: Buffer.alloc(0), isLast: true });
+    return;
   }
+
+  // Optimize pending path: if we already have pending audio, mark the last
+  // pending chunk as final instead of appending an extra empty terminal frame.
+  for (let i = session.pending.length - 1; i >= 0; i--) {
+    if (session.pending[i].chunk.length > 0) {
+      session.pending[i].isLast = true;
+      return;
+    }
+  }
+
+  session.pending.push({ chunk: Buffer.alloc(0), isLast: true });
 }
 
 export function subscribeRealtimeAsrSession(sessionId: string, listener: (event: RelayEvent) => void) {
