@@ -4,6 +4,6 @@
 - [observed] Mixed-workload stable timing profile now includes pending-age-aware guard: fallback=80ms + single-chunk-guard=20ms + guarded-delay=90ms + remainingGuard=max(0, guard-pendingElapsed). More aggressive values (single-guard=15ms or fallback below ~80ms) regressed in repeat runs.
 - [observed] Gating relay hot-path logs behind VOLCENGINE_ASR_DEBUG=1 significantly improved mixed-workload latency baseline; keep verbose logs off in production path.
 - [deprioritized] Early terminal-flush shortcuts (e.g., immediate ready when pending already contains isLast) were tried on paced real-speech turn benchmark and regressed in confirmation runs.
-- [observed] Removing `nlu_punctuate` from realtime ASR workflow produced consistent turn-complete latency gains on real-speech paced benchmark while preserving transcript presence.
+- [observed] Simplifying realtime ASR workflow to `audio_in,resample,partition,vad,fe,decode` (removing both `nlu_punctuate` and `itn`) produced consistent turn-complete latency gains on real-speech paced benchmark while preserving transcript presence.
 - [deprioritized] Relay micro-optimizations like caching parsed timing env values were tried and did not show reliable wins under mixed workload noise.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
