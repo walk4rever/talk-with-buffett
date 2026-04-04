@@ -14,4 +14,5 @@
 - [deprioritized] Lowering default `start_silence_time` (10000->8000) was retested on current config and regressed paced real-speech turn latency.
 - [observed] Stability benchmark saturates at 100% under loose timeouts; strict timeout workload (3500ms) exposes headroom (currently ~50%), but fallback/guard micro-tunes did not move it—likely needs architectural recovery changes.
 - [deprioritized] Relay micro-optimizations (e.g., caching parsed timing env values, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
+- [observed] Audio frame gzip can be exposed as a deploy-time tuning knob (`VOLCENGINE_ASR_AUDIO_GZIP=0`), but default policy flips were not robustly better in benchmark noise.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
