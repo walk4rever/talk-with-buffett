@@ -39,9 +39,7 @@ async function runOnce(): Promise<number> {
 
 async function main() {
   const values: number[] = [];
-  for (let i = 0; i < 3; i++) {
-    values.push(await runOnce());
-  }
+  for (let i = 0; i < 3; i++) values.push(await runOnce());
   values.sort((a, b) => a - b);
   const median = values[1];
   console.log(`runs=${values.join(",")}`);

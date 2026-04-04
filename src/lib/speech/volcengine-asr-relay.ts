@@ -144,6 +144,15 @@ function flushPending(session: Session) {
   session.pending = [];
 }
 
+function markSessionReady(session: Session) {
+  if (session.closed || session.initAcked) return;
+  session.initAcked = true;
+  if (session.initFallback) clearTimeout(session.initFallback);
+  session.initFallback = null;
+  emit(session, { type: "ready" });
+  flushPending(session);
+}
+
 export async function createRealtimeAsrSession(uid?: string) {
   const url = process.env.VOLCENGINE_ASR_WS_URL || "wss://openspeech.bytedance.com/api/v2/asr";
   if (url.includes("/api/v3/")) {
@@ -189,12 +198,10 @@ export async function createRealtimeAsrSession(uid?: string) {
   ws.on("open", () => {
     session.open = true;
     ws.send(encodeFullClientRequest(buildInitPayload(session)));
+    const initFallbackMs = Number(process.env.VOLCENGINE_ASR_INIT_FALLBACK_MS ?? "120");
     session.initFallback = setTimeout(() => {
-      if (session.closed || session.initAcked) return;
-      session.initAcked = true;
-      emit(session, { type: "ready" });
-      flushPending(session);
-    }, 250);
+      markSessionReady(session);
+    }, Number.isFinite(initFallbackMs) ? Math.max(0, initFallbackMs) : 120);
   });
 
   ws.on("message", (data) => {
@@ -202,13 +209,7 @@ export async function createRealtimeAsrSession(uid?: string) {
       const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
       const frame = decodeVolcengineFrame(buffer);
       if (frame.type === "ack") {
-        if (!session.initAcked) {
-          session.initAcked = true;
-          if (session.initFallback) clearTimeout(session.initFallback);
-          session.initFallback = null;
-          emit(session, { type: "ready" });
-          flushPending(session);
-        }
+        markSessionReady(session);
         return;
       }
       if (frame.type === "error") {
