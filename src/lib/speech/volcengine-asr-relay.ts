@@ -122,34 +122,73 @@ function extractTranscriptText(payload: unknown): string {
   return obj.text?.trim() ?? "";
 }
 
+type StaticInitPayload = {
+  app: { appid: string; token: string; cluster: string };
+  audio: {
+    format: "raw";
+    codec: "raw";
+    rate: 16000;
+    bits: 16;
+    channel: 1;
+    language: "zh-CN";
+  };
+  requestBase: {
+    sequence: 1;
+    nbest: 1;
+    workflow: string;
+    show_utterances: true;
+    result_type: "single";
+    vad_signal: true;
+    start_silence_time: string;
+    vad_silence_time: string;
+    resource_id?: string;
+  };
+};
+
+let staticInitPayloadCache: StaticInitPayload | null = null;
+
+function getStaticInitPayload(): StaticInitPayload {
+  if (!staticInitPayloadCache) {
+    const config = getAsrEnvConfig();
+    staticInitPayloadCache = {
+      app: {
+        appid: config.appId,
+        token: config.accessToken,
+        cluster: config.cluster,
+      },
+      audio: {
+        format: "raw",
+        codec: "raw",
+        rate: 16000,
+        bits: 16,
+        channel: 1,
+        language: "zh-CN",
+      },
+      requestBase: {
+        sequence: 1,
+        nbest: 1,
+        workflow: "audio_in,resample,partition,vad,fe,decode,itn,nlu_punctuate",
+        show_utterances: true,
+        result_type: "single",
+        vad_signal: true,
+        start_silence_time: process.env.VOLCENGINE_ASR_START_SILENCE_TIME?.trim() || "10000",
+        vad_silence_time: process.env.VOLCENGINE_ASR_VAD_SILENCE_TIME?.trim() || "2000",
+        ...(config.resourceId ? { resource_id: config.resourceId } : {}),
+      },
+    };
+  }
+  return staticInitPayloadCache;
+}
+
 function buildInitPayload(session: Session) {
-  const config = getAsrEnvConfig();
+  const base = getStaticInitPayload();
   return {
-    app: {
-      appid: config.appId,
-      token: config.accessToken,
-      cluster: config.cluster,
-    },
+    app: base.app,
     user: { uid: session.uid },
-    audio: {
-      format: "raw",
-      codec: "raw",
-      rate: 16000,
-      bits: 16,
-      channel: 1,
-      language: "zh-CN",
-    },
+    audio: base.audio,
     request: {
+      ...base.requestBase,
       reqid: session.reqId,
-      sequence: 1,
-      nbest: 1,
-      workflow: "audio_in,resample,partition,vad,fe,decode,itn,nlu_punctuate",
-      show_utterances: true,
-      result_type: "single",
-      vad_signal: true,
-      start_silence_time: process.env.VOLCENGINE_ASR_START_SILENCE_TIME?.trim() || "10000",
-      vad_silence_time: process.env.VOLCENGINE_ASR_VAD_SILENCE_TIME?.trim() || "2000",
-      ...(config.resourceId ? { resource_id: config.resourceId } : {}),
     },
   };
 }
