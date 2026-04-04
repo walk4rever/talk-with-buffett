@@ -141,12 +141,12 @@ type StaticInitPayload = {
     language: "zh-CN";
   };
   requestBase: {
-    sequence: 1;
-    nbest: 1;
+    sequence: number;
+    nbest: number;
     workflow: string;
-    show_utterances: true;
+    show_utterances: boolean;
     result_type: "single";
-    vad_signal: true;
+    vad_signal: boolean;
     start_silence_time: string;
     vad_silence_time: string;
     resource_id?: string;
