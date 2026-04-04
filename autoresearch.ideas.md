@@ -5,5 +5,10 @@
 - [observed] Gating relay hot-path logs behind VOLCENGINE_ASR_DEBUG=1 significantly improved mixed-workload latency baseline; keep verbose logs off in production path.
 - [deprioritized] Early terminal-flush shortcuts (e.g., immediate ready when pending already contains isLast) were tried on paced real-speech turn benchmark and regressed in confirmation runs.
 - [observed] Simplifying realtime ASR workflow to `audio_in,resample,partition,vad,fe,decode` (removing both `nlu_punctuate` and `itn`) produced consistent turn-complete latency gains on real-speech paced benchmark while preserving transcript presence.
+- [observed] Setting `show_utterances=false` produced additional stable turn-latency gains; keep for realtime path unless product explicitly needs utterance lists.
+- [deprioritized] Disabling `vad_signal` was tested and regressed latency versus current best config.
+- [deprioritized] Removing `resample,partition` from workflow was tested (`audio_in,vad,fe,decode`) and regressed versus current best realtime workflow.
+- [deprioritized] Removing `vad` from workflow (`audio_in,resample,partition,fe,decode`) also regressed paced real-speech turn latency.
+- [deprioritized] Request-shape micro-tweaks (e.g., dropping explicit `nbest`) were tested and did not beat the current decode-only workflow config.
 - [deprioritized] Relay micro-optimizations like caching parsed timing env values were tried and did not show reliable wins under mixed workload noise.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
