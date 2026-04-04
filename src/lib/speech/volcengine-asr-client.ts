@@ -109,7 +109,7 @@ function buildInitPayload(uid: string, reqId: string, language?: string) {
       reqid: reqId,
       sequence: 1,
       nbest: 1,
-      workflow: "audio_in,resample,partition,vad,fe,decode,itn",
+      workflow: "audio_in,resample,partition,vad,fe,decode",
       show_utterances: true,
       result_type: "single",
       vad_signal: true,
