@@ -1,5 +1,5 @@
 - Add an end-to-end live-turn benchmark (mic chunk send -> ASR final -> first TTS utterance start) with fixed speech fixture, so optimizations are not overfit to session-ready latency.
 - [deprioritized] Rolling ACK-based auto-tuning of init fallback (p50/p90) was tried and regressed pending-audio startup latency; revisit only with richer traffic-segmented tuning data.
 - Add SSE reconnect-with-resume token for transient network drops so the live session can recover without forcing user restarts.
-- [observed] Current stable timing profile: fallback=80ms + single-chunk-guard=20ms + guarded-delay=90ms. More aggressive values (single-guard=15ms or fallback/guard below ~80ms for multi-pending) regressed.
+- [observed] Mixed-workload stable timing profile: fallback=80ms + single-chunk-guard=20ms + guarded-delay=90ms. More aggressive values (single-guard=15ms or fallback below ~80ms) regressed in repeat runs.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
