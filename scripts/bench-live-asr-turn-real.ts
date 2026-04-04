@@ -134,7 +134,7 @@ async function main() {
   const shortChunks = allChunks.slice(0, 3);
   const fullChunks = allChunks;
 
-  const runs = 3;
+  const runs = 5;
   const short = await scenario(shortChunks, runs);
   const full = await scenario(fullChunks, runs);
   const metric = Math.round((short.med + full.med) / 2);
