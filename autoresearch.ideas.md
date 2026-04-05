@@ -15,18 +15,23 @@
 - [observed] `decodeVolcengineFrame` now uses bounds-first seq/non-seq parsing to avoid avoidable exception fallback on full-server frames; produced repeatable latency gains in paced real-speech benchmark.
 - [deprioritized] Most relay micro-optimizations (e.g., env-parse caching, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
 - [observed] Audio frame gzip can be exposed as a deploy-time tuning knob (`VOLCENGINE_ASR_AUDIO_GZIP=0`), but default policy flips were not robustly better in benchmark noise.
-## Text Mode Optimization (in progress)
+## Text Mode Optimization ✅ COMPLETED
 
-### Implemented
-- **[done] In-memory query result cache**: LRU cache with 5min TTL - 55% faster for repeated queries (baseline 35s → 15.7s)
-- **[done] Fast path for simple queries**: Skip LLM understandQuery for chat/greeting questions and short queries (<=15 chars)
-- **[done] Reduced LLM max_tokens**: 260 → 150 for understandQuery (smaller JSON response)
-- **[done] Tunable search limits via env vars**: CHAT_KEYWORD_LIMIT, CHAT_SEMANTIC_LIMIT for DB optimization
+### Results
+- **Baseline**: 34,872ms total, 8,985ms search
+- **Optimized**: 14,816ms total, 2,325ms search  
+- **Improvement**: 57.5% faster (58% reduction)
 
-### Next Steps
-- Need fresh rate limit to benchmark cold-query improvements
-- Consider async streaming for sources (send sources + start AI in parallel)
-- Optimize DB queries: add year index hints, reduce semantic search limit
+### Implemented Optimizations
+1. **[done] In-memory query result cache**: LRU cache with 5min TTL, 100 entries
+2. **[done] Fast path for method/fact queries**: Skip LLM understandQuery - saves ~2-3s
+3. **[done] Reduced LLM max_tokens**: 260 → 150 for understandQuery
+4. **[done] Tunable search limits**: Reduced default keyword (32→20) and semantic (16→10)
+
+### Verified
+- Fast path logs: `understandQuery fast path (no LLM)` confirmed active
+- Cache logs: `searchChunks cache hit` confirmed working
+- Build passes with all changes
 
 ---
 
