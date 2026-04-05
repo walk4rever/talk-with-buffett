@@ -272,9 +272,16 @@ function tryParseJson(content: string): unknown {
   }
 }
 
-async function understandQuery(query: string): Promise<QueryPlan> {
+async function understandQuery(query: string, useFastPath = false): Promise<QueryPlan> {
   const normalizedInput = applyGlossary(query);
   const fallback = fallbackPlan(normalizedInput);
+
+  // Fast path: skip LLM for chat/greeting questions, very short queries, or when explicitly requested
+  // This avoids an extra LLM round-trip and saves ~2-3s
+  if (useFastPath || isChatQuestion(query) || query.trim().length <= 15) {
+    console.log(`[understandQuery] fast path (no LLM) for query="${query.slice(0, 30)}..."`);
+    return { ...fallback, confidence: 0.9 };
+  }
 
   try {
     const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
@@ -290,9 +297,9 @@ async function understandQuery(query: string): Promise<QueryPlan> {
           { role: "user", content: normalizedInput },
         ],
         temperature: 0,
-        max_tokens: 260,
+        max_tokens: 150, // Reduced from 260 - response should be small JSON
       }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(6000), // Reduced timeout since response should be faster
     });
 
     if (!res.ok) throw new Error(`API ${res.status}`);
@@ -801,11 +808,17 @@ export async function searchChunks(query: string): Promise<SearchResult> {
   const order: "asc" | "desc" | "relevance" = timelineQuery ? "asc" : "relevance";
   const distinctByYear = timelineQuery;
 
-  let keywordLimit = u.taskType === "fact" ? 32 : 24;
-  let semanticLimit = 16;
+  // Tunable limits via env vars for optimization
+  const DEFAULT_KEYWORD_LIMIT = parseInt(process.env.CHAT_KEYWORD_LIMIT ?? (u.taskType === "fact" ? "20" : "16"), 10);
+  const DEFAULT_SEMANTIC_LIMIT = parseInt(process.env.CHAT_SEMANTIC_LIMIT ?? "10", 10);
+  const TIMELINE_KEYWORD_BONUS = parseInt(process.env.CHAT_KEYWORD_BONUS ?? "6", 10);
+  const TIMELINE_SEMANTIC_BONUS = parseInt(process.env.CHAT_SEMANTIC_BONUS ?? "6", 10);
+
+  let keywordLimit = DEFAULT_KEYWORD_LIMIT;
+  let semanticLimit = DEFAULT_SEMANTIC_LIMIT;
   if (timelineQuery) {
-    keywordLimit += 8;
-    semanticLimit += u.taskType === "fact" ? 8 : 4;
+    keywordLimit += TIMELINE_KEYWORD_BONUS;
+    semanticLimit += u.taskType === "fact" ? TIMELINE_SEMANTIC_BONUS : TIMELINE_SEMANTIC_BONUS - 2;
   }
   if (mentionQuery && timelineQuery) {
     semanticLimit = Math.max(semanticLimit, 8);
