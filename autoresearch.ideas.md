@@ -15,4 +15,19 @@
 - [observed] `decodeVolcengineFrame` now uses bounds-first seq/non-seq parsing to avoid avoidable exception fallback on full-server frames; produced repeatable latency gains in paced real-speech benchmark.
 - [deprioritized] Most relay micro-optimizations (e.g., env-parse caching, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
 - [observed] Audio frame gzip can be exposed as a deploy-time tuning knob (`VOLCENGINE_ASR_AUDIO_GZIP=0`), but default policy flips were not robustly better in benchmark noise.
+## Text Mode Optimization (in progress)
+
+### Implemented
+- **[done] In-memory query result cache**: LRU cache with 5min TTL - 55% faster for repeated queries (baseline 35s → 15.7s)
+- **[done] Fast path for simple queries**: Skip LLM understandQuery for chat/greeting questions and short queries (<=15 chars)
+- **[done] Reduced LLM max_tokens**: 260 → 150 for understandQuery (smaller JSON response)
+- **[done] Tunable search limits via env vars**: CHAT_KEYWORD_LIMIT, CHAT_SEMANTIC_LIMIT for DB optimization
+
+### Next Steps
+- Need fresh rate limit to benchmark cold-query improvements
+- Consider async streaming for sources (send sources + start AI in parallel)
+- Optimize DB queries: add year index hints, reduce semantic search limit
+
+---
+
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.

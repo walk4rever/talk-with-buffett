@@ -14,8 +14,8 @@ const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
 const AI_MODEL = process.env.AI_MODEL!;
 
-const FREE_DAILY_ANON_LIMIT = parseInt(process.env.FREE_DAILY_ANON_LIMIT ?? "3", 10);
-const FREE_DAILY_AUTH_LIMIT = parseInt(process.env.FREE_DAILY_AUTH_LIMIT ?? "30", 10);
+const FREE_DAILY_ANON_LIMIT = parseInt(process.env.FREE_DAILY_ANON_LIMIT ?? "100", 10);
+const FREE_DAILY_AUTH_LIMIT = parseInt(process.env.FREE_DAILY_AUTH_LIMIT ?? "100", 10);
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
