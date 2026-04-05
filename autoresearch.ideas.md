@@ -36,3 +36,11 @@
 ---
 
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.
+
+## Text Mode - Tried & Discarded
+- **max_tokens 1000→600**: No improvement - AI generates ~555 tokens average, limit not binding
+
+## Text Mode - Next Ideas to Try
+- Reduce history context (currently 3 Q&A pairs) to speed up AI generation
+- Parallelize usage check with search (already parallel, verify no regression)
+- Add year index hints to DB queries for faster retrieval

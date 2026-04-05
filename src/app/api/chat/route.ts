@@ -232,8 +232,8 @@ export async function POST(req: Request) {
     },
   });
 
-  // Include last 3 Q&A pairs as context so follow-up questions work correctly
-  const CONTEXT_TURNS = 3;
+  // Include last 2 Q&A pairs as context (reduced from 3 for faster AI processing)
+  const CONTEXT_TURNS = 2;
   const historyMessages = body.messages
     .filter((m: { role: string }) => m.role === "user" || m.role === "assistant")
     .slice(-(CONTEXT_TURNS * 2 + 1), -1) // last 6 messages before the current one
