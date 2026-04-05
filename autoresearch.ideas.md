@@ -1,5 +1,4 @@
 - Add an end-to-end live-turn benchmark (mic chunk send -> ASR final -> first TTS utterance start) with fixed **real speech** fixture; synthetic tone/silence crashes Volcengine validation and cannot serve as reliable turn-complete workload.
-- [deprioritized] Rolling ACK-based auto-tuning of init fallback (p50/p90) was tried and regressed pending-audio startup latency; revisit only with richer traffic-segmented tuning data.
 - Add SSE reconnect-with-resume token for transient network drops so the live session can recover without forcing user restarts.
 - [observed] Current stable timing profile for paced real-speech turns: fallback=80ms + single-chunk-guard=20ms + guarded-delay=90ms + remainingGuard=max(0, guard-pendingElapsed). Variants at guarded-delay=85ms regressed; reverting to 90ms improved consistently.
 - [observed] Gating relay hot-path logs behind VOLCENGINE_ASR_DEBUG=1 significantly improved mixed-workload latency baseline; keep verbose logs off in production path.
@@ -13,6 +12,7 @@
 - [deprioritized] Other request-shape micro-tweaks (e.g., dropping explicit `nbest` or `sequence`) were tested and did not beat the current decode-only workflow config.
 - [deprioritized] Lowering default `start_silence_time` (10000->8000) was retested on current config and regressed paced real-speech turn latency.
 - [observed] Stability benchmark saturates at 100% under loose timeouts; strict timeout workload (3500ms) exposes headroom (currently ~50%), but fallback/guard micro-tunes did not move it—likely needs architectural recovery changes.
-- [deprioritized] Relay micro-optimizations (e.g., caching parsed timing env values, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
+- [observed] `decodeVolcengineFrame` now uses bounds-first seq/non-seq parsing to avoid avoidable exception fallback on full-server frames; produced repeatable latency gains in paced real-speech benchmark.
+- [deprioritized] Most relay micro-optimizations (e.g., env-parse caching, transcript extraction refactors) did not show reliable wins under paced real-speech variance.
 - [observed] Audio frame gzip can be exposed as a deploy-time tuning knob (`VOLCENGINE_ASR_AUDIO_GZIP=0`), but default policy flips were not robustly better in benchmark noise.
 - Add a TTS stall detector metric (`tts_stall_count`, `tts_first_audio_ms`) and fallback voice auto-switch when browser voice hangs repeatedly.

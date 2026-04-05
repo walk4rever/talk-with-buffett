@@ -10,6 +10,46 @@
 import prisma from "@/lib/prisma";
 import type { RetrievedChunk } from "@/lib/prompts/buffett";
 
+// Simple in-memory LRU cache for query results to avoid repeated retrieval
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const SEARCH_CACHE_MAX = 100;
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+const searchCache = new Map<string, CacheEntry<SearchResult>>();
+
+function getCacheKey(query: string): string {
+  // Normalize query for cache key - lowercase, trim, remove extra spaces
+  return query.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function getCachedResult(query: string): SearchResult | null {
+  const key = getCacheKey(query);
+  const entry = searchCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    searchCache.delete(key);
+    return null;
+  }
+  return entry.value as SearchResult;
+}
+
+function setCachedResult(query: string, result: SearchResult): void {
+  const key = getCacheKey(query);
+  // Evict oldest entries if cache is full
+  if (searchCache.size >= SEARCH_CACHE_MAX) {
+    const oldestKey = searchCache.keys().next().value;
+    if (oldestKey) searchCache.delete(oldestKey);
+  }
+  searchCache.set(key, {
+    value: result,
+    expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+  });
+}
+
 const AI_API_KEY = process.env.AI_API_KEY!;
 const AI_API_BASE_URL = process.env.AI_API_BASE_URL!;
 const AI_MODEL = process.env.AI_MODEL!;
@@ -728,6 +768,13 @@ export interface SearchResult {
 }
 
 export async function searchChunks(query: string): Promise<SearchResult> {
+  // Check cache first for repeated queries
+  const cached = getCachedResult(query);
+  if (cached) {
+    console.log(`[searchChunks] cache hit for query="${query.slice(0, 40)}..."`);
+    return cached;
+  }
+
   const u = await understandQuery(query);
 
   if (!u.needsRetrieval) {
@@ -826,7 +873,7 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     `[searchChunks] task=${u.taskType} intent=${intent} mode=${answerMode} timeline=${timelineQuery} compare=${compareQuery} years=${u.yearFrom ?? "-"}-${u.yearTo ?? "-"} sourceTypes=${CHAT_SOURCE_TYPES.join(",")} kw=${keywordRows.length} sem=${semanticRows.length} final=${finalChunks.length}`,
   );
 
-  return {
+  const result: SearchResult = {
     chunks: finalChunks,
     order,
     distinctByYear,
@@ -839,4 +886,9 @@ export async function searchChunks(query: string): Promise<SearchResult> {
     yearTo: u.yearTo,
     needsRetrieval: true,
   };
+
+  // Cache the result for repeated queries
+  setCachedResult(query, result);
+
+  return result;
 }
