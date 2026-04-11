@@ -7,8 +7,6 @@
     "dev": "next dev --webpack",
     "build": "prisma generate && next build --webpack",
     "start": "next start",
-    "relay:start": "node --experimental-specifier-resolution=node --loader ts-node/esm server/asr-relay.ts",
-    "relay:healthcheck": "curl -fsS http://127.0.0.1:${PORT:-3001}/healthz",
     "lint": "eslint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

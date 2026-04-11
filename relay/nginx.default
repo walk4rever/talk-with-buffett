@@ -29,7 +29,7 @@ server {
     }
 }
 
-# relay.air7.fun HTTPS
+# relay.air7.fun HTTPS - path-based routing
 server {
     server_name relay.air7.fun;
 
@@ -37,8 +37,9 @@ server {
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
 
-    location / {
-        proxy_pass http://127.0.0.1:3001;
+    # ASR relay (talk-with-buffett) -> port 3001
+    location /asr/ {
+        proxy_pass http://127.0.0.1:3001/asr/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -47,6 +48,24 @@ server {
         proxy_set_header Connection "";
         proxy_buffering off;
         chunked_transfer_encoding off;
+    }
+
+    # LLM proxy (xiaozhuang) -> port 3002
+    location /llm {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        chunked_transfer_encoding off;
+    }
+
+    # Deny all other paths on relay subdomain.
+    location / {
+        return 404;
     }
 
     listen 443 ssl; # managed by Certbot

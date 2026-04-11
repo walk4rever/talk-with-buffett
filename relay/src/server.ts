@@ -1,18 +1,24 @@
 /**
  * Standalone ASR relay server.
- * Exposes the same endpoints as the Next.js API routes so that
- * the Vercel-hosted frontend can proxy to it.
  *
- * Start: npm run relay:start
+ * Exposes HTTP+SSE endpoints that mirror what the Next.js API routes used to
+ * expose in-process. Vercel-hosted frontend routes proxy to this server via
+ * ASR_RELAY_URL. Keeping the Volcengine WebSocket session here (not on Vercel)
+ * is mandatory because serverless functions cannot hold persistent WS
+ * connections for the full length of a realtime ASR stream.
+ *
+ * Start: npm start
  */
 
+import { config as loadEnv } from "dotenv";
+loadEnv({ path: ".env.relay" });
 import http from "node:http";
 import {
   createRealtimeAsrSession,
   sendRealtimeAsrChunk,
   finishRealtimeAsrSession,
   subscribeRealtimeAsrSession,
-} from "../src/lib/speech/volcengine-asr-relay";
+} from "./volcengine-asr-relay";
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "*";
@@ -42,12 +48,6 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
-    return;
-  }
-
-  // GET /healthz
-  if (req.method === "GET" && path === "/healthz") {
-    json(res, 200, { ok: true });
     return;
   }
 
