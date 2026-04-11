@@ -9,14 +9,14 @@ datasource db {
 }
 
 model User {
-  id            String      @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String?     @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
   password      String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   accounts      Account[]
   sessions      Session[]
 }
@@ -56,9 +56,9 @@ model VerificationToken {
 }
 
 model Source {
-  id           String    @id @default(cuid())
+  id           String   @id @default(cuid())
   year         Int
-  type         String    @default("shareholder")
+  type         String   @default("shareholder")
   date         String?
   title        String
   url          String
@@ -66,27 +66,29 @@ model Source {
   videoUrl     String?
   videoSource  String?
   thumbnailUrl String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   chunks       Chunk[]
 
   @@unique([year, type, date])
 }
 
 model Chunk {
-  id            String                   @id @default(cuid())
-  sourceId      String
-  order         Int
-  title         String?                  // sectionEn: e.g. "Non-Insurance Operations > See's Candies"
-  sectionZh     String?                  // e.g. "非保险经营 > 喜诗糖果店"
-  contentEn     String
-  contentZh     String?
-  skipEmbedding Boolean                  @default(false)
-  embedding     Unsupported("vector")?
-  searchVector  Unsupported("tsvector")?
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-  source        Source                   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  id               String                   @id @default(cuid())
+  sourceId         String
+  order            Int
+  title            String? // sectionEn: e.g. "Non-Insurance Operations > See's Candies"
+  sectionZh        String? // e.g. "非保险经营 > 喜诗糖果店"
+  contentEn        String
+  contentZh        String?
+  skipEmbedding    Boolean                  @default(false)
+  embedding        Unsupported("vector")?
+  searchVector     Unsupported("tsvector")?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  source           Source                   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  mentions         Mention[]
+  relationEvidence EntityRelation[]
 
   @@unique([sourceId, order])
 }
@@ -94,7 +96,7 @@ model Chunk {
 model ChatUsage {
   id        String   @id @default(cuid())
   ip        String
-  userId    String?  // null = anonymous (count by IP); set = authenticated (count by userId)
+  userId    String? // null = anonymous (count by IP); set = authenticated (count by userId)
   date      String
   count     Int      @default(0)
   createdAt DateTime @default(now())
@@ -117,49 +119,175 @@ model ChatMessage {
   question       String
   answer         String?
   sourceIds      String[] @default([])
-  sourcesJson    Json?    // snapshot of ChatSource[] for history restoration
-  taskType       String?  // "fact" | "method"
+  sourcesJson    Json? // snapshot of ChatSource[] for history restoration
+  taskType       String? // "fact" | "method"
   needsRetrieval Boolean  @default(true)
-  rating         Int?     // 1 = thumbs up, -1 = thumbs down
+  rating         Int? // 1 = thumbs up, -1 = thumbs down
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
 
 model DigitalHumanProfile {
-  id            String   @id @default(cuid())
-  key           String   @unique
-  name          String
-  provider      String   @default("mock")
-  status        String   @default("active")
-  faceImageUrl  String?
-  voiceProfile  String?
-  providerMeta  Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  jobs          DigitalHumanJob[]
+  id           String            @id @default(cuid())
+  key          String            @unique
+  name         String
+  provider     String            @default("mock")
+  status       String            @default("active")
+  faceImageUrl String?
+  voiceProfile String?
+  providerMeta Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  jobs         DigitalHumanJob[]
 }
 
 model DigitalHumanJob {
-  id             String   @id @default(cuid())
+  id              String              @id @default(cuid())
   avatarProfileId String
-  chatMessageId  String?
-  question       String
-  answer         String
-  status         String   @default("queued")
-  provider       String   @default("mock")
-  providerJobId  String?
-  subtitle       String
-  audioUrl       String?
-  videoUrl       String?
-  errorMessage   String?
-  readyAt        DateTime?
-  startedAt      DateTime?
-  finishedAt     DateTime?
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  avatarProfile  DigitalHumanProfile @relation(fields: [avatarProfileId], references: [id], onDelete: Cascade)
+  chatMessageId   String?
+  question        String
+  answer          String
+  status          String              @default("queued")
+  provider        String              @default("mock")
+  providerJobId   String?
+  subtitle        String
+  audioUrl        String?
+  videoUrl        String?
+  errorMessage    String?
+  readyAt         DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  avatarProfile   DigitalHumanProfile @relation(fields: [avatarProfileId], references: [id], onDelete: Cascade)
 
   @@index([chatMessageId])
   @@index([status, readyAt])
+}
+
+// ============================================================================
+// Longitudinal Narrative — multi-source intelligence layer
+// See PRODUCT.md "标的纵向叙事" section for the full design.
+// All entities anchored on SEC CIK to unify EDGAR / 13F / letter mentions.
+// ============================================================================
+
+model Entity {
+  id            String   @id @default(cuid())
+  type          String // 'company' | 'person' | 'concept'
+  canonicalName String
+  aliases       String[] @default([])
+  cik           String?  @unique // SEC Central Index Key (companies + filers)
+  ticker        String?
+  sector        String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  mentions           Mention[]
+  financials         Financial[]
+  holdingsAsHolder   Holding[]        @relation("HolderEntity")
+  holdingsAsSecurity Holding[]        @relation("SecurityEntity")
+  extSourcesAsFiler  ExtSource[]
+  relationsAsSrc     EntityRelation[] @relation("RelationSrc")
+  relationsAsDst     EntityRelation[] @relation("RelationDst")
+
+  @@index([type])
+  @@index([ticker])
+}
+
+model ExtSource {
+  id            String    @id @default(cuid())
+  kind          String // '10k' | '10q' | '13f' | 'xbrl' | 'price'
+  url           String?
+  ts            DateTime?
+  filerEntityId String?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+
+  filer      Entity?     @relation(fields: [filerEntityId], references: [id], onDelete: SetNull)
+  financials Financial[]
+  holdings   Holding[]
+
+  @@index([kind, ts])
+  @@index([filerEntityId])
+}
+
+model Mention {
+  id             String    @id @default(cuid())
+  entityId       String
+  chunkId        String
+  ts             DateTime?
+  sentiment      String? // 'bullish' | 'neutral' | 'cautious' | 'critical'
+  sentimentScore Float? // -1.0 ~ 1.0
+  span           String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  chunk  Chunk  @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, ts])
+  @@index([chunkId])
+}
+
+model Financial {
+  id         String   @id @default(cuid())
+  entityId   String
+  sourceId   String
+  periodEnd  DateTime
+  periodType String // 'FY' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
+  lineItem   String // 'Revenue' | 'NetIncome' | 'FreeCashFlow' | 'EPSDiluted' | 'TotalAssets' | 'OperatingCashFlow'
+  value      Decimal?
+  unit       String?
+  rawXbrlTag String?
+  createdAt  DateTime @default(now())
+
+  entity Entity    @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  source ExtSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, periodEnd, periodType, lineItem])
+  @@index([entityId, periodEnd])
+}
+
+model Holding {
+  id                 String   @id @default(cuid())
+  holderEntityId     String
+  securityEntityId   String
+  sourceId           String
+  asOfDate           DateTime
+  shares             BigInt?
+  valueUsd           BigInt?
+  percentOfPortfolio Float?
+  isNewPosition      Boolean? @default(false)
+  isSoldOut          Boolean? @default(false)
+  positionChangePct  Float?
+  createdAt          DateTime @default(now())
+
+  holder   Entity    @relation("HolderEntity", fields: [holderEntityId], references: [id], onDelete: Cascade)
+  security Entity    @relation("SecurityEntity", fields: [securityEntityId], references: [id], onDelete: Cascade)
+  source   ExtSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([holderEntityId, securityEntityId, asOfDate])
+  @@index([securityEntityId, asOfDate])
+  @@index([holderEntityId, asOfDate])
+}
+
+model EntityRelation {
+  id              String    @id @default(cuid())
+  srcEntityId     String
+  dstEntityId     String
+  type            String // 'owns' | 'manages' | 'mentions' | 'related_to'
+  ts              DateTime?
+  evidenceChunkId String?
+  confidence      Float?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+
+  src           Entity @relation("RelationSrc", fields: [srcEntityId], references: [id], onDelete: Cascade)
+  dst           Entity @relation("RelationDst", fields: [dstEntityId], references: [id], onDelete: Cascade)
+  evidenceChunk Chunk? @relation(fields: [evidenceChunkId], references: [id], onDelete: SetNull)
+
+  @@index([srcEntityId, type])
+  @@index([dstEntityId, type])
 }
