@@ -878,6 +878,316 @@ InvestmentThesis（标的分析）
 
 ---
 
+## 标的纵向叙事（Investment Target Longitudinal Narrative）
+
+> 状态：🔲 设计中（Post-MVP）
+> 别名：Stock Story / 三层叠加图
+> 引入时间：2026-04-11
+
+### 目标场景
+
+用户输入或点击一只标的（如 IBM、KO、AAPL），获得一个 **单页可视化**：把这只股票在 Buffett 60 年公开记录里的全部叙事 + 公司基本面真实数据 + 同期其他价值投资大师的持仓行为，**叠加在同一时间轴上**呈现。
+
+**用户价值**：
+
+- 不是问答，是「**带时间维度的纵向叙事**」—— 一个可信的、按时间排序的、每段都能点回原文的投资案例研究
+- 三种数据源相互印证（叙事 ⇌ 基本面 ⇌ 聪明钱），最大限度降低幻觉空间
+- 天然适合截图分享 → 给社区 UGC 功能 2「投资标的分析」提供高质量素材
+
+**典型问句**：
+
+- 「巴菲特怎么看 IBM？为什么先重仓再清仓？」
+- 「KO 这 35 年他态度有变化吗？」
+- 「Apple 这只他自己说不投科技股的标的，是怎么变成第一重仓的？」
+
+### 核心设计：三层数据 × 同一时间轴
+
+```
+                    Lane A：基本面
+   营收 / FCF / EPS  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                                                         (EDGAR 10-K/Q)
+
+                    Lane B：聪明钱矩阵
+   Buffett    ░░▓▓▓▓▓▓▓▓▓▓▓▓░░░░          ← 持仓占比色深
+   Klarman      ░░░░▓▓░░░░░░             ← 谁先进
+   Watsa             ▓▓▓▓▓▓▓▓░░          ← 谁先撤
+   Pabrai                ░░▓▓░░          (13F)
+   ...
+
+                    Lane C：叙事图钉
+        📍2011  📍2013  📍2016 (沉默)  📍2017  📍2018
+        买入    重申     —              清仓     反思
+                                                         (Buffett 信件 mentions)
+```
+
+**为什么这个形态最强**：
+
+1. 价格图是大家熟悉的视觉语言，降低门槛
+2. 图钉密度本身就是信息量 —— 哪几年频繁提及 vs 沉默，沉默也是叙事
+3. 真实市场数据 + 真实 13F + 真实原文，三源交叉验证，最低幻觉空间
+4. 单页设计天然适合分享
+
+### 数据架构：多源情报融合
+
+#### 三层模型
+
+```
+                  叙事层（Narrative）
+              Buffett 信件 / 大会 / 访谈
+              抽实体 + 情感 + 时间锚点
+                       │
+                       ▼
+   ┌─────────────┐  ┌─────────┐  ┌─────────────┐
+   │  基本面层    │  │ 实体核心 │  │  聪明钱层    │
+   │  EDGAR      │◀─│ entities │─▶│  13F        │
+   │  10-K/Q XBRL │  │ relations│  │  Dataroma   │
+   │             │  │          │  │   名单      │
+   └─────────────┘  └─────────┘  └─────────────┘
+```
+
+`entities.cik` 是关键锚点 —— EDGAR / 13F / 信件提及全部用 SEC CIK 做唯一标识，避免 "IBM" / "International Business Machines" / "IBM Corp" 实体重复。
+
+#### Postgres Schema 新增
+
+```sql
+-- 1. 实体核心表（公司、人物、概念）
+entities (
+  id              text primary key,         -- cuid
+  type            text not null,            -- 'company' | 'person' | 'concept'
+  canonical_name  text not null,
+  aliases         text[],
+  cik             text unique,              -- SEC CIK，公司用
+  ticker          text,
+  sector          text,
+  metadata        jsonb,
+  created_at      timestamptz default now()
+)
+create index on entities (type);
+create index on entities (ticker);
+
+-- 2. 来源表（统一登记所有外部数据来源，与已有 Source 解耦）
+ext_sources (
+  id              text primary key,
+  kind            text not null,            -- '10k' | '10q' | '13f' | 'xbrl' | 'price'
+  url             text,
+  ts              timestamptz,              -- 来源本身的时间（报告期末、13F as_of）
+  filer_entity_id text references entities(id),  -- 谁出的（13F filer）
+  metadata        jsonb,
+  created_at      timestamptz default now()
+)
+create index on ext_sources (kind, ts);
+
+-- 3. 提及表（叙事层产出，从已有 chunks 抽取）
+mentions (
+  id              text primary key,
+  entity_id       text references entities(id) not null,
+  chunk_id        text references chunks(id) not null,  -- 链回已有 chunks
+  ts              timestamptz,              -- 提及时间（来自 chunk.source.year/date）
+  sentiment       text,                     -- 'bullish' | 'neutral' | 'cautious' | 'critical'
+  sentiment_score real,                     -- -1.0 ~ 1.0
+  span            text,                     -- 高亮片段（限长，全文走 chunks）
+  metadata        jsonb,
+  created_at      timestamptz default now()
+)
+create index on mentions (entity_id, ts);
+create index on mentions (chunk_id);
+
+-- 4. 财务数据表（EDGAR XBRL 产出）
+financials (
+  id              text primary key,
+  entity_id       text references entities(id) not null,
+  source_id       text references ext_sources(id) not null,
+  period_end      date not null,
+  period_type     text not null,            -- 'FY' | 'Q1' | 'Q2' | 'Q3' | 'Q4'
+  line_item       text not null,            -- 'Revenue' | 'FreeCashFlow' | 'EPS' | ... 规范化
+  value           numeric,
+  unit            text,                     -- 'USD' | 'shares' | ...
+  raw_xbrl_tag    text,                     -- 原始 XBRL tag，便于追溯
+  created_at      timestamptz default now(),
+  unique (entity_id, period_end, period_type, line_item)
+)
+create index on financials (entity_id, period_end);
+
+-- 5. 持仓表（13F 产出）
+holdings (
+  id                   text primary key,
+  holder_entity_id     text references entities(id) not null,  -- 投资人/机构
+  security_entity_id   text references entities(id) not null,  -- 被持有的公司
+  source_id            text references ext_sources(id) not null,
+  as_of_date           date not null,                          -- 季末
+  shares               bigint,
+  value_usd            bigint,
+  percent_of_portfolio real,
+  is_new_position      boolean,                                -- 本季首次出现
+  is_sold_out          boolean,                                -- 本季清仓
+  position_change_pct  real,                                   -- 环比变化
+  created_at           timestamptz default now(),
+  unique (holder_entity_id, security_entity_id, as_of_date)
+)
+create index on holdings (security_entity_id, as_of_date);
+create index on holdings (holder_entity_id, as_of_date);
+
+-- 6. 关系表（实体间语义关系，spike 阶段先建 schema 不必填充）
+relations (
+  id                 text primary key,
+  src_entity_id      text references entities(id) not null,
+  dst_entity_id      text references entities(id) not null,
+  type               text not null,         -- 'owns' | 'manages' | 'mentions' | 'related_to'
+  ts                 timestamptz,
+  evidence_chunk_id  text references chunks(id),
+  confidence         real,
+  metadata           jsonb,
+  created_at         timestamptz default now()
+)
+create index on relations (src_entity_id, type);
+create index on relations (dst_entity_id, type);
+```
+
+**与现有 schema 的关系**：
+
+- `mentions.chunk_id` 链回已有的 `chunks` 表 —— 复用已经做好的 doubao 1024-dim 切分和向量化，**不重复存全文**
+- 新增表用 `ext_sources` 命名，避免与已有 `Source`（信件/大会等内部内容）混淆
+- `entities.id` 用 cuid，与现有 Source / chunks 一致
+- 完全不动现有的 `Source` / `chunks` / `ChatMessage` 表
+
+### ETL Sidecar：Python on 阿里云
+
+#### 为什么 Python
+
+- `edgartools` 是 OSS 里 EDGAR / 13F 解析 DX 最好的库（XBRL tag 规范化、13F informationtable XML 解析、CIK 映射全包了）
+- TypeScript 生态没有同等质量的库，自己写 13F XML parser 至少多 300 行
+- ETL 是 batch job，与 Next.js 完全解耦：**Python 只写 Postgres，Next.js 只读**
+
+#### 部署形态
+
+```
+阿里云轻量服务器 (relay.air7.fun 同机)
+├─ /root/asr-proxy            ← 已有：ASR relay (pm2)
+└─ /root/etl                  ← 新增
+   ├─ requirements.txt        ← edgartools / yfinance / psycopg / pydantic / pyyaml
+   ├─ legends.yaml            ← 价值投资人 CIK 静态名单
+   ├─ db.py                   ← 共用 Postgres 写入（DATABASE_URL 环境变量）
+   ├─ pull_edgar.py           ← 拉 10-K/Q XBRL → financials
+   ├─ pull_13f.py             ← 拉 13F → holdings
+   ├─ pull_mentions.py        ← 跑 LLM 抽实体（读 chunks，写 mentions）
+   ├─ pull_prices.py          ← 拉 yfinance → 单独 prices 表（可选）
+   └─ .env                    ← DATABASE_URL / OPENAI_API_KEY
+```
+
+#### 调度
+
+- Spike：手动跑 `python pull_edgar.py --cik 0000051143`（IBM）
+- 长期：crontab 每周一次 incremental（13F 季度更新，10-K/Q 按需）
+
+#### SEC User-Agent（强制要求）
+
+```python
+from edgar import set_identity
+set_identity("Rafael walkklaw@gmail.com")
+```
+
+不设会被 SEC throttle/封 IP。
+
+### 数据源清单
+
+| 数据 | 来源 | 工具 | 备注 |
+|------|------|------|------|
+| 公司财报 | EDGAR XBRL `companyfacts` | edgartools | 完全免费，CIK 是主键 |
+| 13F 持仓 | EDGAR `informationtable` | edgartools | 美股多头 only，45 天延迟 |
+| 价值投资人名单 | Dataroma | **静态 config**（不爬） | 一次性手抄 ~10 人 CIK 进 legends.yaml |
+| 股价历史 | Yahoo Finance | yfinance | 非官方爬 Yahoo，足够 spike，fallback Stooq |
+| Buffett 信件实体 | 已有 chunks 表 | OpenAI / doubao API | 一次性 LLM 抽取 |
+
+### Caveats（必须 heads-up）
+
+1. **13F 是不完整画像** —— 只有美股多头，没空头、债券、海外。Pabrai 现在重仓印度，13F 看不到
+2. **45 天披露延迟** —— 看不到当季实时
+3. **Berkshire ≠ Buffett** —— 13F filer 是机构。归因到「人」需要在 entities 层做 mapping（Berkshire entity 加 `metadata.thinker = "Warren Buffett"`）
+4. **EDGAR XBRL tag 不统一** —— 同一概念不同公司用不同 tag。IBM 这种大公司还行，小盘股要做规范化映射表（先做白名单：Revenue / NetIncome / FreeCashFlow / EPSDiluted / TotalAssets / OperatingCashFlow）
+5. **yfinance 不稳定** —— Yahoo 偶尔改 schema，需要 fallback
+6. **股价 ≠ 投资逻辑** —— 视觉以股价为主线易让用户误以为是「跟着大师抄底」推荐，**必须**强制展示免责声明（沿用 D21）
+
+### 价值投资人首批名单（legends.yaml）
+
+首批 5 人，覆盖中美差异化风格 + 视觉对比。后续按用户反馈和数据质量再扩。
+
+| # | 名字 | Filer 机构 | 风格 | 13F 覆盖度 |
+|---|------|----------|------|----------|
+| 1 | Warren Buffett | Berkshire Hathaway | 长期集中持有 | 完整（核心持仓全在美股） |
+| 2 | Seth Klarman | Baupost Group | 深度价值 + 现金灵活 | 完整 |
+| 3 | Mohnish Pabrai | Pabrai Investment Funds | 单一押注 | ⚠️ 不全（重仓印度，13F 看不到） |
+| 4 | 李录 (Li Lu) | Himalaya Capital | 长期集中 + 中概 | ⚠️ 不全（BYD 等港股看不到，仅美股部分） |
+| 5 | 段永平 (Duan Yongping) | H&H International Investment | 长期集中 + 反向 | ⚠️ 不全（茅台/网易等 A 港股看不到，仅美股部分） |
+
+> CIK 在 spike 时 edgartools 一次性查回写入 yaml，不在文档里写死。
+
+**Chinese / 跨市场投资人的特殊处理（D36）**：
+
+- 李录、段永平、Pabrai 的 13F **只反映美股长仓**，他们最知名的非美持仓（BYD、茅台、印度 IT 股等）完全看不到
+- UI 上每张投资人卡片必须标注「🇺🇸 仅美股长仓」徽章
+- 未来扩展（Phase 3+）：可考虑接 HKEX DI（港股披露权益）和 A 股龙虎榜，把 13F 升级成「全球持仓视图」
+
+### Spike 路径：IBM First
+
+**为什么 IBM 优先**：失败案例戏剧张力强，「先进先撤」在聪明钱矩阵上视觉冲击最大。Buffett 2011 买入、2017–18 清仓的时间线极适合 demo，且数据范围（10 年）适中，KO 的 35 年数据量过大不利于首次验证。
+
+#### Phase 1：数据 ETL（Python，预计 3–5 天）
+
+```
+1. 阿里云 /root/etl 初始化（venv + requirements.txt）
+2. Prisma migration 加 6 张新表（应用到同一 Supabase Postgres）
+3. legends.yaml 抄 10 人，跑 pull_13f.py 一次性回填 CIK
+4. pull_edgar.py: 拉 IBM 10-K 历年 Revenue/FCF/EPS/EPSDiluted → financials
+5. pull_13f.py: 拉 legends 全部 13F → 过滤 IBM → holdings
+6. pull_mentions.py: 在已有 chunks 里 LLM 抽 IBM 提及 → mentions（含 sentiment）
+7. SQL 自检：
+   - select count(*) from financials where entity_id='IBM'
+   - select * from holdings where security_entity_id='IBM' order by as_of_date
+   - select * from mentions where entity_id='IBM' order by ts
+```
+
+#### Phase 2：前端可视化（TypeScript，预计 5–7 天）
+
+```
+1. /api/stock/[ticker] route：聚合三层数据返回 JSON
+2. /stock/[ticker] 页面（visx + framer-motion）
+3. Lane A：财务折线（Revenue + FCF + EPS 三条）
+4. Lane B：聪明钱矩阵热力（x=季度，y=投资人，色深=持仓占比）
+5. Lane C：叙事图钉 + click → 弹出原文 chunk + 链接到信件阅读页
+6. 顶部 hero：AI 生成的 3 句话「叙事弧」
+7. 底部强制免责声明（沿用 D21）
+```
+
+#### Phase 3：扩展（按需）
+
+- 加 KO / AAPL / AXP / GEICO / WFC / BAC
+- 分享卡片（截图友好 UI，参考 D25 洞察卡分享图）
+- 接入社区 UGC 功能 2：在「投资标的分析」发帖时一键引用本页 mentions
+
+### 设计决策
+
+| # | 决策 | 理由 |
+|---|------|------|
+| D26 | 用 SEC CIK 做实体主键 | 唯一权威标识；跨 EDGAR / 13F / 信件统一锚点；避免命名重复 |
+| D27 | Python ETL sidecar，TypeScript 前端 | edgartools 是 OSS 里 EDGAR/13F 最好的库；纯 TS 自己写代价大 |
+| D28 | ETL 跑在阿里云 relay 同机 | 避免新增基础设施；和 ASR relay 同一台 cron 即可 |
+| D29 | Dataroma 当静态名单，不爬 | 它的价值是策展元数据，源数据都在 EDGAR；爬站脆弱无必要 |
+| D30 | mentions 表 chunk_id 链回 chunks | 复用现有 doubao 1024-dim 向量和切分，不冗余存全文 |
+| D31 | 强制显示免责声明 | 视觉以股价为主线易误导为「抄底推荐」；沿用 D21 合规设计 |
+| D32 | IBM 优先 spike，不是 KO | 失败案例 + 「先进先撤」叙事 + 数据范围适中（10 年） |
+| D33 | 13F caveats 在 UI 显式标注 | 美股多头 only / 45 天延迟，避免用户误解为完整持仓 |
+| D34 | 新增表用 ext_sources 命名 | 避免与已有 Source（信件/大会）混淆 |
+| D35 | XBRL 先做白名单规范化 | 全量映射成本高；先 6 个核心科目（Revenue / NetIncome / FCF / EPS / TotalAssets / OperatingCF） |
+| D36 | 跨市场投资人 UI 显式标注 | 李录/段永平/Pabrai 的 13F 只覆盖美股长仓，必须标徽章避免误解；未来 Phase 3+ 接 HKEX DI / A 股龙虎榜补全 |
+
+### 与现有功能的关系
+
+- **复用**：`chunks` 表 + doubao 向量 + Source schema + 阅读页跳转
+- **支撑**：社区 UGC 功能 2「投资标的分析」可一键引用本页 mentions 作为原文支撑
+- **不影响**：现有对话 / 检索 / 阅读功能完全独立，新功能只在 Postgres 加表 + 加新页面
+
+---
+
 ## 项目级决策
 
 | # | 决策 | 理由 |
