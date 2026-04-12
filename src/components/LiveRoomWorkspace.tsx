@@ -249,15 +249,6 @@ function filterByLanguage(md: string, mode: ReadingMode) {
   return filtered;
 }
 
-function createSpeechSynthesisUtterance(text: string, voice?: SpeechSynthesisVoice | null) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "zh-CN";
-  utterance.rate = 0.88;
-  utterance.pitch = 0.75;
-  utterance.volume = 1;
-  if (voice) utterance.voice = voice;
-  return utterance;
-}
 
 /** Split text into complete sentences and a trailing remainder. */
 function extractCompleteSentences(text: string): { sentences: string[]; remainder: string } {
@@ -273,15 +264,19 @@ function extractCompleteSentences(text: string): { sentences: string[]; remainde
   return { sentences, remainder: text.slice(start) };
 }
 
-/** Pick the best Chinese TTS voice: prefer low-pitched male voices. */
-function pickPreferredVoice(voices: SpeechSynthesisVoice[], savedName?: string): SpeechSynthesisVoice | null {
-  if (!voices.length) return null;
-  if (savedName) {
-    const saved = voices.find((v) => v.name === savedName);
-    if (saved) return saved;
+/** Fetch Doubao TTS audio for a text sentence. Returns an object URL for playback. */
+async function fetchTtsAudio(text: string): Promise<string> {
+  const res = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "TTS request failed" })) as { error?: string };
+    throw new Error(err.error ?? `TTS error ${res.status}`);
   }
-  const male = voices.find((v) => /kangkang|male|man|ming|zhiwei/i.test(v.name));
-  return male ?? voices[0];
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -342,15 +337,12 @@ export function LiveRoomWorkspace() {
   const [spokenText, setSpokenText] = useState<string | null>(null);
   const readingMode: ReadingMode = "all";
   const [canvasContent, setCanvasContent] = useState<CanvasContent | null>(null);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState<string>("");
   const pollingRef = useRef<number | null>(null);
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechQueueRef = useRef<string[]>([]);
   const pendingSentenceRef = useRef<string>("");
   const isSpeechActiveRef = useRef(false);
   const streamingDoneRef = useRef(false);
-  const selectedVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const speakNextRef = useRef<() => void>(() => undefined);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamerRef = useRef<BrowserPcmStreamer | null>(null);
@@ -421,10 +413,13 @@ export function LiveRoomWorkspace() {
   }
 
   function stopSpeech() {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (ttsAudioRef.current) {
+      ttsAudioRef.current.pause();
+      const src = ttsAudioRef.current.src;
+      ttsAudioRef.current.src = "";
+      if (src.startsWith("blob:")) URL.revokeObjectURL(src);
+      ttsAudioRef.current = null;
     }
-    speechRef.current = null;
     speechQueueRef.current = [];
     isSpeechActiveRef.current = false;
     assistantSpeakingRef.current = false;
@@ -752,18 +747,11 @@ export function LiveRoomWorkspace() {
     }
     streamingDoneRef.current = true;
 
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      speakNextRef.current(); // start queue if not already playing
-      // Edge case: queue may already be empty (all sentences were spoken during streaming)
-      if (speechQueueRef.current.length === 0 && !isSpeechActiveRef.current) {
-        assistantSpeakingRef.current = false;
-        setSpokenText(null);
-        setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
-        if (sessionLiveRef.current && !mutedRef.current) {
-          window.setTimeout(() => void startAsrStreaming(), 320);
-        }
-      }
-    } else {
+    speakNextRef.current(); // start queue if not already playing
+    // Edge case: queue may already be empty (all sentences were spoken during streaming)
+    if (speechQueueRef.current.length === 0 && !isSpeechActiveRef.current) {
+      assistantSpeakingRef.current = false;
+      setSpokenText(null);
       setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
       if (sessionLiveRef.current && !mutedRef.current) {
         window.setTimeout(() => void startAsrStreaming(), 320);
@@ -778,65 +766,57 @@ export function LiveRoomWorkspace() {
     sendQuestionRef.current = sendQuestion;
   }, [chatMessages, muted, sendQuestion, sessionLive]);
 
-  // Load TTS voices (async on some browsers)
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    function loadVoices() {
-      const all = window.speechSynthesis.getVoices();
-      const zh = all.filter((v) => v.lang.startsWith("zh") || v.lang.startsWith("cmn"));
-      if (!zh.length) return;
-      setVoices(zh);
-      const saved = localStorage.getItem("tts-voice-name") ?? undefined;
-      const preferred = pickPreferredVoice(zh, saved);
-      if (preferred) {
-        setSelectedVoiceName(preferred.name);
-        selectedVoiceRef.current = preferred;
-      }
-    }
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => { window.speechSynthesis.onvoiceschanged = null; };
-  }, []);
-
   // Keep speakNextRef up to date (refs avoid stale closures in utterance callbacks)
   useEffect(() => {
     speakNextRef.current = () => {
       if (isSpeechActiveRef.current || speechQueueRef.current.length === 0) return;
-      if (typeof window === "undefined" || !window.speechSynthesis) return;
       const textToSpeak = speechQueueRef.current.shift()!;
       isSpeechActiveRef.current = true;
       assistantSpeakingRef.current = true;
-      const utterance = createSpeechSynthesisUtterance(textToSpeak, selectedVoiceRef.current);
-      utterance.onstart = () => {
-        setConversationState("assistant-speaking");
-        // Reveal this sentence in the transcript as it starts playing
-        setSpokenText((prev) => (prev ?? "") + textToSpeak);
-      };
-      utterance.onend = () => {
-        isSpeechActiveRef.current = false;
-        if (speechQueueRef.current.length > 0) {
-          speakNextRef.current();
-        } else if (streamingDoneRef.current) {
+      setConversationState("assistant-speaking");
+      setSpokenText((prev) => (prev ?? "") + textToSpeak);
+
+      fetchTtsAudio(textToSpeak)
+        .then((objectUrl) => {
+          const audio = new Audio(objectUrl);
+          ttsAudioRef.current = audio;
+          audio.onended = () => {
+            URL.revokeObjectURL(objectUrl);
+            ttsAudioRef.current = null;
+            isSpeechActiveRef.current = false;
+            if (speechQueueRef.current.length > 0) {
+              speakNextRef.current();
+            } else if (streamingDoneRef.current) {
+              assistantSpeakingRef.current = false;
+              setSpokenText(null);
+              setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
+              if (sessionLiveRef.current && !mutedRef.current) {
+                window.setTimeout(() => void startAsrStreaming(), 320);
+              }
+            }
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            ttsAudioRef.current = null;
+            isSpeechActiveRef.current = false;
+            assistantSpeakingRef.current = false;
+            setSpokenText(null);
+            setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
+            if (sessionLiveRef.current && !mutedRef.current) {
+              window.setTimeout(() => void startAsrStreaming(), 320);
+            }
+          };
+          void audio.play();
+        })
+        .catch(() => {
+          isSpeechActiveRef.current = false;
           assistantSpeakingRef.current = false;
-          setSpokenText(null); // show full content now that speech is done
+          setSpokenText(null);
           setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
           if (sessionLiveRef.current && !mutedRef.current) {
             window.setTimeout(() => void startAsrStreaming(), 320);
           }
-        }
-        // else: streaming still in progress, more sentences will arrive
-      };
-      utterance.onerror = () => {
-        isSpeechActiveRef.current = false;
-        assistantSpeakingRef.current = false;
-        setSpokenText(null);
-        setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
-        if (sessionLiveRef.current && !mutedRef.current) {
-          window.setTimeout(() => void startAsrStreaming(), 320);
-        }
-      };
-      speechRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+        });
     };
   }, [startAsrStreaming]);
 
@@ -1119,24 +1099,7 @@ export function LiveRoomWorkspace() {
                   </button>
                 )}
               </div>
-              {voices.length > 1 ? (
-                <select
-                  className="avatar-voice-select"
-                  value={selectedVoiceName}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setSelectedVoiceName(name);
-                    selectedVoiceRef.current = voices.find((v) => v.name === name) ?? null;
-                    localStorage.setItem("tts-voice-name", name);
-                  }}
-                  title="选择音色"
-                  aria-label="选择音色"
-                >
-                  {voices.map((v) => (
-                    <option key={v.name} value={v.name}>{v.name}</option>
-                  ))}
-                </select>
-              ) : <div />}
+              <div />
             </div>
             <div ref={bottomRef} />
           </div>

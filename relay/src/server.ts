@@ -3,7 +3,7 @@
  *
  * Exposes HTTP+SSE endpoints that mirror what the Next.js API routes used to
  * expose in-process. Vercel-hosted frontend routes proxy to this server via
- * ASR_RELAY_URL. Keeping the Volcengine WebSocket session here (not on Vercel)
+ * VOICE_RELAY_URL. Keeping the Volcengine WebSocket session here (not on Vercel)
  * is mandatory because serverless functions cannot hold persistent WS
  * connections for the full length of a realtime ASR stream.
  *
@@ -19,6 +19,7 @@ import {
   finishRealtimeAsrSession,
   subscribeRealtimeAsrSession,
 } from "./volcengine-asr-relay";
+import { synthesize } from "./volcengine-tts-relay";
 
 const PORT = parseInt(process.env.PORT ?? "3001", 10);
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "*";
@@ -136,6 +137,35 @@ const server = http.createServer(async (req, res) => {
     }
 
     req.on("close", safeClose);
+    return;
+  }
+
+  // POST /tts
+  if (req.method === "POST" && path === "/tts") {
+    try {
+      const bodyStr = await readBody(req);
+      const body = JSON.parse(bodyStr || "{}") as { text?: string };
+      const text = body.text?.trim();
+      if (!text) {
+        json(res, 400, { error: "text is required" });
+        return;
+      }
+      if (text.length > 2000) {
+        json(res, 400, { error: "text too long (max 2000 chars)" });
+        return;
+      }
+      const audio = await synthesize(text);
+      res.writeHead(200, {
+        "Content-Type": "audio/mpeg",
+        "Content-Length": String(audio.length),
+        "Cache-Control": "no-store",
+      });
+      res.end(audio);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "tts_failed";
+      console.error("[tts] error:", message);
+      json(res, 502, { error: message });
+    }
     return;
   }
 

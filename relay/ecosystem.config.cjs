@@ -6,7 +6,7 @@ const BASE_CWD = __dirname;
 const services = [
   {
     enabled: true,
-    name: "asr-relay",
+    name: "voice-relay",
     script: "npm",
     args: "start",
     port: 3001,

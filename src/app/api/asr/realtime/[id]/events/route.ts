@@ -13,8 +13,8 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  // When ASR_RELAY_URL is set, pipe the SSE stream from the relay server.
-  const relayUrl = process.env.ASR_RELAY_URL;
+  // When VOICE_RELAY_URL is set, pipe the SSE stream from the relay server.
+  const relayUrl = process.env.VOICE_RELAY_URL;
   if (relayUrl) {
     const upstream = await fetch(`${relayUrl}/asr/realtime/${id}/events`, {
       signal: AbortSignal.timeout(60_000),

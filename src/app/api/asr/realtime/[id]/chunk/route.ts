@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const relayUrl = process.env.ASR_RELAY_URL;
+  const relayUrl = process.env.VOICE_RELAY_URL;
   if (relayUrl) {
     const body = await req.text();
     const upstream = await fetch(`${relayUrl}/asr/realtime/${id}/chunk`, {

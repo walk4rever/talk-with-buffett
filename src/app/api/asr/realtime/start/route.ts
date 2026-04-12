@@ -4,7 +4,7 @@ import { createRealtimeAsrSession } from "@/lib/speech/volcengine-asr-relay";
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const relayUrl = process.env.ASR_RELAY_URL;
+  const relayUrl = process.env.VOICE_RELAY_URL;
   if (relayUrl) {
     const body = await req.text();
     const upstream = await fetch(`${relayUrl}/asr/realtime/start`, {
