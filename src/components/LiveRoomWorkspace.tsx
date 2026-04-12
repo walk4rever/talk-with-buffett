@@ -264,19 +264,26 @@ function extractCompleteSentences(text: string): { sentences: string[]; remainde
   return { sentences, remainder: text.slice(start) };
 }
 
+const VOICE_RELAY_URL = "https://relay.air7.fun";
+
 /** Fetch Doubao TTS audio for a text sentence. Returns an object URL for playback. */
 async function fetchTtsAudio(text: string): Promise<string> {
-  const res = await fetch("/api/tts", {
+  const url = VOICE_RELAY_URL ? `${VOICE_RELAY_URL}/tts` : "/api/tts";
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "TTS request failed" })) as { error?: string };
+    const err = (await res.json().catch(() => ({ error: "TTS request failed" }))) as { error?: string };
     throw new Error(err.error ?? `TTS error ${res.status}`);
   }
   const blob = await res.blob();
   return URL.createObjectURL(blob);
+}
+
+function asrUrl(path: string): string {
+  return VOICE_RELAY_URL ? `${VOICE_RELAY_URL}${path}` : `/api${path}`;
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer) {
@@ -344,6 +351,7 @@ export function LiveRoomWorkspace() {
   const isSpeechActiveRef = useRef(false);
   const streamingDoneRef = useRef(false);
   const speakNextRef = useRef<() => void>(() => undefined);
+  const ttsPrefetchRef = useRef<Promise<string> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamerRef = useRef<BrowserPcmStreamer | null>(null);
   const asrSessionIdRef = useRef<string | null>(null);
@@ -420,6 +428,9 @@ export function LiveRoomWorkspace() {
       if (src.startsWith("blob:")) URL.revokeObjectURL(src);
       ttsAudioRef.current = null;
     }
+    // Revoke any prefetched blob that won't be used
+    ttsPrefetchRef.current?.then((url) => URL.revokeObjectURL(url)).catch(() => undefined);
+    ttsPrefetchRef.current = null;
     speechQueueRef.current = [];
     isSpeechActiveRef.current = false;
     assistantSpeakingRef.current = false;
@@ -449,7 +460,7 @@ export function LiveRoomWorkspace() {
     const sessionId = asrSessionIdRef.current;
     if (!sessionId || isAsrFinishingRef.current) return;
     isAsrFinishingRef.current = true;
-    await fetch(`/api/asr/realtime/${sessionId}/finish`, { method: "POST" }).catch(() => undefined);
+    await fetch(asrUrl(`/asr/realtime/${sessionId}/finish`), { method: "POST" }).catch(() => undefined);
   }, []);
 
   const ensureAsrSession = useCallback(async () => {
@@ -457,11 +468,11 @@ export function LiveRoomWorkspace() {
     if (asrSessionPendingRef.current) return asrSessionPendingRef.current;
 
     const pending = (async () => {
-      const res = await fetch("/api/asr/realtime/start", { method: "POST" });
+      const res = await fetch(asrUrl("/asr/realtime/start"), { method: "POST" });
       if (!res.ok) throw new Error("failed_to_start_asr_session");
       const data = (await res.json()) as { sessionId: string };
       asrSessionIdRef.current = data.sessionId;
-      const es = new EventSource(`/api/asr/realtime/${data.sessionId}/events`);
+      const es = new EventSource(asrUrl(`/asr/realtime/${data.sessionId}/events`));
       // sessionCleared: true after isFinal so stale events from this session are ignored
       let sessionCleared = false;
       es.onmessage = (event) => {
@@ -584,7 +595,7 @@ export function LiveRoomWorkspace() {
         const sendTask = asrSendChainRef.current
           .catch(() => undefined)
           .then(async () => {
-            const res = await fetch(`/api/asr/realtime/${sessionId}/chunk`, {
+            const res = await fetch(asrUrl(`/asr/realtime/${sessionId}/chunk`), {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ audioBase64 }),
@@ -768,6 +779,48 @@ export function LiveRoomWorkspace() {
 
   // Keep speakNextRef up to date (refs avoid stale closures in utterance callbacks)
   useEffect(() => {
+    const onSpeechDone = () => {
+      assistantSpeakingRef.current = false;
+      setSpokenText(null);
+      setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
+      if (sessionLiveRef.current && !mutedRef.current) {
+        window.setTimeout(() => void startAsrStreaming(), 320);
+      }
+    };
+
+    const onSentenceEnd = () => {
+      ttsAudioRef.current = null;
+      isSpeechActiveRef.current = false;
+      if (speechQueueRef.current.length > 0) {
+        speakNextRef.current();
+      } else if (streamingDoneRef.current) {
+        onSpeechDone();
+      }
+    };
+
+    const prefetchNext = () => {
+      if (speechQueueRef.current.length > 0 && !ttsPrefetchRef.current) {
+        const nextText = speechQueueRef.current[0];
+        ttsPrefetchRef.current = fetchTtsAudio(nextText).catch(() => "");
+      }
+    };
+
+    const playAudio = (objectUrl: string, textToSpeak: string) => {
+      if (!objectUrl) { onSentenceEnd(); return; }
+      const audio = new Audio(objectUrl);
+      ttsAudioRef.current = audio;
+      // Start prefetching next sentence as soon as playback begins
+      audio.onplay = prefetchNext;
+      audio.onended = () => { URL.revokeObjectURL(objectUrl); onSentenceEnd(); };
+      audio.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        ttsAudioRef.current = null;
+        isSpeechActiveRef.current = false;
+        onSpeechDone();
+      };
+      void audio.play();
+    };
+
     speakNextRef.current = () => {
       if (isSpeechActiveRef.current || speechQueueRef.current.length === 0) return;
       const textToSpeak = speechQueueRef.current.shift()!;
@@ -776,47 +829,22 @@ export function LiveRoomWorkspace() {
       setConversationState("assistant-speaking");
       setSpokenText((prev) => (prev ?? "") + textToSpeak);
 
-      fetchTtsAudio(textToSpeak)
-        .then((objectUrl) => {
-          const audio = new Audio(objectUrl);
-          ttsAudioRef.current = audio;
-          audio.onended = () => {
-            URL.revokeObjectURL(objectUrl);
-            ttsAudioRef.current = null;
-            isSpeechActiveRef.current = false;
-            if (speechQueueRef.current.length > 0) {
-              speakNextRef.current();
-            } else if (streamingDoneRef.current) {
-              assistantSpeakingRef.current = false;
-              setSpokenText(null);
-              setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
-              if (sessionLiveRef.current && !mutedRef.current) {
-                window.setTimeout(() => void startAsrStreaming(), 320);
-              }
-            }
-          };
-          audio.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            ttsAudioRef.current = null;
-            isSpeechActiveRef.current = false;
-            assistantSpeakingRef.current = false;
-            setSpokenText(null);
-            setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
-            if (sessionLiveRef.current && !mutedRef.current) {
-              window.setTimeout(() => void startAsrStreaming(), 320);
-            }
-          };
-          void audio.play();
-        })
-        .catch(() => {
+      // Use prefetched audio if available, otherwise fetch now
+      const pending = ttsPrefetchRef.current;
+      ttsPrefetchRef.current = null;
+      if (pending) {
+        pending.then((url) => playAudio(url, textToSpeak)).catch(() => {
           isSpeechActiveRef.current = false;
-          assistantSpeakingRef.current = false;
-          setSpokenText(null);
-          setConversationState(sessionLiveRef.current && !mutedRef.current ? "listening" : "ended");
-          if (sessionLiveRef.current && !mutedRef.current) {
-            window.setTimeout(() => void startAsrStreaming(), 320);
-          }
+          onSpeechDone();
         });
+      } else {
+        fetchTtsAudio(textToSpeak)
+          .then((url) => playAudio(url, textToSpeak))
+          .catch(() => {
+            isSpeechActiveRef.current = false;
+            onSpeechDone();
+          });
+      }
     };
   }, [startAsrStreaming]);
 
