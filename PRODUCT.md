@@ -1,8 +1,115 @@
 > 🔒 内部文件，不对外公开。
 
-# Talk with Buffett — 产品与技术设计
+# 巴菲特部落 · Value Archive — 产品与技术设计
 
-> 最后更新：2026-03-26（v0.24.0）
+> 最后更新：2026-04-29（v0.30.0）
+
+---
+
+## 产品定位
+
+**Value Archive**（巴菲特部落）是一个面向 AI Agent 生态的投资知识 API + MCP 服务。
+
+把伟大价值投资人的公开著作、演讲与信件，结构化为可程序化访问的知识图谱。以巴菲特为起点，向 Munger、Graham、Lynch、Klarman 等价值投资先驱扩展。目标是成为 AI Agent 时代**投资研究的标准知识源**。
+
+### 双层产品结构
+
+```
+Layer 1 · 知识服务（面向开发者 / AI Agent）
+  ├── MCP Server     — Claude Desktop / Claude Code / 任意 MCP 客户端
+  ├── REST API       — OpenAI-compatible tool schema
+  └── Claude Code Skill — 一行接入 Claude Code 生态
+
+Layer 2 · Chat Demo（面向普通用户）
+  └── buffett.air7.fun — 现有对话产品，知识服务的消费者
+```
+
+### 为什么是知识图谱，而不只是 RAG
+
+普通 RAG 能回答"巴菲特说了什么"，但无法回答结构化问题：
+- 某概念在 30 年间如何演变？
+- 护城河与定价权之间是什么关系？
+- 列出所有他明确买入又卖出过的公司
+
+知识图谱让这类**结构化事实查询**和**跨时间推理**成为可能。
+
+### 护城河
+
+不是基础设施，而是**内容质量**：
+- 精心策划的实体关系与知识图谱 schema
+- 多投资人、跨年代的结构化知识
+- 专为 AI Agent 生态设计的工具接口
+- 内容持续积累，越做越难复制
+
+---
+
+## 知识图谱架构（多投资人）
+
+### 核心 Schema 设计原则
+
+从一开始为多投资人设计，Munger / Graham / Lynch 接入时不改 schema：
+
+```cypher
+// 节点
+(:Investor {id, name, zh, born, style})
+(:Document {id, type, year, date, investorId, title})
+(:Concept  {id, name, zh, domain})
+(:Company  {id, name, zh, ticker, cik})
+(:Paragraph {id, order, title, text, year, investorId})
+
+// 关系
+(Investor)-[:WROTE]->(Document)
+(Investor)-[:HOLDS_VIEW {year, evolution}]->(Concept)
+(Document)-[:CONTAINS]->(Paragraph)
+(Paragraph)-[:MENTIONS]->(Concept)
+(Paragraph)-[:MENTIONS]->(Company)
+(Concept)-[:RELATES_TO {type}]->(Concept)
+(Company)-[:EXEMPLIFIES]->(Concept)
+```
+
+### MCP 工具设计
+
+| 工具 | 输入 | 用途 |
+|------|------|------|
+| `semantic_search` | query, investor?, year_range?, limit | 语义检索段落 |
+| `graph_facts` | entities[], investor?, relation?, year_range | 结构化事实查询 |
+| `full_text_search` | keywords[], investor?, year_range | 精确术语查询 |
+| `find_concept_evolution` | concept, investor?, year_range | 概念随时间的演变 |
+| `compare_investors` | concept, investors[] | 多投资人观点对比（独特价值） |
+| `list_company_mentions` | company, investor? | 公司在文献中的所有提及 |
+
+### 实施路线
+
+```
+Step 1  重新设计 Neo4j schema（多投资人兼容）
+Step 2  LLM 批量提取 Buffett triplets，替代现有 keyword 匹配
+Step 3  建 MCP server，暴露核心工具
+Step 4  Munger 语料接入，验证 schema 可扩展
+Step 5  对外发布 API / MCP
+```
+
+---
+
+## 商业化（更新）
+
+### 双轨收费
+
+| 客户 | 模式 | 定价方向 |
+|------|------|---------|
+| 开发者 / AI Agent | API 调用计费 / 订阅制 | 按月请求量阶梯 |
+| C 端用户（chat） | 免费 + 订阅制 | 保持现有模型 |
+
+### 优先级调整
+
+B2B API 面向金融 AI 应用开发者，付费意愿高于 C 端散户，优先验证。
+
+---
+
+## Buffett 模块
+
+> 以下为 Buffett 模块的详细技术设计，其他投资人模块复用同一框架。
+
+---
 
 ## 数据架构
 
@@ -1229,16 +1336,40 @@ set_identity("Rafael walkklaw@gmail.com")
 | 事项 | 理由 |
 |------|------|
 | 自训练虚拟人模型 | API 方案足够，自训练 ROI 不高 |
-| 英文版 / 多语言 | 先在中国市场跑通商业模式，再考虑出海 |
 | 微信登录 | 需要公众号资质，个人开发者暂时做不了 |
 | Ping++ 支付 | 需要营业执照，MVP 阶段用 LemonSqueezy |
 | Fine-tune 模型 | RAG 方案已满足需求，fine-tune 是优化项 |
+| 通用 RAG 平台 | 基础设施竞争无优势，专注领域内容质量 |
 
 ---
 
 ## 实施优先级
 
-### MVP（当前阶段）— 找种子用户、验证付费意愿
+### 当前阶段：知识服务化（v0.30+）
+
+目标：把现有 Buffett 数据能力封装为可访问的知识服务，验证 B2B API 付费意愿。
+
+```
+Phase G：知识图谱 v2（多投资人 schema）              🔲 v0.30.0
+  ├─ Neo4j schema 重新设计（Investor 节点，可扩展）
+  ├─ LLM 批量提取 Buffett triplets（替代 keyword 匹配）
+  ├─ Concept → Concept 关系（RELATES_TO、EVOLVES_TO）
+  └─ 验证：graph_facts 工具返回有意义的结果
+
+Phase H：MCP Server                                  🔲 v0.31.0
+  ├─ MCP server 实现（semantic_search / graph_facts / full_text）
+  ├─ Claude Code Skill 文件
+  ├─ REST API tool schema（OpenAI-compatible）
+  └─ 验证：Claude Desktop 可直接调用工具查询 Buffett
+
+Phase I：Munger 模块                                 🔲 v0.32.0
+  ├─ Munger 语料收集（Poor Charlie's Almanack / 演讲）
+  ├─ 复用 Buffett 模块 pipeline 导入
+  ├─ compare_investors 工具实现
+  └─ 验证：schema 可扩展性得到验证
+```
+
+### MVP Chat（已完成阶段）— 找种子用户、验证付费意愿
 
 目标：完整的对话+阅读体验 + 数据追踪 + 支付链路，可以交给真实用户使用。
 

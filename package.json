@@ -1,6 +1,6 @@
 {
-  "name": "talk-with-buffett",
-  "version": "0.29.0",
+  "name": "value-archive",
+  "version": "0.30.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,12 @@
     "eval:retrieval:v2": "node --loader ts-node/esm scripts/eval-retrieval-v2.ts",
     "eval:mvp:benchmark": "node --loader ts-node/esm scripts/eval-mvp-benchmark.ts",
     "eval:mvp:compare": "node --loader ts-node/esm scripts/compare-mvp-benchmark.ts",
-    "test:asr": "node scripts/test-volc-asr.mjs"
+    "test:asr": "node scripts/test-volc-asr.mjs",
+    "neo4j:smoke": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-smoke-test.ts",
+    "neo4j:seed:mvp": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-seed-mvp.ts",
+    "neo4j:import:2020-2025": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-import-shareholder-range.ts --from 2020 --to 2025 --type shareholder",
+    "neo4j:test": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/test-neo4j-query.ts",
+    "retrieval:compare": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/test-retrieval-compare.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -23,6 +28,7 @@
     "@upstash/redis": "^1.37.0",
     "bcryptjs": "^3.0.3",
     "html2canvas": "^1.4.1",
+    "neo4j-driver": "^6.0.1",
     "next": "16.1.6",
     "next-auth": "^4.24.13",
     "posthog-js": "^1.363.5",
