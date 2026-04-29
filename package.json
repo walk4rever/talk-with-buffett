@@ -19,10 +19,13 @@
     "neo4j:schema:v2:reset": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-schema-v2.ts --reset",
     "neo4j:extract": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-extract-triplets.ts",
     "neo4j:extract:test": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-extract-triplets.ts --year 1989 --dry-run",
+    "neo4j:extract:recent": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-extract-triplets.ts --from 2021 --to 2025",
     "neo4j:seed:mvp": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-seed-mvp.ts",
     "neo4j:import:2020-2025": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-import-shareholder-range.ts --from 2020 --to 2025 --type shareholder",
     "neo4j:test": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/test-neo4j-query.ts",
-    "retrieval:compare": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/test-retrieval-compare.ts"
+    "retrieval:compare": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/test-retrieval-compare.ts",
+    "neo4j:progress": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-progress.ts",
+    "neo4j:progress:partnership": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-progress.ts --type partnership"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

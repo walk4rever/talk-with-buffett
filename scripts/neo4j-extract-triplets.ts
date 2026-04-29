@@ -74,18 +74,25 @@ function required(name: string): string {
 function parseArgs() {
   const args = process.argv.slice(2);
   let year: number | null = null;
+  let yearFrom: number | null = null;
+  let yearTo: number | null = null;
   let sourceType = "shareholder";
   let batchSize = 10;
   let dryRun = false;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--year" && args[i + 1]) year = Number(args[++i]);
+    if (args[i] === "--year" && args[i + 1])  year     = Number(args[++i]);
+    else if (args[i] === "--from" && args[i + 1]) yearFrom = Number(args[++i]);
+    else if (args[i] === "--to"   && args[i + 1]) yearTo   = Number(args[++i]);
     else if (args[i] === "--type" && args[i + 1]) sourceType = args[++i] ?? sourceType;
     else if (args[i] === "--batch" && args[i + 1]) batchSize = Number(args[++i]);
     else if (args[i] === "--dry-run") dryRun = true;
   }
 
-  return { year, sourceType, batchSize, dryRun };
+  // --year is shorthand for --from X --to X
+  if (year !== null) { yearFrom = year; yearTo = year; }
+
+  return { yearFrom, yearTo, sourceType, batchSize, dryRun };
 }
 
 // ── LLM extraction ────────────────────────────────────────────────────────────
@@ -233,7 +240,7 @@ async function writeToNeo4j(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { year, sourceType, batchSize, dryRun } = parseArgs();
+  const { yearFrom, yearTo, sourceType, batchSize, dryRun } = parseArgs();
 
   const apiKey  = required("AI_API_KEY");
   const apiBase = required("AI_API_BASE_URL");
@@ -252,9 +259,13 @@ async function main() {
 
   try {
     // Load sources
+    const yearFilter = yearFrom !== null || yearTo !== null
+      ? { gte: yearFrom ?? undefined, lte: yearTo ?? undefined }
+      : undefined;
+
     const where = {
       type: sourceType,
-      ...(year !== null ? { year } : {}),
+      ...(yearFilter ? { year: yearFilter } : {}),
     };
     const sources = await prisma.source.findMany({
       where,
@@ -269,7 +280,8 @@ async function main() {
     });
 
     if (sources.length === 0) {
-      console.log(`[extract] No sources found for type=${sourceType} year=${year ?? "all"}`);
+      const rangeStr = yearFrom || yearTo ? ` ${yearFrom ?? ""}–${yearTo ?? ""}` : "";
+      console.log(`[extract] No sources found for type=${sourceType}${rangeStr}`);
       return;
     }
 
@@ -303,64 +315,57 @@ async function main() {
 
       console.log(`\n[extract] ${source.year} ${source.type}: ${chunks.length}/${source.chunks.length} chunks`);
 
-      // Process in batches
-      for (let i = 0; i < chunks.length; i += batchSize) {
-        const batch = chunks.slice(i, i + batchSize);
+      // Process chunks sequentially (Neo4j session doesn't support concurrent queries)
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i]!;
+        totalChunks++;
 
-        await Promise.all(batch.map(async (chunk) => {
-          totalChunks++;
-
-          // Skip already-processed chunks (idempotency)
-          if (!dryRun) {
-            const existing = await session.run(
-              `MATCH (p:Paragraph {id: $id})-[:MENTIONS_CONCEPT|MENTIONS_COMPANY]->() RETURN count(*) AS n`,
-              { id: chunk.id },
-            );
-            if ((existing.records[0]?.get("n") ?? 0) > 0) {
-              skipped++;
-              return;
-            }
-          }
-
-          // Ensure Paragraph node
-          if (!dryRun) {
-            await session.run(
-              `MERGE (p:Paragraph {id: $id})
-               SET p.order = $order, p.title = $title, p.year = $year, p.chunkId = $id
-               WITH p
-               MATCH (d:Document {id: $docId})
-               MERGE (d)-[:CONTAINS]->(p)`,
-              { id: chunk.id, order: chunk.order, title: chunk.title ?? null, year: source.year, docId },
-            );
-          }
-
-          const result = await extractTriplets(chunk.contentEn, apiKey, apiBase, model);
-
-          if (!result) {
-            errors++;
-            return;
-          }
-
-          const total = result.concepts.length + result.companies.length + result.persons.length;
-          if (total === 0) {
+        // Skip already-processed chunks (idempotency)
+        if (!dryRun) {
+          const existing = await session.run(
+            `MATCH (p:Paragraph {id: $id})-[:MENTIONS_CONCEPT|MENTIONS_COMPANY]->() RETURN count(*) AS n`,
+            { id: chunk.id },
+          );
+          if ((existing.records[0]?.get("n") ?? 0) > 0) {
             skipped++;
-            return;
+            process.stdout.write(`  [${i + 1}/${chunks.length}] skip ${chunk.order}\r`);
+            continue;
           }
-
-          if (dryRun) {
-            console.log(`  chunk ${chunk.order}: ${total} entities`, JSON.stringify(result, null, 2).slice(0, 200));
-          } else {
-            await writeToNeo4j(session, "buffett", chunk.id, source.year, result);
-          }
-          extracted++;
-        }));
-
-        process.stdout.write(`  batch ${i}–${Math.min(i + batchSize, chunks.length)} done\r`);
-
-        // Rate limit pause between batches
-        if (i + batchSize < chunks.length) {
-          await new Promise((r) => setTimeout(r, 500));
         }
+
+        // Ensure Paragraph node
+        if (!dryRun) {
+          await session.run(
+            `MERGE (p:Paragraph {id: $id})
+             SET p.order = $order, p.title = $title, p.year = $year, p.chunkId = $id
+             WITH p
+             MATCH (d:Document {id: $docId})
+             MERGE (d)-[:CONTAINS]->(p)`,
+            { id: chunk.id, order: chunk.order, title: chunk.title ?? null, year: source.year, docId },
+          );
+        }
+
+        const result = await extractTriplets(chunk.contentEn, apiKey, apiBase, model);
+
+        if (!result) {
+          errors++;
+          continue;
+        }
+
+        const total = result.concepts.length + result.companies.length + result.persons.length;
+        if (total === 0) {
+          skipped++;
+          continue;
+        }
+
+        if (dryRun) {
+          console.log(`  chunk ${chunk.order}: ${total} entities`, JSON.stringify(result, null, 2).slice(0, 200));
+        } else {
+          await writeToNeo4j(session, "buffett", chunk.id, source.year, result);
+        }
+        extracted++;
+
+        process.stdout.write(`  [${i + 1}/${chunks.length}] chunk ${chunk.order} → ${total} entities\r`);
       }
     }
 
