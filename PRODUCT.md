@@ -2,7 +2,7 @@
 
 # 巴菲特部落 · Value Archive — 产品与技术设计
 
-> 最后更新：2026-04-29（v0.30.0）
+> 最后更新：2026-04-29（v0.31.0）
 
 ---
 
@@ -12,16 +12,37 @@
 
 把伟大价值投资人的公开著作、演讲与信件，结构化为可程序化访问的知识图谱。以巴菲特为起点，向 Munger、Graham、Lynch、Klarman 等价值投资先驱扩展。目标是成为 AI Agent 时代**投资研究的标准知识源**。
 
-### 双层产品结构
+### 访问路径
 
 ```
-Layer 1 · 知识服务（面向开发者 / AI Agent）
-  ├── MCP Server     — Claude Desktop / Claude Code / 任意 MCP 客户端
-  ├── REST API       — OpenAI-compatible tool schema
-  └── Claude Code Skill — 一行接入 Claude Code 生态
+Value Archive 知识图谱
+        │
+   ┌────┴────────────────────────┐
+   │                             │
+ Web（我们做）              开放给外部
+ 面向普通用户               面向开发者 / AI Agent
+   │                             │
+buffett.air7.fun     MCP · REST API · CLI
+与巴菲特对话          接入任意 agent 工作流
+```
 
-Layer 2 · Chat Demo（面向普通用户）
-  └── buffett.air7.fun — 现有对话产品，知识服务的消费者
+- **Web**：我们自己做的第一个消费者，产品门面。普通用户通过对话访问知识。
+- **MCP**：AI Agent 的标准接入协议，优先级最高。Claude Desktop / Claude Code 一行配置即用。
+- **REST API**：开发者构建自己的 AI 应用，调用知识检索工具。
+- **CLI**：脚本调用、调试、自动化，可选。
+
+### 优先级
+
+```
+知识图谱（数据质量）   ← 所有消费者的基础，现在做
+       ↓
+MCP Server            ← 主要商业路径，下一步
+       ↓
+REST API              ← 与 MCP 共用实现，同步
+       ↓
+Web UI 增强           ← 持续迭代，不阻塞服务层
+       ↓
+CLI                   ← 可选，按需
 ```
 
 ### 为什么是知识图谱，而不只是 RAG
@@ -51,6 +72,37 @@ Value Archive 的壁垒是**内容质量**，不是基础设施：
 | C 端投资者 | Chat 对话 | 低 |
 
 B2B API 优先验证，C 端 chat 持续运营。
+
+---
+
+## 数据架构总览
+
+### PostgreSQL vs Neo4j — 互补，不冗余
+
+```
+PostgreSQL (Supabase)              Neo4j
+─────────────────────              ─────────────────
+原始内容 (Source / Chunk)           知识关系 (实体 / 图)
+向量检索 (pgvector)                 图遍历 (Cypher)
+全文检索 (tsvector)                 结构化事实查询
+用户数据 (User / ChatUsage)         概念演变推理
+账单 / 限流                         跨投资人对比
+
+连接点：Neo4j Paragraph.id = PostgreSQL Chunk.id
+```
+
+- **PostgreSQL** = 内容仓库 + 向量/全文索引 + 用户数据。所有原始文本和 embedding 存这里。
+- **Neo4j** = 关系索引。存实体之间的关系，段落节点只存 ID，全文回 PostgreSQL 取。
+- **pgvector / tsvector** 是 PostgreSQL 的扩展功能，不是独立系统。
+
+### 三路检索融合
+
+| 问题类型 | 检索路径 |
+|---------|---------|
+| 语义/概念类 | pgvector 向量检索 |
+| 精确术语/人名 | tsvector 全文检索 |
+| 结构化事实/枚举 | Neo4j 图查询 |
+| 复杂问题 | 三路融合，结果合并 |
 
 ---
 
