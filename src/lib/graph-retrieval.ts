@@ -24,34 +24,28 @@ export async function fetchGraphInsights(params: {
 
   const limit = Math.min(Math.max(params.limit ?? 6, 1), 20);
 
+  // Query v2 schema: Paragraph -[:MENTIONS_CONCEPT|MENTIONS_COMPANY]-> entity
   const rows = await runCypher<GraphInsight>(
     `
     UNWIND $entities AS q
-    MATCH (a)-[r]->(b)
+    MATCH (p:Paragraph)-[r:MENTIONS_CONCEPT|MENTIONS_COMPANY]->(e)
     WHERE (
-      toLower(coalesce(a.name, a.zh, a.id, "")) CONTAINS toLower(q)
-      OR toLower(coalesce(b.name, b.zh, b.id, "")) CONTAINS toLower(q)
+      toLower(coalesce(e.name, e.zh, e.id, "")) CONTAINS toLower(q)
+      OR toLower(coalesce(e.id, "")) CONTAINS toLower(q)
     )
-    OPTIONAL MATCH (p:Paragraph {id: r.paragraph_id})
-    OPTIONAL MATCH (p)<-[:CONTAINS]-(l:Letter)
-    WHERE ($yearFrom IS NULL OR l.year >= $yearFrom)
-      AND ($yearTo IS NULL OR l.year <= $yearTo)
+    AND ($yearFrom IS NULL OR p.year >= $yearFrom)
+    AND ($yearTo   IS NULL OR p.year <= $yearTo)
     RETURN DISTINCT
-      type(r) AS relation,
-      coalesce(a.zh, a.name, a.id, labels(a)[0]) AS from,
-      coalesce(b.zh, b.name, b.id, labels(b)[0]) AS to,
-      l.year AS year,
-      p.text AS quote,
-      p.id AS paragraphId
+      type(r)                                              AS relation,
+      coalesce(p.title, "Paragraph")                      AS from,
+      coalesce(e.zh, e.name, e.id)                        AS to,
+      p.year                                              AS year,
+      p.id                                                AS paragraphId,
+      null                                                AS quote
     ORDER BY year DESC
     LIMIT $limit
     `,
-    {
-      entities,
-      yearFrom: params.yearFrom,
-      yearTo: params.yearTo,
-      limit,
-    },
+    { entities, yearFrom: params.yearFrom, yearTo: params.yearTo, limit },
   );
 
   return rows;
