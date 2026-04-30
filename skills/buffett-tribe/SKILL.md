@@ -1,8 +1,8 @@
 ---
 name: buffett-tribe
 description: >
-  Query the Warren Buffett knowledge base (1957–2024) via REST API — shareholder letters,
-  partnership letters, and annual meeting transcripts. Use this skill whenever the user asks
+  Query the Warren Buffett knowledge base (1958–2025) via REST API — shareholder letters
+  and partnership letters. Use this skill whenever the user asks
   about Buffett's views, investment decisions, principles, or history; wants to read a specific
   letter; or asks questions like "what did Buffett say about X", "when did Berkshire buy Y",
   "how has Buffett's view on Z changed over time", or anything related to value investing,
@@ -20,9 +20,8 @@ Always call the API with `curl` — responses are JSON.
 
 | Type | Years | Description |
 |------|-------|-------------|
-| `shareholder` | 1965–2024 | Annual letters to Berkshire shareholders |
-| `partnership` | 1957–1970 | Early partnership letters |
-| `annual_meeting` | 1985–2024 | Berkshire annual meeting transcripts |
+| `shareholder` | 1965–2025 | Annual letters to Berkshire shareholders (61 letters) |
+| `partnership` | 1958–1970 | Early partnership letters (33 letters) |
 
 ---
 
@@ -61,7 +60,7 @@ curl "https://buffett.air7.fun/api/tools/document?sourceId=ID&page=2"
 |-------|----------|-------------|
 | `sourceId` | ❌ | Exact source ID (from search chunk) |
 | `year` | ❌ | Document year |
-| `type` | ❌ | `shareholder` \| `partnership` \| `annual_meeting` |
+| `type` | ❌ | `shareholder` \| `partnership` |
 | `page` | ❌ | Page number (default 1, 10 chunks/page) |
 
 **Response:** `{ source: { id, year, type, title }, chunks[], page, totalPages, totalChunks }`

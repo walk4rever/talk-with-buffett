@@ -44,7 +44,7 @@ const PAGE_SIZE = 10;
 export const getDocumentParams = z.object({
   sourceId: z.string().optional().describe("Exact source ID"),
   year: z.number().int().optional().describe("Year of the document"),
-  type: z.string().optional().describe("Document type: shareholder | partnership | annual_meeting | article | interview"),
+  type: z.string().optional().describe("Document type: shareholder | partnership"),
   page: z.number().int().min(1).optional().default(1).describe("Page number (10 chunks per page)"),
 });
 

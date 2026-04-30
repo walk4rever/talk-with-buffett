@@ -61,7 +61,7 @@ export default async function Home() {
       {/* Partnership Letters */}
       {partnershipYears.length > 0 && (
         <section className="archive">
-          <p className="archive-label">致合伙人信 1957–1970</p>
+          <p className="archive-label">致合伙人信 1958–1970</p>
           <div className="archive-grid">
             {partnershipYears.map((year) => (
               <Link

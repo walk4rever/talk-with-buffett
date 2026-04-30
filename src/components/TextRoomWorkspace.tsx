@@ -647,7 +647,7 @@ export function TextRoomWorkspace() {
               <Image src="/buffett-avarta.jpg" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
               <h2 className="empty-chat-title">Text Room</h2>
               <p className="empty-chat-sub">
-                基于 1957–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧
+                基于 1958–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧
               </p>
               <div className="starter-grid">
                 {STARTERS.map((s) => (

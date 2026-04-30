@@ -16,11 +16,11 @@ function createServer() {
 
   server.tool(
     "search",
-    `Search the Buffett Tribe knowledge base (1957–2024) using hybrid keyword + semantic retrieval.
+    `Search the Buffett Tribe knowledge base (1958–2025) using hybrid keyword + semantic retrieval.
 Use this first when answering questions about Buffett's views, decisions, or writings.
 Returns ranked passages with year, source type, and English/Chinese excerpts.
 Combine with get_document to read the full context of a passage, or with graph to explore entity relationships.
-Source types: shareholder (annual letters), partnership (early partnership letters), annual_meeting, article, interview.`,
+Source types: shareholder (annual letters 1965–2025), partnership (early partnership letters 1958–1970).`,
     searchParams.shape,
     async (params) => {
       const result = await toolSearch(params);
@@ -32,7 +32,7 @@ Source types: shareholder (annual letters), partnership (early partnership lette
     "get_document",
     `Retrieve the full content of a specific document from the Buffett Tribe knowledge base, paginated at 10 chunks per page.
 Identify a document by sourceId (from search results) or by year + type.
-Types: shareholder | partnership | annual_meeting | article | interview.
+Types: shareholder | partnership.
 Use page parameter to read through long documents. Check totalPages in the response to know when you've reached the end.
 Example: year=2023, type="shareholder" retrieves the 2023 Berkshire shareholder letter.`,
     getDocumentParams.shape,
