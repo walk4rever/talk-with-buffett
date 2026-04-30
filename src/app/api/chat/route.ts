@@ -6,6 +6,14 @@ import { getClientIp } from "@/lib/ratelimit";
 import { buildSystemPrompt } from "@/lib/prompts/buffett";
 import type { EvidencePlan, RetrievedChunk } from "@/lib/prompts/buffett";
 import { searchChunks } from "@/lib/search";
+import { Langfuse } from "langfuse";
+
+const langfuse = new Langfuse({
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  baseUrl: process.env.LANGFUSE_BASE_URL,
+  flushAt: 1,
+});
 
 // Allow up to 60s for cross-border API calls to 火山引擎
 export const maxDuration = 60;
@@ -178,7 +186,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
 
+  // Langfuse trace — spans the full request lifecycle
+  const trace = langfuse.trace({
+    name: "chat",
+    userId: userId ?? ip,
+    input: lastUserMsg.content,
+    metadata: { mode, ip },
+  });
+
   // Parallel: usage check + retrieval search
+  const retrievalStart = Date.now();
   const [usage, searchResult] = await Promise.all([
     checkAndIncrementUsage(ip, userId),
     searchChunks(lastUserMsg.content),
@@ -197,6 +214,14 @@ export async function POST(req: Request) {
     needsRetrieval,
   } = searchResult;
   console.log(`[search] query="${lastUserMsg.content.slice(0, 60)}" chunks=${chunks.length} order=${order} distinct=${distinctByYear}`);
+
+  trace.span({
+    name: "retrieval",
+    input: lastUserMsg.content,
+    output: { chunks: chunks.length, order, taskType, intent, answerMode, needsRetrieval, yearFrom, yearTo },
+    startTime: new Date(retrievalStart),
+    endTime: new Date(),
+  });
 
   if (!usage.allowed) {
     const error = userId
@@ -219,6 +244,7 @@ export async function POST(req: Request) {
 
   let graphContext = "";
   if (hasNeo4jConfig() && entities.length > 0) {
+    const graphStart = Date.now();
     try {
       const { fetchGraphInsights } = await import("@/lib/graph-retrieval");
       const graphInsights = await fetchGraphInsights({
@@ -235,8 +261,24 @@ export async function POST(req: Request) {
           return `- ${row.from} -[${row.relation}]-> ${row.to}${year}${quote}`;
         })
         .join("\n");
+
+      trace.span({
+        name: "graph_retrieval",
+        input: { entities, yearFrom, yearTo },
+        output: { count: graphInsights.length, context: graphContext.slice(0, 500) },
+        startTime: new Date(graphStart),
+        endTime: new Date(),
+      });
     } catch (error) {
       console.error("[graph] neo4j lookup failed:", error);
+      trace.span({
+        name: "graph_retrieval",
+        input: { entities },
+        output: { error: String(error) },
+        level: "ERROR",
+        startTime: new Date(graphStart),
+        endTime: new Date(),
+      });
     }
   }
 
@@ -283,6 +325,14 @@ export async function POST(req: Request) {
     ...historyMessages,
     { role: "user", content: lastUserMsg.content },
   ];
+
+  // Langfuse generation — tracks full prompt + response
+  const generation = trace.generation({
+    name: "llm",
+    model: AI_MODEL,
+    input: aiMessages,
+    modelParameters: { temperature: 0.7, max_tokens: mode === "live" ? 350 : 1000, stream: true },
+  });
 
   // Call AI with streaming
   const aiRes = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
@@ -365,6 +415,11 @@ export async function POST(req: Request) {
             data: { answer: answerBuffer },
           }).catch((err) => console.error("[chat] failed to save answer:", err));
         }
+
+        // Finalize Langfuse trace
+        generation.end({ output: answerBuffer });
+        trace.update({ output: answerBuffer });
+        await langfuse.flushAsync();
 
         controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
       } catch (err) {
