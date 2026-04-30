@@ -1,6 +1,6 @@
 {
-  "name": "value-archive",
-  "version": "0.30.0",
+  "name": "buffett-tribe",
+  "version": "0.33.1",
   "private": true,
   "type": "module",
   "scripts": {
