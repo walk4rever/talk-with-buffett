@@ -512,7 +512,6 @@ export function TextRoomWorkspace() {
     if (!canvasContent || !canvasScrollRef.current) return;
     if (!canvasTitle && !canvasExcerpt && !canvasExcerptZh) return;
     scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt, canvasExcerptZh);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasContent, canvasTitle, canvasExcerpt, canvasExcerptZh]);
 
   const openReader = useCallback(

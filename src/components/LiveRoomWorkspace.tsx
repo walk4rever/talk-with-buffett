@@ -38,7 +38,6 @@ type ConversationState =
   | "ended"
   | "unsupported";
 
-type TranscriptRole = "user" | "assistant";
 type ReadingMode = "all" | "en" | "zh";
 
 interface CanvasContent {
@@ -805,7 +804,7 @@ export function LiveRoomWorkspace() {
       }
     };
 
-    const playAudio = (objectUrl: string, textToSpeak: string) => {
+    const playAudio = (objectUrl: string) => {
       if (!objectUrl) { onSentenceEnd(); return; }
       const audio = new Audio(objectUrl);
       ttsAudioRef.current = audio;
@@ -833,13 +832,13 @@ export function LiveRoomWorkspace() {
       const pending = ttsPrefetchRef.current;
       ttsPrefetchRef.current = null;
       if (pending) {
-        pending.then((url) => playAudio(url, textToSpeak)).catch(() => {
+        pending.then((url) => playAudio(url)).catch(() => {
           isSpeechActiveRef.current = false;
           onSpeechDone();
         });
       } else {
         fetchTtsAudio(textToSpeak)
-          .then((url) => playAudio(url, textToSpeak))
+          .then((url) => playAudio(url))
           .catch(() => {
             isSpeechActiveRef.current = false;
             onSpeechDone();

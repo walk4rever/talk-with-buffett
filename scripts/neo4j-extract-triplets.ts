@@ -240,7 +240,7 @@ async function writeToNeo4j(
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { yearFrom, yearTo, sourceType, batchSize, dryRun } = parseArgs();
+  const { yearFrom, yearTo, sourceType, dryRun } = parseArgs();
 
   const apiKey  = required("AI_API_KEY");
   const apiBase = required("AI_API_BASE_URL");
