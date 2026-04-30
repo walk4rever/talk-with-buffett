@@ -16,7 +16,11 @@ function createServer() {
 
   server.tool(
     "search",
-    "Search the Warren Buffett archive for relevant passages. Returns chunks ranked by relevance.",
+    `Search the Warren Buffett archive (1957–2024) using hybrid keyword + semantic retrieval.
+Use this first when answering questions about Buffett's views, decisions, or writings.
+Returns ranked passages with year, source type, and English/Chinese excerpts.
+Combine with get_document to read the full context of a passage, or with graph to explore entity relationships.
+Source types: shareholder (annual letters), partnership (early partnership letters), annual_meeting, article, interview.`,
     searchParams.shape,
     async (params) => {
       const result = await toolSearch(params);
@@ -26,7 +30,11 @@ function createServer() {
 
   server.tool(
     "get_document",
-    "Retrieve a specific document (annual letter, speech, article) by source ID or year+type. Returns paginated chunks.",
+    `Retrieve the full content of a specific document from the Buffett archive, paginated at 10 chunks per page.
+Identify a document by sourceId (from search results) or by year + type.
+Types: shareholder | partnership | annual_meeting | article | interview.
+Use page parameter to read through long documents. Check totalPages in the response to know when you've reached the end.
+Example: year=2023, type="shareholder" retrieves the 2023 Berkshire shareholder letter.`,
     getDocumentParams.shape,
     async (params) => {
       const result = await toolGetDocument(params);
@@ -36,7 +44,11 @@ function createServer() {
 
   server.tool(
     "graph",
-    "Look up relationships for an entity (company, concept, person) in the knowledge graph. Returns structured relationships extracted from Buffett's writings.",
+    `Query the knowledge graph for structured relationships around an entity (company, concept, or person).
+Relationships are extracted from Buffett's writings — e.g. holdings, acquisitions, mentions of investment principles.
+Use this to complement search results when you need structured, time-stamped relationship data.
+Returns: from → relation → to, with year and source quote where available.
+Example entities: "Apple", "Berkshire Hathaway", "insurance float", "GEICO".`,
     graphParams.shape,
     async (params) => {
       const result = await toolGraph(params);
