@@ -175,8 +175,19 @@ export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   const userId = session?.user?.id ?? undefined;
 
+  // Per-request Langfuse instance — ensures shutdownAsync() flushes immediately
+  const langfuse = makeLangfuse();
+  let langfuseFlushed = false;
+
+  async function flushLangfuse() {
+    if (langfuseFlushed) return;
+    langfuseFlushed = true;
+    await langfuse.shutdownAsync().catch((e) => console.error("[langfuse]", e));
+  }
+
   const body = await req.json().catch(() => null);
   if (!body?.messages || !Array.isArray(body.messages)) {
+    await flushLangfuse();
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
   const mode: "text" | "live" = body.mode === "live" ? "live" : "text";
@@ -185,11 +196,9 @@ export async function POST(req: Request) {
     (m: { role: string }) => m.role === "user",
   );
   if (!lastUserMsg) {
+    await flushLangfuse();
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
-
-  // Per-request Langfuse instance — ensures shutdownAsync() flushes immediately
-  const langfuse = makeLangfuse();
 
   // Langfuse trace — spans the full request lifecycle
   const trace = langfuse.trace({
@@ -232,6 +241,8 @@ export async function POST(req: Request) {
     const error = userId
       ? `今日免费次数已用完（${FREE_DAILY_AUTH_LIMIT}次/天），请明天再来。`
       : `__LIMIT__今日免费次数已用完（${FREE_DAILY_ANON_LIMIT}次），注册后每天可免费对话 ${FREE_DAILY_AUTH_LIMIT} 次，并可保存对话历史、使用社交分享等更多功能。`;
+    trace.update({ output: { error, status: 429 } });
+    await flushLangfuse();
     return NextResponse.json({ error }, { status: 429 });
   }
 
@@ -359,6 +370,9 @@ export async function POST(req: Request) {
   if (!aiRes.ok) {
     const errText = await aiRes.text();
     console.error("AI API error:", errText);
+    generation.end({ level: "ERROR", output: { error: errText, status: aiRes.status } });
+    trace.update({ output: { error: "AI 服务暂时不可用，请稍后重试。", status: 502 } });
+    await flushLangfuse();
     return NextResponse.json(
       { error: "AI 服务暂时不可用，请稍后重试。" },
       { status: 502 },
@@ -441,7 +455,7 @@ export async function POST(req: Request) {
   after(async () => {
     generation.end({ output: shared.answerBuffer });
     trace.update({ output: shared.answerBuffer });
-    await langfuse.shutdownAsync().catch((e) => console.error("[langfuse]", e));
+    await flushLangfuse();
   });
 
   return new Response(stream, {
