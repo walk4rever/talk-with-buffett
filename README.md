@@ -57,11 +57,18 @@ buffett.air7.fun          MCP · REST API · CLI
 ## REST API
 
 ```bash
-POST /api/tools/semantic-search
-{ "query": "how to evaluate management integrity", "investor": "buffett" }
+# 搜索（关键词 + 语义混合检索）
+GET /api/tools/search?q=QUERY&yearFrom=YYYY&yearTo=YYYY&limit=N
 
-GET /api/tools/graph-facts?entities=moat&investor=buffett&year_from=1980
+# 读取完整文档（分页，10 chunks/页）
+GET /api/tools/document?year=YYYY&type=shareholder|partnership&page=N
+GET /api/tools/document?sourceId=ID&page=N
+
+# 实体关系图谱
+GET /api/tools/graph?entity=ENTITY&yearFrom=YYYY&yearTo=YYYY&limit=N
 ```
+
+所有接口无需认证，Base URL：`https://buffett.air7.fun`
 
 ---
 
