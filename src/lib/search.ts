@@ -153,15 +153,15 @@ function refineKeywordForEntityMention(keywordQuery: string, rawQuery: string): 
 }
 
 const UNDERSTAND_SYSTEM =
-  "You are a retrieval planner for Warren Buffett corpus QA.\\n" +
-  "Return strict JSON only with keys: task_type, needs_retrieval, temporal_mode, year_from, year_to, entities, keyword_query, semantic_query, confidence.\\n" +
-  "task_type: 'fact' for questions about specific events, years, companies, or actions; 'method' for questions about Buffett's views, principles, frameworks, or approaches on any topic.\\n" +
-  "needs_retrieval: true for almost all questions; false ONLY for pure greetings or requests completely unrelated to investing or Buffett.\\n" +
-  "temporal_mode enum: none|point|range|earliest|latest|evolution.\\n" +
-  "entities must be a short array of retrieval-relevant names.\\n" +
-  "Translate Chinese into concise English retrieval expressions.\\n" +
-  "keyword_query should prioritize exact entities and anchor terms; semantic_query should be a natural English query.\\n" +
-  "If no year constraints, use null for year_from/year_to.\\n" +
+  "You are a retrieval planner for Warren Buffett corpus QA.\n" +
+  "Return strict JSON only with keys: task_type, needs_retrieval, temporal_mode, year_from, year_to, entities, keyword_query, semantic_query, confidence.\n" +
+  "task_type: 'fact' for questions about specific events, years, companies, or actions; 'method' for questions about Buffett's views, principles, frameworks, or approaches on any topic.\n" +
+  "needs_retrieval: true for almost all questions; false ONLY for pure greetings or requests completely unrelated to investing or Buffett.\n" +
+  "temporal_mode enum: none|point|range|earliest|latest|evolution.\n" +
+  "entities must be a short array of retrieval-relevant names.\n" +
+  "Translate Chinese into concise English retrieval expressions.\n" +
+  "keyword_query should prioritize exact entities and anchor terms; semantic_query should be a natural English query.\n" +
+  "If no year constraints, use null for year_from/year_to.\n" +
   "Output only one JSON object.";
 
 function extractYearsFromText(text: string): { yearFrom: number | null; yearTo: number | null } {
@@ -274,58 +274,54 @@ function tryParseJson(content: string): unknown {
 
 async function understandQuery(query: string, useFastPath = false): Promise<QueryPlan> {
   const normalizedInput = applyGlossary(query);
-  const fallback = fallbackPlan(normalizedInput);
 
-  // Fast path: skip LLM for chat/greeting questions, very short queries, or when explicitly requested
-  // This avoids an extra LLM round-trip and saves ~2-3s
   if (useFastPath || isChatQuestion(query) || query.trim().length <= 15) {
     console.log(`[understandQuery] fast path (no LLM) for query="${query.slice(0, 30)}..."`);
-    return { ...fallback, confidence: 0.9 };
+    return { ...fallbackPlan(normalizedInput), confidence: 0.9 };
   }
 
-  try {
-    const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${AI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: UNDERSTAND_SYSTEM },
-          { role: "user", content: normalizedInput },
-        ],
-        temperature: 0,
-        max_tokens: 150, // Reduced from 260 - response should be small JSON
-      }),
-      signal: AbortSignal.timeout(6000), // Reduced timeout since response should be faster
-    });
+  const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${AI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [
+        { role: "system", content: UNDERSTAND_SYSTEM },
+        { role: "user", content: normalizedInput },
+      ],
+      temperature: 0,
+      max_tokens: 260,
+    }),
+    signal: AbortSignal.timeout(12000),
+  });
 
-    if (!res.ok) throw new Error(`API ${res.status}`);
+  if (!res.ok) throw new Error(`understandQuery: API ${res.status}`);
 
-    const data = await res.json();
-    const content = String(data.choices?.[0]?.message?.content ?? "");
-    const parsed = tryParseJson(content);
-    const normalized = normalizePlan(parsed, fallback);
-
-    const forcedTimeline = isTemporalQuestion(query);
-    const forcedCompare = isCompareQuestion(query);
-    const result: QueryPlan = {
-      ...normalized,
-      timeline: normalized.timeline || forcedTimeline,
-      compare: normalized.compare || forcedCompare,
-      temporalMode: forcedTimeline && normalized.temporalMode === "none" ? "evolution" : normalized.temporalMode,
-    };
-
-    console.log(
-      `[understandQuery] task=${result.taskType} timeline=${result.timeline} compare=${result.compare} mode=${result.temporalMode} years=${result.yearFrom ?? "-"}-${result.yearTo ?? "-"} conf=${result.confidence.toFixed(2)}`,
-    );
-    return result;
-  } catch (err) {
-    console.error("[understandQuery] error:", err);
-    return fallback;
+  const data = await res.json();
+  const content = String(data.choices?.[0]?.message?.content ?? "");
+  const parsed = tryParseJson(content);
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error(`understandQuery: invalid model response: ${content.slice(0, 200)}`);
   }
+
+  const normalized = normalizePlan(parsed, fallbackPlan(normalizedInput));
+
+  const forcedTimeline = isTemporalQuestion(query);
+  const forcedCompare = isCompareQuestion(query);
+  const result: QueryPlan = {
+    ...normalized,
+    timeline: normalized.timeline || forcedTimeline,
+    compare: normalized.compare || forcedCompare,
+    temporalMode: forcedTimeline && normalized.temporalMode === "none" ? "evolution" : normalized.temporalMode,
+  };
+
+  console.log(
+    `[understandQuery] task=${result.taskType} timeline=${result.timeline} compare=${result.compare} mode=${result.temporalMode} years=${result.yearFrom ?? "-"}-${result.yearTo ?? "-"} conf=${result.confidence.toFixed(2)}`,
+  );
+  return result;
 }
 
 // Lower threshold for temporal queries to improve long-tail recall.
