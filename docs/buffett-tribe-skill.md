@@ -1,4 +1,4 @@
-# Buffett Archive — Skill
+# Buffett Tribe — Skill
 
 Use this skill to query the Warren Buffett knowledge archive (1957–2024) when answering questions about Buffett's views, decisions, writings, or investment history.
 

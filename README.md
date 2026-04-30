@@ -36,7 +36,7 @@ buffett.air7.fun          MCP · REST API · CLI
 ```json
 {
   "mcpServers": {
-    "buffett-archive": {
+    "buffett-tribe": {
       "type": "http",
       "url": "https://buffett.air7.fun/api/mcp"
     }

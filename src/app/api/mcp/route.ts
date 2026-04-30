@@ -10,7 +10,7 @@ export const maxDuration = 60;
 
 function createServer() {
   const server = new McpServer({
-    name: "buffett-archive",
+    name: "buffett-tribe",
     version: "1.0.0",
   });
 
