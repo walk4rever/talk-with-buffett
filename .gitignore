@@ -66,5 +66,6 @@ tests/evals/history/mvp_benchmark_30_summary_*.json
 /.pi/
 /.qoder/
 /.trae/
-/skills/
+/skills/*
+!/skills/buffett-tribe/
 skills-lock.json
