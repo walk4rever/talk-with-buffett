@@ -419,7 +419,7 @@ export async function POST(req: Request) {
         // Finalize Langfuse trace
         generation.end({ output: answerBuffer });
         trace.update({ output: answerBuffer });
-        await langfuse.flushAsync();
+        await langfuse.flushAsync().then(() => console.log("[langfuse] flush OK")).catch((e) => console.error("[langfuse] flush FAILED:", e));
 
         controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
       } catch (err) {

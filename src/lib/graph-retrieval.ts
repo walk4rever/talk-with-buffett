@@ -1,3 +1,4 @@
+import neo4j from "neo4j-driver";
 import { runCypher } from "@/lib/neo4j";
 
 export interface GraphInsight {
@@ -22,7 +23,8 @@ export async function fetchGraphInsights(params: {
 
   if (entities.length === 0) return [];
 
-  const limit = Math.min(Math.max(params.limit ?? 6, 1), 20);
+  // neo4j-driver v6 serialises JS numbers as floats; neo4j.int() forces integer type
+  const limit = neo4j.int(Math.min(Math.max(params.limit ?? 6, 1), 20));
 
   // Query v2 schema: Paragraph -[:MENTIONS_CONCEPT|MENTIONS_COMPANY]-> entity
   const rows = await runCypher<GraphInsight>(
