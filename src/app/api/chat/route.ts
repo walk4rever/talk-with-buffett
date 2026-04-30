@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -366,6 +366,8 @@ export async function POST(req: Request) {
   }
 
   const encoder = new TextEncoder();
+  // Shared ref so after() can read the final answer once the stream closes
+  const shared = { answerBuffer: "" };
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -379,7 +381,6 @@ export async function POST(req: Request) {
       const reader = aiRes.body!.getReader();
       const decoder = new TextDecoder();
       let sseBuffer = "";
-      let answerBuffer = "";
 
       try {
         while (true) {
@@ -401,7 +402,7 @@ export async function POST(req: Request) {
               const json = JSON.parse(payload);
               const delta = json.choices?.[0]?.delta?.content;
               if (delta) {
-                answerBuffer += delta;
+                shared.answerBuffer += delta;
                 controller.enqueue(
                   encoder.encode(`event: delta\ndata: ${JSON.stringify(delta)}\n\n`),
                 );
@@ -414,17 +415,12 @@ export async function POST(req: Request) {
 
         // Persist answer before sending done — fire-and-forget is unreliable in serverless
         // because the function may terminate before the promise resolves.
-        if (answerBuffer) {
+        if (shared.answerBuffer) {
           await prisma.chatMessage.update({
             where: { id: chatRecord.id },
-            data: { answer: answerBuffer },
+            data: { answer: shared.answerBuffer },
           }).catch((err) => console.error("[chat] failed to save answer:", err));
         }
-
-        // Finalize Langfuse trace
-        generation.end({ output: answerBuffer });
-        trace.update({ output: answerBuffer });
-        await langfuse.shutdownAsync();
 
         controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
       } catch (err) {
@@ -438,6 +434,14 @@ export async function POST(req: Request) {
         controller.close();
       }
     },
+  });
+
+  // after() is guaranteed by Next.js to run after the stream closes,
+  // so shared.answerBuffer is fully populated at this point.
+  after(async () => {
+    generation.end({ output: shared.answerBuffer });
+    trace.update({ output: shared.answerBuffer });
+    await langfuse.shutdownAsync().catch((e) => console.error("[langfuse]", e));
   });
 
   return new Response(stream, {
