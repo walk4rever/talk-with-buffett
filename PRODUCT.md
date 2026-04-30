@@ -2,7 +2,7 @@
 
 # 巴菲特部落 · Value Archive — 产品与技术设计
 
-> 最后更新：2026-04-29（v0.31.0）
+> 最后更新：2026-04-30（v0.33.0）
 
 ---
 
@@ -132,14 +132,15 @@ PostgreSQL (Supabase)              Neo4j
 
 ### MCP 工具设计
 
-| 工具 | 输入 | 用途 |
-|------|------|------|
-| `semantic_search` | query, investor?, year_range?, limit | 语义检索段落 |
-| `graph_facts` | entities[], investor?, relation?, year_range | 结构化事实查询 |
-| `full_text_search` | keywords[], investor?, year_range | 精确术语查询 |
-| `find_concept_evolution` | concept, investor?, year_range | 概念随时间的演变 |
-| `compare_investors` | concept, investors[] | 多投资人观点对比（独特价值） |
-| `list_company_mentions` | company, investor? | 公司在文献中的所有提及 |
+三个正交原语，覆盖所有访问模式：
+
+| 工具 | 输入 | 访问模式 |
+|------|------|---------|
+| `search` | query, yearFrom?, yearTo?, limit? | 按相关性检索（混合关键词 + 语义） |
+| `get_document` | sourceId? \| year + type, page? | 按精确引用获取完整文档 |
+| `graph` | entity, yearFrom?, yearTo?, limit? | 实体关系图遍历 |
+
+compare / timeline / evolution 等分析任务由 agent 组合调用上述工具完成。
 
 ### 实施路线
 
@@ -1419,11 +1420,11 @@ Phase G：知识图谱 v2（多投资人 schema）              🔲 v0.30.0
   ├─ Concept → Concept 关系（RELATES_TO、EVOLVES_TO）
   └─ 验证：graph_facts 工具返回有意义的结果
 
-Phase H：MCP Server                                  🔲 v0.31.0
-  ├─ MCP server 实现（semantic_search / graph_facts / full_text）
-  ├─ Claude Code Skill 文件
-  ├─ REST API tool schema（OpenAI-compatible）
-  └─ 验证：Claude Desktop 可直接调用工具查询 Buffett
+Phase H：MCP Server                                  ✅ v0.33.0
+  ├─ MCP server 实现（search / get_document / graph）
+  ├─ Streamable HTTP transport，部署于 /api/mcp
+  ├─ 接入地址：https://buffett.air7.fun/api/mcp
+  └─ 验证：Claude Desktop / Cursor 可直接调用工具查询 Buffett
 
 Phase I：Munger 模块                                 🔲 v0.32.0
   ├─ Munger 语料收集（Poor Charlie's Almanack / 演讲）

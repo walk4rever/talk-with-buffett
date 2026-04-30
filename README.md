@@ -31,13 +31,14 @@ buffett.air7.fun          MCP · REST API · CLI
 
 ## MCP Server
 
-任何支持 MCP 的 AI 客户端（Claude Desktop、Claude Code 等）可一行配置接入：
+任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、Claude Code 等）一行配置接入：
 
 ```json
 {
   "mcpServers": {
-    "value-archive": {
-      "url": "https://buffett.air7.fun/mcp"
+    "buffett-archive": {
+      "type": "http",
+      "url": "https://buffett.air7.fun/api/mcp"
     }
   }
 }
@@ -47,12 +48,9 @@ buffett.air7.fun          MCP · REST API · CLI
 
 | 工具 | 说明 |
 |------|------|
-| `semantic_search` | 语义检索：概念、观点、投资哲学 |
-| `graph_facts` | 结构化事实：公司关系、概念出处、持仓时间线 |
-| `full_text_search` | 精确检索：人名、公司名、专有术语 |
-| `find_concept_evolution` | 一个概念随时间的演变轨迹 |
-| `list_company_mentions` | 某公司在所有文献中的全部提及 |
-| `compare_investors` | 不同投资人对同一概念的观点对比 _(roadmap)_ |
+| `search` | 混合检索（关键词 + 语义），覆盖 1957–2024 全部文献，支持年份过滤 |
+| `get_document` | 按 sourceId 或年份+类型获取完整文档，分页返回 |
+| `graph` | 查询知识图谱中的实体关系（公司、概念、人名），含时间维度 |
 
 ---
 
