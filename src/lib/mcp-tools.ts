@@ -5,7 +5,7 @@ import { searchChunks } from "@/lib/search";
 // ── search ────────────────────────────────────────────────────────────────────
 
 export const searchParams = z.object({
-  query: z.string().describe("Question or topic to search for in the archive"),
+  query: z.string().describe("Question or topic to search for in the Buffett Tribe knowledge base"),
   yearFrom: z.number().int().optional().describe("Earliest year (inclusive)"),
   yearTo: z.number().int().optional().describe("Latest year (inclusive)"),
   limit: z.number().int().min(1).max(20).optional().default(7).describe("Max chunks to return"),

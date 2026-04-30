@@ -1,7 +1,7 @@
 ---
 name: buffett-tribe
 description: >
-  Query the Warren Buffett knowledge archive (1957–2024) via REST API — shareholder letters,
+  Query the Warren Buffett knowledge base (1957–2024) via REST API — shareholder letters,
   partnership letters, and annual meeting transcripts. Use this skill whenever the user asks
   about Buffett's views, investment decisions, principles, or history; wants to read a specific
   letter; or asks questions like "what did Buffett say about X", "when did Berkshire buy Y",
@@ -9,7 +9,7 @@ description: >
   Berkshire Hathaway, or Buffett's writings. Call the API with curl — no authentication needed.
 ---
 
-# Buffett Archive
+# Buffett Tribe
 
 Access 60+ years of Warren Buffett's public writings and speeches via three REST endpoints.
 Always call the API with `curl` — responses are JSON.

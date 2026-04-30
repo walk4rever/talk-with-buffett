@@ -1,6 +1,6 @@
 > 🔒 内部文件，不对外公开。
 
-# 巴菲特部落 · Value Archive — 产品与技术设计
+# 巴菲特部落 · Buffett Tribe — 产品与技术设计
 
 > 最后更新：2026-04-30（v0.33.0）
 
@@ -8,14 +8,14 @@
 
 ## 产品定位
 
-**Value Archive**（巴菲特部落）是一个面向 AI Agent 生态的投资知识 API + MCP 服务。
+**Buffett Tribe**（巴菲特部落）是一个面向 AI Agent 生态的投资知识 API + MCP 服务。
 
 把伟大价值投资人的公开著作、演讲与信件，结构化为可程序化访问的知识图谱。以巴菲特为起点，向 Munger、Graham、Lynch、Klarman 等价值投资先驱扩展。目标是成为 AI Agent 时代**投资研究的标准知识源**。
 
 ### 访问路径
 
 ```
-Value Archive 知识图谱
+Buffett Tribe 知识图谱
         │
    ┌────┴────────────────────────┐
    │                             │
@@ -58,7 +58,7 @@ CLI                   ← 可选，按需
 
 通用 RAG 基础设施赛道有 Dify、LlamaIndex、微软 GraphRAG，竞争激烈且无资源优势。
 
-Value Archive 的壁垒是**内容质量**，不是基础设施：
+Buffett Tribe 的壁垒是**内容质量**，不是基础设施：
 - 精心策划的实体关系与知识图谱 schema
 - 多投资人、跨年代的结构化知识，内容积累越深越难复制
 - 专为 AI Agent 生态设计的工具接口
