@@ -8,12 +8,14 @@ import type { EvidencePlan, RetrievedChunk } from "@/lib/prompts/buffett";
 import { searchChunks } from "@/lib/search";
 import { Langfuse } from "langfuse";
 
-const langfuse = new Langfuse({
-  secretKey: process.env.LANGFUSE_SECRET_KEY,
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-  baseUrl: process.env.LANGFUSE_BASE_URL,
-  flushAt: 1,
-});
+function makeLangfuse() {
+  return new Langfuse({
+    secretKey: process.env.LANGFUSE_SECRET_KEY,
+    publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+    baseUrl: process.env.LANGFUSE_BASE_URL,
+    flushAt: 1,
+  });
+}
 
 // Allow up to 60s for cross-border API calls to 火山引擎
 export const maxDuration = 60;
@@ -185,6 +187,9 @@ export async function POST(req: Request) {
   if (!lastUserMsg) {
     return NextResponse.json({ error: "No user message" }, { status: 400 });
   }
+
+  // Per-request Langfuse instance — ensures shutdownAsync() flushes immediately
+  const langfuse = makeLangfuse();
 
   // Langfuse trace — spans the full request lifecycle
   const trace = langfuse.trace({
@@ -419,7 +424,7 @@ export async function POST(req: Request) {
         // Finalize Langfuse trace
         generation.end({ output: answerBuffer });
         trace.update({ output: answerBuffer });
-        await langfuse.flushAsync().then(() => console.log("[langfuse] flush OK")).catch((e) => console.error("[langfuse] flush FAILED:", e));
+        await langfuse.shutdownAsync();
 
         controller.enqueue(encoder.encode(`event: done\ndata: {}\n\n`));
       } catch (err) {
