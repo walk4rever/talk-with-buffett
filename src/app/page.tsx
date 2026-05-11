@@ -47,10 +47,13 @@ export default function Home() {
       <nav className="home-nav">
         <div className="home-nav-in">
           <Link href="/" className="home-nav-logo">
-            <Image src="/logo.svg" alt="Buffett Tribe" width={28} height={28} className="home-nav-logo-img" unoptimized />
+            <div className="home-nav-logo-mark">BT</div>
             Buffett Tribe
           </Link>
           <div className="home-nav-right">
+            <Link href="/person/buffett" className="home-nav-link">信件</Link>
+            <Link href="/person/buffett/holdings" className="home-nav-link">持仓</Link>
+            <Link href="/chat" className="home-nav-link">对话</Link>
             <Link href="/login" className="home-nav-login">登录</Link>
           </div>
         </div>
@@ -79,10 +82,11 @@ export default function Home() {
 
       {/* Hero search */}
       <section className="home-hero">
+        <p className="home-hero-eyebrow">伟大投资人的思想档案</p>
         <h1 className="home-hero-brand">
-          巴菲特<em>部落</em>
+          他们说了什么<br /><em>他们怎么做的</em>
         </h1>
-        <p className="home-hero-sub">他们说了什么 · 他们怎么做的</p>
+        <p className="home-hero-sub">追踪 Warren Buffett、李录、段永平的信件、演讲与持仓<br />与他们的思想直接对话</p>
         <HeroSearch />
       </section>
 
@@ -131,10 +135,12 @@ export default function Home() {
       </section>
 
       <footer className="home-footer-v2">
-        <span className="home-footer-logo">Buffett Tribe</span>
-        <p className="home-footer-note">
-          数据来源：SEC EDGAR 13F-HR · 本站为研究工具，不构成投资建议
-        </p>
+        <div className="home-footer-v2-in">
+          <span className="home-footer-logo">Buffett Tribe</span>
+          <p className="home-footer-note">
+            数据来源：SEC EDGAR 13F-HR · 本站为研究工具，不构成投资建议
+          </p>
+        </div>
       </footer>
     </div>
   );

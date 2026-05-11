@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import db from "@/lib/prisma";
 import { getTribeMember } from "@/lib/tribe";
@@ -76,10 +75,11 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
       <nav className="home-nav">
         <div className="home-nav-in">
           <Link href="/" className="home-nav-logo">
-            <Image src="/logo.svg" alt="Buffett Tribe" width={28} height={28} className="home-nav-logo-img" unoptimized />
+            <div className="home-nav-logo-mark">BT</div>
             Buffett Tribe
           </Link>
           <div className="home-nav-right">
+            <Link href="/" className="home-nav-link">首页</Link>
             <Link href={`/text/room?person=${id}`} className="home-nav-login">对话</Link>
           </div>
         </div>
@@ -92,10 +92,11 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
             {member.initials.slice(0, 2)}
           </span>
           <div className="holdings-hd-info">
+            <p className="holdings-eyebrow">持仓快照</p>
             <h1 className="holdings-name">{member.nameZh}</h1>
             <p className="holdings-firm">{member.firm}</p>
+            {member.aum && <span className="holdings-aum">{member.aum} AUM</span>}
           </div>
-          {member.aum && <span className="holdings-aum">{member.aum} AUM</span>}
         </div>
 
         {/* Quarter selector */}
