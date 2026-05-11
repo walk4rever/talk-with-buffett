@@ -1,6 +1,5 @@
 /**
  * Shared chat types and SSE streaming client.
- * Used by TextRoom, LiveRoom, and ChatDrawer.
  */
 
 export interface ChatSource {
@@ -46,12 +45,12 @@ export async function streamChatAPI(
   onDelta: (text: string) => void,
   onDone: (sources: ChatSource[], chatMessageId?: string) => void,
   onError: (msg: string) => void,
-  mode: "text" | "live" = "text",
+  person = "buffett",
 ) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, mode }),
+    body: JSON.stringify({ messages, person }),
   });
 
   if (res.status === 429) {

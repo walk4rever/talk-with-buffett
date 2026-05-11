@@ -190,7 +190,7 @@ export async function POST(req: Request) {
     await flushLangfuse();
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
-  const mode: "text" | "live" = body.mode === "live" ? "live" : "text";
+  const person: string = typeof body.person === "string" ? body.person : "buffett";
 
   const lastUserMsg = [...body.messages].reverse().find(
     (m: { role: string }) => m.role === "user",
@@ -205,7 +205,7 @@ export async function POST(req: Request) {
     name: "chat",
     userId: userId ?? ip,
     input: lastUserMsg.content,
-    metadata: { mode, ip },
+    metadata: { person, ip },
   });
 
   // Parallel: usage check + retrieval search
@@ -299,7 +299,7 @@ export async function POST(req: Request) {
   }
 
   const systemPrompt = appendGraphContext(
-    buildSystemPrompt(chunks, order, distinctByYear, evidencePlan, mode),
+    buildSystemPrompt(chunks, order, distinctByYear, evidencePlan),
     graphContext,
   );
 
@@ -347,7 +347,7 @@ export async function POST(req: Request) {
     name: "llm",
     model: AI_MODEL,
     input: aiMessages,
-    modelParameters: { temperature: 0.7, max_tokens: mode === "live" ? 350 : 1000, stream: true },
+    modelParameters: { temperature: 0.7, max_tokens: 1000, stream: true },
   });
 
   // Call AI with streaming
@@ -361,7 +361,7 @@ export async function POST(req: Request) {
       model: AI_MODEL,
       messages: aiMessages,
       temperature: 0.7,
-      max_tokens: mode === "live" ? 350 : 1000,
+      max_tokens: 1000,
       stream: true,
     }),
     signal: AbortSignal.timeout(55000),

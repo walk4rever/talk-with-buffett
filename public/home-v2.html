@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>巴菲特部落 · Buffett Tribe</title>
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #171717;
+      --primary: #8b0000;
+      --primary-faint: #fdf2f2;
+      --accent: #d4af37;
+      --accent-faint: #fefce8;
+      --muted: #666;
+      --muted2: #999;
+      --line: #ececec;
+      --secondary: #f5f5f5;
+      --ok: #2f855a;
+      --bad: #c53030;
+      --serif: "Lora","Noto Serif SC","Georgia",serif;
+      --sans: "Inter","Noto Sans SC",-apple-system,sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── Nav ── */
+    .nav { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 40; background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); }
+    .nav-in { max-width: 900px; margin: 0 auto; padding: 0 1.5rem; height: 50px; display: flex; align-items: center; justify-content: space-between; }
+    .nav-logo { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; color: var(--primary); letter-spacing: -0.01em; }
+    .nav-logo span { color: var(--muted); font-weight: 400; font-size: 0.85rem; margin-left: 0.4rem; }
+    .nav-right { display: flex; align-items: center; gap: 0.5rem; }
+    .nav-badge { background: var(--accent-faint); border: 1px solid #e8d590; color: #7a5c00; border-radius: 99px; padding: 0.15rem 0.6rem; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.03em; }
+    .nav-login { font-size: 0.78rem; color: var(--muted); padding: 0.3rem 0.7rem; border: 1px solid var(--line); border-radius: 6px; transition: border-color 0.1s, color 0.1s; cursor: pointer; }
+    .nav-login:hover { border-color: #bbb; color: var(--fg); }
+
+    /* ── Signals strip ── */
+    .signals { border-bottom: 1px solid var(--line); background: var(--bg); }
+    .signals-in { max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+    .sig { border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem 0.9rem; position: relative; overflow: hidden; cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s; }
+    .sig:hover { border-color: #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .sig::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+    .sig-consensus::before { background: var(--accent); }
+    .sig-new::before { background: #3b82f6; }
+    .sig-divergent::before { background: linear-gradient(90deg, var(--ok), var(--bad)); }
+    .sig-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem; }
+    .sig-tag { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+    .sig-consensus .sig-tag { color: #92400e; }
+    .sig-new .sig-tag { color: #1d4ed8; }
+    .sig-divergent .sig-tag { color: var(--muted); }
+    .sig-ticker { font-family: var(--serif); font-size: 1.2rem; font-weight: 700; line-height: 1; }
+    .sig-name { font-size: 0.65rem; color: var(--muted); margin-bottom: 0.35rem; }
+    .sig-body { font-size: 0.72rem; color: var(--fg); line-height: 1.45; }
+    .sig-chips { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.4rem; }
+    .sig-chip { font-size: 0.6rem; border-radius: 4px; padding: 0.1rem 0.35rem; font-weight: 600; }
+
+    /* ── Search hero ── */
+    .hero { max-width: 900px; margin: 0 auto; padding: 4rem 1.5rem 3.5rem; text-align: center; }
+    .hero-brand { font-family: var(--serif); font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 400; color: var(--fg); margin-bottom: 0.3rem; letter-spacing: -0.02em; }
+    .hero-brand em { color: var(--primary); font-style: normal; }
+    .hero-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 2.2rem; }
+    .search-wrap { position: relative; max-width: 560px; margin: 0 auto 1.4rem; }
+    .search-input { width: 100%; padding: 0.9rem 3.2rem 0.9rem 1.2rem; font-size: 0.95rem; font-family: var(--sans); border: 1.5px solid #d1d5db; border-radius: 12px; outline: none; background: #fff; color: var(--fg); transition: border-color 0.15s, box-shadow 0.15s; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    .search-input::placeholder { color: var(--muted2); }
+    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139,0,0,0.07); }
+    .search-btn { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: var(--primary); color: #fff; border: none; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.1s; }
+    .search-btn:hover { background: #6b0000; }
+    .search-btn svg { width: 16px; height: 16px; }
+    .example-chips { display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: center; }
+    .example-chip { font-size: 0.73rem; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0.3rem 0.8rem; cursor: pointer; transition: border-color 0.1s, color 0.1s, background 0.1s; white-space: nowrap; }
+    .example-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-faint); }
+
+    /* ── Tribe members ── */
+    .members { border-top: 1px solid var(--line); }
+    .members-in { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.5rem 3rem; }
+    .members-hd { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1.2rem; }
+    .member-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+    .member-card { border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; transition: border-color 0.12s, box-shadow 0.12s; cursor: pointer; }
+    .member-card:hover { border-color: #bbb; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    .member-top { display: flex; align-items: center; gap: 0.8rem; }
+    .member-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: #fff; flex-shrink: 0; }
+    .member-info { flex: 1; min-width: 0; }
+    .member-name { font-family: var(--serif); font-size: 0.95rem; font-weight: 600; line-height: 1.2; }
+    .member-firm { font-size: 0.65rem; color: var(--muted); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-aum { font-size: 0.63rem; font-weight: 700; color: var(--muted2); background: var(--secondary); border-radius: 4px; padding: 0.1rem 0.35rem; }
+    .member-links { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+    .member-link { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 7px; font-size: 0.7rem; color: var(--muted); transition: border-color 0.1s, color 0.1s, background 0.1s; }
+    .member-link:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-faint); }
+    .member-link-icon { font-size: 0.85rem; }
+    .member-link-label { line-height: 1.2; }
+    .member-link-sub { font-size: 0.6rem; color: var(--muted2); display: block; }
+
+    /* ── Footer ── */
+    .footer { border-top: 1px solid var(--line); }
+    .footer-in { max-width: 900px; margin: 0 auto; padding: 1.2rem 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .footer-logo { font-family: var(--serif); font-size: 0.85rem; font-weight: 700; color: var(--primary); }
+    .footer-note { font-size: 0.61rem; color: var(--muted2); line-height: 1.5; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .signals-in { grid-template-columns: 1fr; gap: 0.5rem; }
+      .member-list { grid-template-columns: 1fr; }
+      .hero { padding: 2.5rem 1.2rem 2rem; }
+      .example-chips { gap: 0.35rem; }
+    }
+    @media (max-width: 480px) {
+      .nav-login { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-in">
+    <div class="nav-logo">巴菲特部落 <span>Buffett Tribe</span></div>
+    <div class="nav-right">
+      <span class="nav-badge">2025 Q4</span>
+      <span class="nav-login">登录</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Signals -->
+<section class="signals">
+  <div class="signals-in">
+    <!-- Consensus -->
+    <div class="sig sig-consensus">
+      <div class="sig-top">
+        <span class="sig-tag">★ 共识持仓</span>
+      </div>
+      <div class="sig-ticker">BAC</div>
+      <div class="sig-name">Bank of America</div>
+      <div class="sig-body">巴菲特持有14年，李录独立建仓，均列前3重仓</div>
+      <div class="sig-chips">
+        <span class="sig-chip" style="background:var(--primary-faint);color:var(--primary)">Buffett 10.4%</span>
+        <span class="sig-chip" style="background:#eff6ff;color:#1d4ed8">李录 16.1%</span>
+      </div>
+    </div>
+
+    <!-- New action -->
+    <div class="sig sig-new">
+      <div class="sig-top">
+        <span class="sig-tag">↑ 新动作</span>
+      </div>
+      <div class="sig-ticker">OXY</div>
+      <div class="sig-name">Occidental Petroleum</div>
+      <div class="sig-body">巴菲特本季继续增持，持仓占比突破28%，接近收购门槛</div>
+      <div class="sig-chips">
+        <span class="sig-chip" style="background:var(--primary-faint);color:var(--primary)">Buffett 28.2% ↑</span>
+      </div>
+    </div>
+
+    <!-- Divergent -->
+    <div class="sig sig-divergent">
+      <div class="sig-top">
+        <span class="sig-tag">⇅ 各有判断</span>
+      </div>
+      <div class="sig-ticker">AAPL</div>
+      <div class="sig-name">Apple</div>
+      <div class="sig-body">巴菲特连续4季减持至5.2亿股；段永平仍视为核心持仓</div>
+      <div class="sig-chips">
+        <span class="sig-chip" style="background:#fef2f2;color:var(--bad)">Buffett ↓减持</span>
+        <span class="sig-chip" style="background:#f0fdf4;color:var(--ok)">段永平 持有</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Search Hero -->
+<main class="hero">
+  <h1 class="hero-brand">巴菲特<em>部落</em></h1>
+  <p class="hero-sub">他们说了什么 · 他们怎么做的</p>
+
+  <div class="search-wrap">
+    <input
+      class="search-input"
+      type="text"
+      placeholder="问巴菲特部落任何投资问题..."
+      id="searchInput"
+    />
+    <button class="search-btn" onclick="doSearch()">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="4" y1="10" x2="16" y2="10"/>
+        <polyline points="11,5 16,10 11,15"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="example-chips">
+    <span class="example-chip" onclick="ask(this)">巴菲特为什么持有BAC这么久？</span>
+    <span class="example-chip" onclick="ask(this)">李录重仓中国的逻辑是什么？</span>
+    <span class="example-chip" onclick="ask(this)">段永平如何定义企业文化？</span>
+    <span class="example-chip" onclick="ask(this)">护城河和定价权的关系？</span>
+  </div>
+</main>
+
+<!-- Tribe Members -->
+<section class="members">
+  <div class="members-in">
+    <p class="members-hd">部落成员</p>
+    <div class="member-list">
+
+      <!-- Buffett -->
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:#8b0000">WB</div>
+          <div class="member-info">
+            <div class="member-name">Warren Buffett</div>
+            <div class="member-firm">Berkshire Hathaway</div>
+          </div>
+          <span class="member-aum">$294B</span>
+        </div>
+        <div class="member-links">
+          <a href="/letters/shareholder/2024" class="member-link">
+            <span class="member-link-icon">📝</span>
+            <div class="member-link-label">
+              信件档案
+              <span class="member-link-sub">1958–2025</span>
+            </div>
+          </a>
+          <a href="#holdings-buffett" class="member-link">
+            <span class="member-link-icon">📊</span>
+            <div class="member-link-label">
+              持仓快照
+              <span class="member-link-sub">2025 Q4</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Li Lu -->
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:#1d4ed8">李录</div>
+          <div class="member-info">
+            <div class="member-name">李录</div>
+            <div class="member-firm">喜马拉雅资本</div>
+          </div>
+          <span class="member-aum">$3.6B</span>
+        </div>
+        <div class="member-links">
+          <a href="#speeches-lilu" class="member-link">
+            <span class="member-link-icon">🎙</span>
+            <div class="member-link-label">
+              演讲材料
+              <span class="member-link-sub">公开讲座</span>
+            </div>
+          </a>
+          <a href="#holdings-lilu" class="member-link">
+            <span class="member-link-icon">📊</span>
+            <div class="member-link-label">
+              持仓快照
+              <span class="member-link-sub">2025 Q4</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- 段永平 -->
+      <div class="member-card">
+        <div class="member-top">
+          <div class="member-avatar" style="background:#059669">段</div>
+          <div class="member-info">
+            <div class="member-name">段永平</div>
+            <div class="member-firm">H&amp;H International Investment</div>
+          </div>
+          <span class="member-aum">13F</span>
+        </div>
+        <div class="member-links">
+          <a href="#speeches-duan" class="member-link">
+            <span class="member-link-icon">✍️</span>
+            <div class="member-link-label">
+              雪球帖子
+              <span class="member-link-sub">公开言论</span>
+            </div>
+          </a>
+          <a href="#holdings-duan" class="member-link">
+            <span class="member-link-icon">📊</span>
+            <div class="member-link-label">
+              持仓快照
+              <span class="member-link-sub">2025 Q4</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-in">
+    <span class="footer-logo">Buffett Tribe</span>
+    <p class="footer-note">数据来源：SEC EDGAR 13F-HR 申报文件 · 本站为研究工具，不构成投资建议</p>
+  </div>
+</footer>
+
+<script>
+  function ask(el) {
+    document.getElementById('searchInput').value = el.textContent;
+    document.getElementById('searchInput').focus();
+  }
+  function doSearch() {
+    const q = document.getElementById('searchInput').value.trim();
+    if (q) window.location.href = '/chat?q=' + encodeURIComponent(q);
+  }
+  document.getElementById('searchInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+  });
+</script>
+
+</body>
+</html>

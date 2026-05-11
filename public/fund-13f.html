@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Talk with Buffett · Berkshire 13F</title>
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #171717;
+      --primary: #8b0000;
+      --primary-faint: #fdf2f2;
+      --accent: #d4af37;
+      --muted: #666;
+      --line: #ececec;
+      --secondary: #f5f5f5;
+      --ok: #2f855a;
+      --bad: #c53030;
+      --serif: "Lora","Noto Serif SC","Georgia",serif;
+      --sans: "Inter","Noto Sans SC",-apple-system,sans-serif;
+
+      --c-tech:       #3b82f6;
+      --c-finance:    #1d4ed8;
+      --c-consumer:   #059669;
+      --c-energy:     #d97706;
+      --c-health:     #7c3aed;
+      --c-insurance:  #0891b2;
+      --c-industrial: #4b5563;
+      --c-media:      #db2777;
+      --c-other:      #9ca3af;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6; }
+
+    /* ── Header ── */
+    .hdr { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; background: var(--bg); }
+    .hdr-in { max-width: 1140px; margin: 0 auto; padding: 0.52rem 1.4rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .logo { font-family: var(--serif); font-size: 1.35rem; font-weight: 700; color: var(--primary); text-decoration: none; white-space: nowrap; }
+    .period-tabs { display: flex; gap: 0.28rem; }
+    .ptab { border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 99px; padding: 0.18rem 0.55rem; font-size: 0.71rem; cursor: pointer; font-family: var(--sans); transition: border-color 0.1s; }
+    .ptab.active { border-color: var(--primary); color: var(--primary); background: var(--primary-faint); }
+
+    /* ── Page ── */
+    .page { max-width: 1140px; margin: 0 auto; padding: 1.1rem 1.4rem 4rem; }
+
+    /* ── Hero ── */
+    .hero { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; margin-bottom: 1.1rem; }
+    .hero-eyebrow { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.3rem; }
+    .hero-name { font-family: var(--serif); font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 400; color: var(--fg); line-height: 1.15; }
+    .hero-mgr { font-size: 0.82rem; color: var(--muted); margin-top: 0.25rem; }
+    .hero-pills { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .pill { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 0.15rem 0.5rem; font-size: 0.68rem; color: var(--muted); background: var(--secondary); }
+    .stats-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; }
+    .stat-card { border: 1px solid var(--line); border-radius: 9px; padding: 0.55rem 0.7rem; }
+    .stat-k { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .stat-v { font-size: 1.1rem; font-weight: 700; color: var(--fg); margin-top: 0.05rem; line-height: 1.1; }
+    .stat-sub { font-size: 0.62rem; color: var(--muted); margin-top: 0.08rem; }
+
+    /* ── Main grid ── */
+    .main-grid { display: grid; grid-template-columns: 1fr 260px; gap: 0.7rem; margin-top: 1.1rem; align-items: start; }
+
+    /* ── Bar chart ── */
+    .barlist-panel { border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.8rem; }
+    .panel-title { font-family: var(--serif); font-size: 0.9rem; font-weight: 500; margin-bottom: 0.55rem; }
+    .barlist { display: flex; flex-direction: column; gap: 0.15rem; }
+    .bar-row { display: grid; grid-template-columns: 120px 1fr 52px 60px; gap: 0.4rem; align-items: center; padding: 0.22rem 0.3rem; border-radius: 5px; transition: background 0.1s; cursor: default; }
+    .bar-row:hover { background: #f8f8f8; }
+    .bar-label { display: flex; align-items: center; gap: 0.4rem; overflow: hidden; }
+    .sector-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .bar-ticker { font-weight: 700; font-size: 0.74rem; white-space: nowrap; }
+    .bar-co { font-size: 0.62rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { height: 14px; background: #f3f3f3; border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; }
+    .bar-pct { font-size: 0.72rem; font-weight: 600; text-align: right; color: var(--fg); }
+    .bar-delta { font-size: 0.65rem; text-align: right; white-space: nowrap; }
+    .delta-up   { color: var(--ok); }
+    .delta-down { color: var(--bad); }
+    .delta-new  { color: #1d4ed8; font-weight: 600; }
+    .delta-flat { color: #ccc; }
+
+    /* ── Right column ── */
+    .right-col { display: flex; flex-direction: column; gap: 0.7rem; }
+
+    /* ── Donut ── */
+    .donut-panel { border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.8rem; }
+    .donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .sector-legend { display: flex; flex-direction: column; gap: 0.22rem; }
+    .sl-item { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 0.4rem; font-size: 0.68rem; }
+    .sl-dot { width: 9px; height: 9px; border-radius: 2px; }
+
+    /* ── Change summary ── */
+    .change-panel { border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.8rem; }
+    .change-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+    .change-item { border-radius: 7px; padding: 0.3rem 0.45rem; text-align: center; cursor: pointer; transition: opacity 0.1s; }
+    .change-item:hover { opacity: 0.85; }
+    .change-item.active { outline: 2px solid currentColor; outline-offset: 1px; }
+    .change-n { font-size: 1.1rem; font-weight: 700; display: block; }
+    .change-lbl { font-size: 0.62rem; display: block; }
+    .ci-new   { background: #eff6ff; color: #1d4ed8; }
+    .ci-up    { background: #ecfdf5; color: var(--ok); }
+    .ci-down  { background: #fef2f2; color: var(--bad); }
+    .ci-flat  { background: var(--secondary); color: var(--muted); }
+    .ci-exit  { background: #fefce8; color: #92400e; }
+
+    /* ── Table ── */
+    .table-section { margin-top: 1.1rem; border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.8rem; }
+    .table-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.55rem; flex-wrap: wrap; gap: 0.4rem; }
+    .table-hd h2 { font-family: var(--serif); font-size: 0.9rem; font-weight: 500; }
+    .filters { display: flex; gap: 0.28rem; flex-wrap: wrap; }
+    .fbtn { border: 1px solid var(--line); background: var(--bg); color: var(--muted); border-radius: 99px; padding: 0.18rem 0.48rem; font-size: 0.7rem; cursor: pointer; font-family: var(--sans); }
+    .fbtn.active { border-color: var(--primary); color: var(--primary); background: var(--primary-faint); }
+    .tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.72rem; min-width: 680px; }
+    thead th { background: #fbfbfb; font-weight: 600; color: var(--muted); padding: 0.36rem 0.55rem; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: right; position: sticky; top: 0; }
+    thead th:first-child, thead th:nth-child(2), thead th:nth-child(3) { text-align: left; }
+    tbody td { padding: 0.34rem 0.55rem; border-bottom: 1px solid #f3f3f3; text-align: right; }
+    tbody td:first-child, tbody td:nth-child(2), tbody td:nth-child(3) { text-align: left; }
+    tbody tr:hover { background: #fafafa; }
+    .t-ticker { font-weight: 700; }
+    .t-name { color: var(--muted); font-size: 0.67rem; }
+    .t-sector-tag { display: inline-block; font-size: 0.6rem; border-radius: 4px; padding: 0 0.3rem; color: #fff; }
+    .tag-type { display: inline-block; border-radius: 99px; padding: 0.05rem 0.38rem; font-size: 0.63rem; font-weight: 500; }
+    .tag-new      { background: #dbeafe; color: #1d4ed8; }
+    .tag-increased { background: #dcfce7; color: var(--ok); }
+    .tag-decreased { background: #fee2e2; color: var(--bad); }
+    .tag-unchanged { background: var(--secondary); color: var(--muted); }
+    .t-pct { font-weight: 600; }
+    .t-delta-up   { color: var(--ok); }
+    .t-delta-down { color: var(--bad); }
+    .t-delta-flat { color: #ccc; }
+    .foot { margin-top: 0.8rem; font-size: 0.64rem; color: var(--muted); }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; }
+      .main-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 500px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .page { padding: 0.9rem 0.9rem 3rem; }
+      .period-tabs { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <a class="logo" href="/">Talk with Buffett</a>
+    <div class="period-tabs" id="periodTabs"></div>
+  </div>
+</header>
+
+<main class="page">
+  <div class="hero">
+    <div>
+      <p class="hero-eyebrow">13F 持仓快照</p>
+      <h1 class="hero-name">Berkshire Hathaway</h1>
+      <p class="hero-mgr">Warren Buffett · CIK 0001067983</p>
+      <div class="hero-pills">
+        <span class="pill">报告期：2025Q4</span>
+        <span class="pill">提交日：2026-02-17</span>
+        <span class="pill">来源：SEC EDGAR</span>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-k">持仓市值</div>
+        <div class="stat-v">$274.2B</div>
+        <div class="stat-sub">约 2 万亿人民币</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-k">持仓数量</div>
+        <div class="stat-v">42</div>
+        <div class="stat-sub">只股票</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-k">最大仓位</div>
+        <div class="stat-v">22.6%</div>
+        <div class="stat-sub">AAPL</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-k">前5集中度</div>
+        <div class="stat-v">70.9%</div>
+        <div class="stat-sub">前10占 89.2%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <!-- Bar chart -->
+    <div class="barlist-panel">
+      <p class="panel-title">持仓权重（前 20，按仓位排序）</p>
+      <div class="barlist" id="barlist"></div>
+    </div>
+
+    <!-- Right column -->
+    <div class="right-col">
+      <div class="donut-panel">
+        <p class="panel-title" style="margin-bottom:0.65rem">行业分布</p>
+        <div class="donut-wrap">
+          <svg id="donutSvg" viewBox="0 0 160 160" width="140" height="140" aria-label="行业分布饼图"></svg>
+        </div>
+        <div class="sector-legend" id="sectorLegend"></div>
+      </div>
+      <div class="change-panel">
+        <p class="panel-title" style="margin-bottom:0.55rem">本季操作<span style="font-size:0.62rem;font-weight:400;color:var(--muted);margin-left:0.4rem">vs 上季度</span></p>
+        <div class="change-grid" id="changeGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-section">
+    <div class="table-hd">
+      <h2>完整持仓明细</h2>
+      <div class="filters" id="filters"></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>公司</th>
+            <th>行业</th>
+            <th>本季权重</th>
+            <th>环比变化</th>
+            <th>持仓类型</th>
+            <th>持股数（万）</th>
+            <th>持仓市值</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="foot">注：环比数据与行业分类为示例，仅供参考。真实 13F 不含上季度对比数据，变化需跨期比对计算。</p>
+  </div>
+</main>
+
+<script>
+  const PERIODS = ['2024Q2','2024Q3','2024Q4','2025Q1','2025Q2','2025Q3','2025Q4'];
+  let currentPeriod = '2025Q4';
+  let activeFilter = 'all';
+
+  const SECTORS = {
+    tech:       { label:'科技',    color:'#3b82f6' },
+    finance:    { label:'金融',    color:'#1d4ed8' },
+    consumer:   { label:'消费',    color:'#059669' },
+    energy:     { label:'能源',    color:'#d97706' },
+    health:     { label:'医疗',    color:'#7c3aed' },
+    insurance:  { label:'保险',    color:'#0891b2' },
+    industrial: { label:'工业',    color:'#4b5563' },
+    media:      { label:'媒体',    color:'#db2777' },
+    other:      { label:'其他',    color:'#9ca3af' },
+  };
+
+  // Real Q4 2025 data + approximate Q3 2025 comparison (labeled 示例)
+  const HOLDINGS = [
+    { ticker:'AAPL',  name:'Apple',                sector:'tech',       pct:22.60, prevPct:25.10, shares:22791.78, value:61961735283, type:'decreased' },
+    { ticker:'AXP',   name:'American Express',     sector:'finance',    pct:20.46, prevPct:18.80, shares:15161.07, value:56088378465, type:'increased' },
+    { ticker:'BAC',   name:'Bank of America',      sector:'finance',    pct:10.38, prevPct:11.50, shares:51729.59, value:28451276370, type:'decreased' },
+    { ticker:'KO',    name:'Coca-Cola',             sector:'consumer',   pct:10.20, prevPct:10.20, shares:40000.00, value:27964000000, type:'unchanged' },
+    { ticker:'CVX',   name:'Chevron',              sector:'energy',     pct: 7.24, prevPct: 7.80, shares:13015.64, value:19837131131, type:'decreased' },
+    { ticker:'MCO',   name:"Moody's",              sector:'finance',    pct: 4.60, prevPct: 4.20, shares: 2466.98, value:12602556092, type:'increased' },
+    { ticker:'OXY',   name:'Occidental Petroleum', sector:'energy',     pct: 3.97, prevPct: 4.30, shares:26494.14, value:10894391643, type:'decreased' },
+    { ticker:'CB',    name:'Chubb',                sector:'insurance',  pct: 3.90, prevPct: 3.60, shares: 3424.92, value:10689854998, type:'increased' },
+    { ticker:'KHC',   name:'Kraft Heinz',          sector:'consumer',   pct: 2.88, prevPct: 2.90, shares:32563.48, value: 7896644337, type:'unchanged' },
+    { ticker:'GOOG',  name:'Alphabet (Class C)',   sector:'tech',       pct: 2.04, prevPct: 1.80, shares: 1784.61, value: 5585842446, type:'increased' },
+    { ticker:'DVA',   name:'DaVita',               sector:'health',     pct: 1.32, prevPct: 1.32, shares: 3175.91, value: 3608147375, type:'unchanged' },
+    { ticker:'KR',    name:'Kroger',               sector:'consumer',   pct: 1.14, prevPct: 1.00, shares: 5000.00, value: 3124000000, type:'increased' },
+    { ticker:'V',     name:'Visa',                 sector:'finance',    pct: 1.06, prevPct: 1.06, shares:  829.75, value: 2910002197, type:'unchanged' },
+    { ticker:'SIRI',  name:'Sirius XM',            sector:'media',      pct: 0.91, prevPct: 0.91, shares:12480.71, value: 2495518305, type:'unchanged' },
+    { ticker:'MA',    name:'Mastercard',           sector:'finance',    pct: 0.83, prevPct: 0.83, shares:  398.66, value: 2275897610, type:'unchanged' },
+    { ticker:'VRSN',  name:'VeriSign',             sector:'tech',       pct: 0.80, prevPct: 0.86, shares:  898.99, value: 2184091346, type:'decreased' },
+    { ticker:'STZ',   name:'Constellation Brands', sector:'consumer',   pct: 0.65, prevPct: 0,    shares: 1300.00, value: 1793480000, type:'new' },
+    { ticker:'COF',   name:'Capital One',          sector:'finance',    pct: 0.63, prevPct: 0,    shares:  715.00, value: 1732874000, type:'new' },
+    { ticker:'UNH',   name:'UnitedHealth',         sector:'health',     pct: 0.61, prevPct: 0.75, shares:  503.96, value: 1663610472, type:'decreased' },
+    { ticker:'DPZ',   name:"Domino's Pizza",       sector:'consumer',   pct: 0.51, prevPct: 0.40, shares:  335.00, value: 1396347000, type:'increased' },
+    { ticker:'ALLY',  name:'Ally Financial',       sector:'finance',    pct: 0.48, prevPct: 0.56, shares: 2900.00, value: 1313410001, type:'decreased' },
+    { ticker:'AON',   name:'Aon',                  sector:'finance',    pct: 0.46, prevPct: 0.46, shares:  360.30, value: 1271424876, type:'unchanged' },
+    { ticker:'NUE',   name:'Nucor',                sector:'industrial', pct: 0.38, prevPct: 0.44, shares:  640.77, value: 1045167939, type:'decreased' },
+    { ticker:'LLYVK', name:'Liberty Live (K)',     sector:'media',      pct: 0.33, prevPct: 0.33, shares: 1091.77, value:  907912688, type:'unchanged' },
+    { ticker:'LEN',   name:'Lennar',               sector:'industrial', pct: 0.26, prevPct: 0.30, shares:  705.10, value:  724837660, type:'decreased' },
+    { ticker:'POOL',  name:'Pool Corp',            sector:'industrial', pct: 0.26, prevPct: 0.22, shares:  306.89, value:  702007444, type:'increased' },
+    { ticker:'AMZN',  name:'Amazon',               sector:'tech',       pct: 0.19, prevPct: 0.19, shares:  227.60, value:  525346320, type:'unchanged' },
+    { ticker:'LPX',   name:'Louisiana-Pacific',    sector:'industrial', pct: 0.17, prevPct: 0.22, shares:  566.48, value:  457488683, type:'decreased' },
+    { ticker:'LLYVA', name:'Liberty Live (A)',     sector:'media',      pct: 0.15, prevPct: 0.15, shares:  498.66, value:  406406923, type:'unchanged' },
+    { ticker:'NYT',   name:'New York Times',       sector:'media',      pct: 0.13, prevPct: 0.13, shares:  506.57, value:  351663948, type:'unchanged' },
+    { ticker:'HEI',   name:'Heico',                sector:'industrial', pct: 0.12, prevPct: 0.10, shares:  129.46, value:  326798907, type:'increased' },
+    { ticker:'FWONK', name:'Liberty Media (F1)',   sector:'media',      pct: 0.11, prevPct: 0.14, shares:  301.86, value:  297357853, type:'decreased' },
+    { ticker:'CHTR',  name:'Charter Comm.',        sector:'media',      pct: 0.08, prevPct: 0.11, shares:  106.09, value:  221459118, type:'decreased' },
+    { ticker:'LAMR',  name:'Lamar Advertising',    sector:'media',      pct: 0.06, prevPct: 0.06, shares:  120.24, value:  152201058, type:'unchanged' },
+    { ticker:'ALLE',  name:'Allegion',             sector:'industrial', pct: 0.05, prevPct: 0.05, shares:   78.01, value:  124212776, type:'unchanged' },
+    { ticker:'NVR',   name:'NVR Inc.',             sector:'industrial', pct: 0.03, prevPct: 0.04, shares:    1.11, value:   81037260, type:'decreased' },
+    { ticker:'JEF',   name:'Jefferies',            sector:'finance',    pct: 0.01, prevPct: 0.02, shares:   43.36, value:   26867589, type:'decreased' },
+    { ticker:'DEO',   name:'Diageo',               sector:'consumer',   pct: 0.01, prevPct: 0.01, shares:   22.78, value:   19647993, type:'unchanged' },
+    { ticker:'LILA',  name:'Liberty Latin (A)',    sector:'media',      pct: 0.01, prevPct: 0.01, shares:  239.67, value:   17711354, type:'unchanged' },
+    { ticker:'LEN.B', name:'Lennar (Class B)',     sector:'industrial', pct: 0.01, prevPct: 0.01, shares:   18.10, value:   17214818, type:'unchanged' },
+    { ticker:'LILAK', name:'Liberty Latin (K)',    sector:'media',      pct: 0.00, prevPct: 0.00, shares:  128.40, value:    9578789, type:'unchanged' },
+    { ticker:'BATRA', name:'Atlanta Braves',       sector:'media',      pct: 0.00, prevPct: 0.00, shares:   11.54, value:    4553634, type:'unchanged' },
+  ];
+
+  const MAX_BAR = 25; // bar scale cap
+
+  // ── Period tabs ──
+  const ptEl = document.getElementById('periodTabs');
+  PERIODS.forEach(p => {
+    const b = document.createElement('button');
+    b.className = `ptab${p === currentPeriod ? ' active' : ''}`;
+    b.textContent = p;
+    b.onclick = () => {
+      currentPeriod = p;
+      document.querySelectorAll('.ptab').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    };
+    ptEl.appendChild(b);
+  });
+
+  // ── Bar chart (top 20) ──
+  function renderBars() {
+    const top20 = HOLDINGS.slice(0, 20);
+    document.getElementById('barlist').innerHTML = top20.map(h => {
+      const sc = SECTORS[h.sector];
+      const w = (h.pct / MAX_BAR) * 100;
+      const delta = h.pct - h.prevPct;
+      let deltaHtml = '';
+      if (h.type === 'new') deltaHtml = `<span class="delta-new">NEW</span>`;
+      else if (Math.abs(delta) < 0.05) deltaHtml = `<span class="delta-flat">—</span>`;
+      else if (delta > 0) deltaHtml = `<span class="delta-up">+${delta.toFixed(1)}pt</span>`;
+      else deltaHtml = `<span class="delta-down">${delta.toFixed(1)}pt</span>`;
+
+      return `<div class="bar-row">
+        <div class="bar-label">
+          <span class="sector-dot" style="background:${sc.color}"></span>
+          <div style="overflow:hidden">
+            <div class="bar-ticker">${h.ticker}</div>
+            <div class="bar-co">${h.name}</div>
+          </div>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${w}%;background:${sc.color}"></div>
+        </div>
+        <div class="bar-pct">${h.pct.toFixed(2)}%</div>
+        <div class="bar-delta">${deltaHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Donut chart ──
+  function renderDonut() {
+    const sectorTotals = {};
+    HOLDINGS.forEach(h => {
+      sectorTotals[h.sector] = (sectorTotals[h.sector] || 0) + h.pct;
+    });
+
+    const entries = Object.entries(sectorTotals)
+      .map(([k, v]) => ({ key: k, label: SECTORS[k].label, color: SECTORS[k].color, pct: v }))
+      .filter(e => e.pct > 0)
+      .sort((a, b) => b.pct - a.pct);
+
+    const cx = 80, cy = 80, R = 68, r = 42;
+    let acc = -Math.PI / 2;
+    const total = entries.reduce((s, e) => s + e.pct, 0);
+
+    const paths = entries.map(e => {
+      const angle = (e.pct / total) * Math.PI * 2;
+      const x1 = cx + R * Math.cos(acc);
+      const y1 = cy + R * Math.sin(acc);
+      acc += angle;
+      const x2 = cx + R * Math.cos(acc);
+      const y2 = cy + R * Math.sin(acc);
+      const xi1 = cx + r * Math.cos(acc);
+      const yi1 = cy + r * Math.sin(acc);
+      acc -= angle;
+      const xi2 = cx + r * Math.cos(acc);
+      const yi2 = cy + r * Math.sin(acc);
+      acc += angle;
+      const large = angle > Math.PI ? 1 : 0;
+      const d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${R} ${R} 0 ${large} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} L ${xi1.toFixed(1)} ${yi1.toFixed(1)} A ${r} ${r} 0 ${large} 0 ${xi2.toFixed(1)} ${yi2.toFixed(1)} Z`;
+      return `<path d="${d}" fill="${e.color}" stroke="#fff" stroke-width="1.5"/>`;
+    }).join('');
+
+    const center = `<text x="${cx}" y="${cy - 5}" text-anchor="middle" font-size="10" fill="#999">持仓</text>
+      <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="13" font-weight="700" fill="#171717">42只</text>`;
+
+    document.getElementById('donutSvg').innerHTML = paths + center;
+
+    document.getElementById('sectorLegend').innerHTML = entries.map(e => `
+      <div class="sl-item">
+        <span class="sl-dot" style="background:${e.color}"></span>
+        <span>${e.label}</span>
+        <span style="font-weight:600;color:${e.color}">${e.pct.toFixed(1)}%</span>
+      </div>
+    `).join('');
+  }
+
+  // ── Change summary ──
+  function renderChangeSummary() {
+    const counts = HOLDINGS.reduce((acc, h) => {
+      acc[h.type] = (acc[h.type] || 0) + 1;
+      return acc;
+    }, {});
+
+    document.getElementById('changeGrid').innerHTML = `
+      <div class="change-item ci-new"><span class="change-n">${counts.new || 0}</span><span class="change-lbl">新建仓</span></div>
+      <div class="change-item ci-up"><span class="change-n">${counts.increased || 0}</span><span class="change-lbl">增持</span></div>
+      <div class="change-item ci-down"><span class="change-n">${counts.decreased || 0}</span><span class="change-lbl">减持</span></div>
+      <div class="change-item ci-flat"><span class="change-n">${counts.unchanged || 0}</span><span class="change-lbl">未变</span></div>
+    `;
+  }
+
+  // ── Table ──
+  const TYPE_LABELS = {
+    new: '新建仓', increased: '增持', decreased: '减持', unchanged: '未变', exited: '清仓'
+  };
+
+  function fmtVal(v) {
+    if (v >= 1e9) return `$${(v/1e9).toFixed(1)}B`;
+    if (v >= 1e6) return `$${(v/1e6).toFixed(0)}M`;
+    return `$${v.toLocaleString()}`;
+  }
+  function fmtShares(n) { return n > 0 ? n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}) : '—'; }
+
+  function renderTable() {
+    const data = activeFilter === 'all'
+      ? HOLDINGS
+      : HOLDINGS.filter(h => h.type === activeFilter);
+
+    document.getElementById('tbody').innerHTML = data.map(h => {
+      const sc = SECTORS[h.sector];
+      const delta = h.pct - h.prevPct;
+      let deltaStr = '—', deltaClass = 't-delta-flat';
+      if (h.type === 'new') { deltaStr = 'NEW'; deltaClass = 'delta-new'; }
+      else if (Math.abs(delta) >= 0.05) {
+        deltaStr = (delta > 0 ? '+' : '') + delta.toFixed(2) + 'pt';
+        deltaClass = delta > 0 ? 't-delta-up' : 't-delta-down';
+      }
+      return `<tr>
+        <td class="t-ticker">${h.ticker}</td>
+        <td class="t-name">${h.name}</td>
+        <td><span class="t-sector-tag" style="background:${sc.color}">${sc.label}</span></td>
+        <td class="t-pct">${h.pct.toFixed(2)}%</td>
+        <td class="${deltaClass}" style="font-size:0.69rem">${deltaStr}</td>
+        <td><span class="tag-type tag-${h.type}">${TYPE_LABELS[h.type]}</span></td>
+        <td>${fmtShares(h.shares)}</td>
+        <td>${fmtVal(h.value)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderFilters() {
+    const types = [
+      { key:'all', label:'全部' },
+      { key:'new', label:'新建仓' },
+      { key:'increased', label:'增持' },
+      { key:'decreased', label:'减持' },
+      { key:'unchanged', label:'未变' },
+    ];
+    const root = document.getElementById('filters');
+    root.innerHTML = types.map(t => `
+      <button class="fbtn ${t.key === activeFilter ? 'active' : ''}" data-key="${t.key}">${t.label}</button>
+    `).join('');
+    root.querySelectorAll('.fbtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeFilter = btn.dataset.key;
+        root.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderTable();
+      });
+    });
+  }
+
+  renderBars();
+  renderDonut();
+  renderChangeSummary();
+  renderFilters();
+  renderTable();
+</script>
+</body>
+</html>

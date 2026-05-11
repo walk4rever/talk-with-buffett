@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Talk with Buffett · 13F 持仓对比</title>
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #171717;
+      --brk: #8b0000;
+      --brk-faint: #fdf2f2;
+      --him: #1d4ed8;
+      --him-faint: #eff6ff;
+      --accent: #d4af37;
+      --secondary: #f5f5f5;
+      --muted: #666;
+      --line: #ececec;
+      --ok: #2f855a;
+      --bad: #c53030;
+      --serif: "Lora","Noto Serif SC","Georgia",serif;
+      --sans: "Inter","Noto Sans SC",-apple-system,sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6; }
+
+    .hdr { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; background: var(--bg); }
+    .hdr-in { max-width: 1100px; margin: 0 auto; padding: 0.55rem 1.4rem; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-family: var(--serif); font-size: 1.4rem; font-weight: 700; color: var(--brk); text-decoration: none; }
+    .hdr-meta { font-size: 0.72rem; color: var(--muted); }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 1.2rem 1.4rem 4rem; }
+    .page-title { font-family: var(--serif); font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 400; }
+    .page-sub { color: var(--muted); font-size: 0.82rem; margin-top: 0.2rem; margin-bottom: 1.4rem; }
+
+    /* ── Investor Cards ── */
+    .inv-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-bottom: 1.3rem; }
+    .inv-card { border-radius: 10px; border: 1.5px solid var(--line); padding: 0.9rem 1.1rem; }
+    .inv-card.brk { border-color: color-mix(in srgb, var(--brk) 25%, #fff); background: var(--brk-faint); }
+    .inv-card.him { border-color: color-mix(in srgb, var(--him) 25%, #fff); background: var(--him-faint); }
+    .inv-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.6rem; }
+    .inv-name { font-family: var(--serif); font-size: 1rem; font-weight: 500; }
+    .inv-card.brk .inv-name { color: var(--brk); }
+    .inv-card.him .inv-name { color: var(--him); }
+    .inv-mgr { font-size: 0.72rem; color: var(--muted); margin-top: 0.05rem; }
+    .inv-aum { font-size: 1.3rem; font-weight: 700; }
+    .inv-aum-lbl { font-size: 0.62rem; color: var(--muted); text-align: right; }
+    .inv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+    .inv-stat { background: rgba(255,255,255,0.6); border-radius: 6px; padding: 0.3rem 0.45rem; }
+    .inv-stat-k { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .inv-stat-v { font-size: 0.82rem; font-weight: 600; margin-top: 0.02rem; }
+
+    /* ── Insights ── */
+    .insights { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; margin-bottom: 1.4rem; }
+    .insight { border: 1px solid var(--line); border-radius: 9px; padding: 0.65rem 0.75rem; background: var(--bg); }
+    .insight-icon { font-size: 1rem; margin-bottom: 0.25rem; }
+    .insight-body { font-size: 0.74rem; line-height: 1.45; color: var(--fg); }
+    .insight-body strong { color: var(--fg); }
+
+    /* ── Butterfly Chart ── */
+    .section-hd { display: flex; align-items: baseline; gap: 0.6rem; margin-bottom: 0.65rem; }
+    .section-title { font-family: var(--serif); font-size: 0.96rem; font-weight: 500; }
+    .section-hint { font-size: 0.68rem; color: var(--muted); }
+
+    .butterfly-legend { display: flex; gap: 1.2rem; margin-bottom: 0.6rem; }
+    .bl-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600; }
+    .bl-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    .butterfly { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .bf-header { display: grid; grid-template-columns: 1fr 130px 1fr; background: #fbfbfb; border-bottom: 1px solid var(--line); padding: 0.4rem 0; }
+    .bf-header-brk { text-align: right; padding-right: 0.7rem; font-size: 0.67rem; font-weight: 600; color: var(--brk); text-transform: uppercase; letter-spacing: 0.06em; }
+    .bf-header-mid { text-align: center; font-size: 0.67rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .bf-header-him { text-align: left; padding-left: 0.7rem; font-size: 0.67rem; font-weight: 600; color: var(--him); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .bf-row { display: grid; grid-template-columns: 1fr 130px 1fr; align-items: center; border-bottom: 1px solid #f3f3f3; }
+    .bf-row:last-child { border-bottom: none; }
+    .bf-row:hover { background: #fafafa; }
+    .bf-row.shared-row { }
+    .bf-row.only-brk .bf-right { opacity: 0.25; }
+    .bf-row.only-him .bf-left { opacity: 0.25; }
+
+    .bf-left { display: flex; justify-content: flex-end; align-items: center; gap: 0.45rem; padding: 0.38rem 0.7rem 0.38rem 0.6rem; }
+    .bf-right { display: flex; justify-content: flex-start; align-items: center; gap: 0.45rem; padding: 0.38rem 0.6rem 0.38rem 0.7rem; }
+    .bf-mid { text-align: center; padding: 0.38rem 0.3rem; }
+    .bf-ticker { font-weight: 700; font-size: 0.75rem; display: block; }
+    .bf-name { font-size: 0.6rem; color: var(--muted); display: block; }
+    .bf-pct { font-size: 0.72rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+    .bf-pct.brk-pct { color: var(--brk); }
+    .bf-pct.him-pct { color: var(--him); }
+    .bf-pct.zero { color: #ccc; font-weight: 400; font-size: 0.68rem; }
+    .bar-wrap { flex: 1; overflow: hidden; }
+    .bar-wrap-l { display: flex; justify-content: flex-end; }
+    .bar-wrap-r { display: flex; justify-content: flex-start; }
+    .bar { height: 18px; border-radius: 3px; min-width: 2px; }
+    .bar-brk { background: var(--brk); }
+    .bar-him { background: var(--him); }
+
+    /* ── Divider in butterfly ── */
+    .bf-divider { border-bottom: 2px dashed #e5e7eb; }
+    .bf-divider-label { grid-column: 1/-1; font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.07em; color: #aaa; text-align: center; padding: 0.25rem 0; background: #fafafa; border-bottom: 1px solid #f3f3f3; }
+
+    /* ── Full Table ── */
+    .table-panel { border: 1px solid var(--line); border-radius: 10px; padding: 0.7rem 0.8rem; margin-top: 1.4rem; }
+    .table-panel h2 { font-family: var(--serif); font-size: 0.94rem; font-weight: 500; margin-bottom: 0.55rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.73rem; min-width: 600px; }
+    th, td { padding: 0.35rem 0.55rem; border-bottom: 1px solid #f3f3f3; }
+    th { background: #fbfbfb; font-weight: 600; color: var(--muted); text-align: right; position: sticky; top: 0; }
+    th:first-child, td:first-child { text-align: left; }
+    th:nth-child(2), td:nth-child(2) { text-align: left; }
+    td { text-align: right; }
+    .td-ticker { font-weight: 700; }
+    .td-name { color: var(--muted); font-size: 0.68rem; }
+    .pct-brk { color: var(--brk); font-weight: 600; }
+    .pct-him { color: var(--him); font-weight: 600; }
+    .pct-zero { color: #ccc; }
+    .shared-row-tbl td:first-child { border-left: 2px solid var(--accent); }
+    .tag-new { display: inline-block; background: #fef9ec; border: 1px solid #f0ddbb; color: #7a4e00; border-radius: 99px; padding: 0 0.35rem; font-size: 0.6rem; vertical-align: middle; }
+
+    .foot { margin-top: 0.9rem; font-size: 0.65rem; color: var(--muted); }
+
+    @media (max-width: 720px) {
+      .inv-cards { grid-template-columns: 1fr; }
+      .insights { grid-template-columns: 1fr; }
+      .inv-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <a class="logo" href="/">Talk with Buffett</a>
+    <span class="hdr-meta">数据来源：SEC EDGAR · 报告期 2025Q4 · 提交日 2026-02-17</span>
+  </div>
+</header>
+
+<main class="page">
+  <h1 class="page-title">13F 持仓对比</h1>
+  <p class="page-sub">伯克希尔哈撒韦 vs 喜马拉雅资本（李录）· 2025Q4 · 真实申报数据</p>
+
+  <div class="inv-cards">
+    <div class="inv-card brk">
+      <div class="inv-card-top">
+        <div>
+          <div class="inv-name">Berkshire Hathaway</div>
+          <div class="inv-mgr">Warren Buffett · CIK 0001067983</div>
+        </div>
+        <div style="text-align:right">
+          <div class="inv-aum">$274.2B</div>
+          <div class="inv-aum-lbl">持仓总市值</div>
+        </div>
+      </div>
+      <div class="inv-stats">
+        <div class="inv-stat"><div class="inv-stat-k">持仓数量</div><div class="inv-stat-v">42</div></div>
+        <div class="inv-stat"><div class="inv-stat-k">最大仓位</div><div class="inv-stat-v">AAPL 22.6%</div></div>
+        <div class="inv-stat"><div class="inv-stat-k">前5集中度</div><div class="inv-stat-v">70.9%</div></div>
+      </div>
+    </div>
+    <div class="inv-card him">
+      <div class="inv-card-top">
+        <div>
+          <div class="inv-name">喜马拉雅资本</div>
+          <div class="inv-mgr">李录 (Li Lu) · CIK 0001709323</div>
+        </div>
+        <div style="text-align:right">
+          <div class="inv-aum">$3.57B</div>
+          <div class="inv-aum-lbl">持仓总市值</div>
+        </div>
+      </div>
+      <div class="inv-stats">
+        <div class="inv-stat"><div class="inv-stat-k">持仓数量</div><div class="inv-stat-v">9</div></div>
+        <div class="inv-stat"><div class="inv-stat-k">最大仓位</div><div class="inv-stat-v">GOOGL 43.9%</div></div>
+        <div class="inv-stat"><div class="inv-stat-k">前5集中度</div><div class="inv-stat-v">87.2%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="insights">
+    <div class="insight">
+      <div class="insight-icon">🔗</div>
+      <div class="insight-body">李录持有 <strong>BRK.B 12.6%</strong>，伯克希尔是喜马拉雅第五大持仓——学生在重仓老师的公司</div>
+    </div>
+    <div class="insight">
+      <div class="insight-icon">📊</div>
+      <div class="insight-body">最大分歧：<strong>Alphabet</strong> 占李录组合 43.9%，占伯克希尔仅 2%；<strong>AAPL</strong> 反向：22.6% vs 0.84%</div>
+    </div>
+    <div class="insight">
+      <div class="insight-icon">🤝</div>
+      <div class="insight-body">唯一共同重仓：<strong>BAC</strong>，伯克希尔 10.4%（第三大），李录 16.1%（第三大）——英雄所见略同</div>
+    </div>
+  </div>
+
+  <div class="section-hd">
+    <span class="section-title">持仓权重对比</span>
+    <span class="section-hint">条形长度代表权重占比，比例尺最大 46%</span>
+  </div>
+  <div class="butterfly-legend">
+    <span class="bl-item"><span class="bl-dot" style="background:var(--brk)"></span>Berkshire Hathaway</span>
+    <span class="bl-item"><span class="bl-dot" style="background:var(--him)"></span>喜马拉雅资本</span>
+    <span style="font-size:0.68rem;color:var(--muted);margin-left:0.3rem">★ 双方均持有</span>
+  </div>
+
+  <div class="butterfly" id="butterfly"></div>
+
+  <div class="table-panel">
+    <h2>完整持仓明细</h2>
+    <div class="table-wrap">
+      <table id="fullTable">
+        <thead>
+          <tr>
+            <th>Ticker</th>
+            <th>公司</th>
+            <th style="color:var(--brk)">伯克希尔 %</th>
+            <th style="color:var(--brk)">持股数（万）</th>
+            <th style="color:var(--him)">喜马拉雅 %</th>
+            <th style="color:var(--him)">持股数（万）</th>
+          </tr>
+        </thead>
+        <tbody id="tablebody"></tbody>
+      </table>
+    </div>
+    <p class="foot">注：数据来自 SEC EDGAR 13F-HR 申报文件（CIK 0001067983 / 0001709323），报告期 2025-12-31，提交日 2026-02-17。GOOGL/GOOG 为同一公司两类别股份，在对比图中合并展示。</p>
+  </div>
+</main>
+
+<script>
+  const BRK = {
+    holdings: [
+      { ticker:'AAPL',  name:'Apple',               pct:22.60, shares:22791.78 },
+      { ticker:'AXP',   name:'American Express',    pct:20.46, shares:15161.07 },
+      { ticker:'BAC',   name:'Bank of America',     pct:10.38, shares:51729.59 },
+      { ticker:'KO',    name:'Coca-Cola',            pct:10.20, shares:40000.00 },
+      { ticker:'CVX',   name:'Chevron',             pct: 7.24, shares:13015.64 },
+      { ticker:'MCO',   name:"Moody's",             pct: 4.60, shares: 2466.98 },
+      { ticker:'OXY',   name:'Occidental Petroleum',pct: 3.97, shares:26494.14 },
+      { ticker:'CB',    name:'Chubb',               pct: 3.90, shares: 3424.92 },
+      { ticker:'KHC',   name:'Kraft Heinz',         pct: 2.88, shares:32563.48 },
+      { ticker:'GOOG',  name:'Alphabet (Class C)',  pct: 2.04, shares: 1784.61 },
+      { ticker:'DVA',   name:'DaVita',              pct: 1.32, shares: 3175.91 },
+      { ticker:'KR',    name:'Kroger',              pct: 1.14, shares: 5000.00 },
+      { ticker:'V',     name:'Visa',                pct: 1.06, shares:  829.75 },
+      { ticker:'SIRI',  name:'Sirius XM',           pct: 0.91, shares:12480.71 },
+      { ticker:'MA',    name:'Mastercard',          pct: 0.83, shares:  398.66 },
+      { ticker:'VRSN',  name:'VeriSign',            pct: 0.80, shares:  898.99 },
+      { ticker:'STZ',   name:'Constellation Brands',pct: 0.65, shares: 1300.00 },
+      { ticker:'COF',   name:'Capital One',         pct: 0.63, shares:  715.00 },
+      { ticker:'UNH',   name:'UnitedHealth',        pct: 0.61, shares:  503.96 },
+      { ticker:'DPZ',   name:"Domino's Pizza",      pct: 0.51, shares:  335.00 },
+      { ticker:'ALLY',  name:'Ally Financial',      pct: 0.48, shares: 2900.00 },
+      { ticker:'AON',   name:'Aon',                 pct: 0.46, shares:  360.30 },
+      { ticker:'NUE',   name:'Nucor',               pct: 0.38, shares:  640.77 },
+      { ticker:'LLYVK', name:'Liberty Live (K)',    pct: 0.33, shares: 1091.77 },
+      { ticker:'LEN',   name:'Lennar',              pct: 0.26, shares:  705.10 },
+      { ticker:'POOL',  name:'Pool Corp',           pct: 0.26, shares:  306.89 },
+      { ticker:'AMZN',  name:'Amazon',              pct: 0.19, shares:  227.60 },
+      { ticker:'LPX',   name:'Louisiana-Pacific',   pct: 0.17, shares:  566.48 },
+      { ticker:'LLYVA', name:'Liberty Live (A)',    pct: 0.15, shares:  498.66 },
+      { ticker:'NYT',   name:'New York Times',      pct: 0.13, shares:  506.57 },
+      { ticker:'HEI',   name:'Heico',               pct: 0.12, shares:  129.46 },
+      { ticker:'FWONK', name:'Liberty Media (F1)',  pct: 0.11, shares:  301.86 },
+      { ticker:'CHTR',  name:'Charter Comm.',       pct: 0.08, shares:  106.09 },
+      { ticker:'LAMR',  name:'Lamar Advertising',   pct: 0.06, shares:  120.24 },
+      { ticker:'ALLE',  name:'Allegion',            pct: 0.05, shares:   78.01 },
+      { ticker:'NVR',   name:'NVR Inc',             pct: 0.03, shares:    1.11 },
+      { ticker:'JEF',   name:'Jefferies',           pct: 0.01, shares:   43.36 },
+      { ticker:'DEO',   name:'Diageo',              pct: 0.01, shares:   22.78 },
+      { ticker:'LILA',  name:'Liberty Latin (A)',   pct: 0.01, shares:  239.67 },
+      { ticker:'LEN.B', name:'Lennar (B)',          pct: 0.01, shares:   18.10 },
+      { ticker:'LILAK', name:'Liberty Latin (K)',   pct: 0.00, shares:  128.40 },
+      { ticker:'BATRA', name:'Atlanta Braves',      pct: 0.00, shares:   11.54 },
+    ]
+  };
+
+  const HIM = {
+    holdings: [
+      { ticker:'GOOGL', name:'Alphabet (Class A)',  pct:22.31, shares:  254.33 },
+      { ticker:'GOOG',  name:'Alphabet (Class C)',  pct:21.55, shares:  245.13 },
+      { ticker:'BAC',   name:'Bank of America',     pct:16.08, shares: 1043.14 },
+      { ticker:'PDD',   name:'PDD Holdings (Temu)', pct:14.64, shares:  460.80 },
+      { ticker:'BRK.B', name:'Berkshire Hathaway B',pct:12.64, shares:   89.77 },
+      { ticker:'EWBC',  name:'East West Bancorp',   pct: 8.74, shares:  277.64 },
+      { ticker:'OXY',   name:'Occidental Petroleum',pct: 1.69, shares:  146.65 },
+      { ticker:'CROX',  name:'Crocs',               pct: 1.51, shares:   62.82 },
+      { ticker:'AAPL',  name:'Apple',               pct: 0.84, shares:   11.06 },
+    ]
+  };
+
+  // Build merged view: GOOGL+GOOG combined for butterfly
+  const MAX_SCALE = 46;
+  function barW(pct) { return pct > 0 ? Math.max((pct / MAX_SCALE) * 100, 1.5) : 0; }
+
+  // Determine shared tickers (normalising GOOGL/GOOG → ALPHABET)
+  function buildButterflyRows() {
+    const brkMap = new Map(BRK.holdings.map(h => [h.ticker, h]));
+    const himMap = new Map(HIM.holdings.map(h => [h.ticker, h]));
+
+    // Merge GOOGL + GOOG for Himalaya
+    const himAlphabet = (himMap.get('GOOGL')?.pct || 0) + (himMap.get('GOOG')?.pct || 0);
+
+    const rows = [];
+    const seen = new Set();
+
+    // Process BRK holdings
+    BRK.holdings.forEach(h => {
+      if (seen.has(h.ticker)) return;
+      seen.add(h.ticker);
+      let brkPct = h.pct;
+      let himPct = 0;
+      let displayTicker = h.ticker;
+      let displayName = h.name;
+
+      if (h.ticker === 'GOOG') {
+        // Show as combined Alphabet
+        displayTicker = 'GOOGL/GOOG';
+        displayName = 'Alphabet (合并两类股)';
+        himPct = himAlphabet;
+        seen.add('GOOGL');
+      } else {
+        const himH = himMap.get(h.ticker);
+        himPct = himH ? himH.pct : 0;
+      }
+      rows.push({ ticker: displayTicker, name: displayName, brkPct, himPct });
+    });
+
+    // Add HIM-only holdings
+    HIM.holdings.forEach(h => {
+      if (seen.has(h.ticker) || h.ticker === 'GOOGL' || h.ticker === 'GOOG') return;
+      seen.add(h.ticker);
+      rows.push({ ticker: h.ticker, name: h.name, brkPct: 0, himPct: h.pct });
+    });
+
+    rows.sort((a, b) => (b.brkPct + b.himPct) - (a.brkPct + a.himPct));
+    return rows;
+  }
+
+  function renderButterfly() {
+    const rows = buildButterflyRows();
+    const shared = rows.filter(r => r.brkPct > 0 && r.himPct > 0);
+    const brkOnly = rows.filter(r => r.brkPct > 0 && r.himPct === 0);
+    const himOnly = rows.filter(r => r.brkPct === 0 && r.himPct > 0);
+
+    function rowHtml(r, cls) {
+      const bW = barW(r.brkPct);
+      const hW = barW(r.himPct);
+      const isShared = r.brkPct > 0 && r.himPct > 0;
+      return `<div class="bf-row ${cls}">
+        <div class="bf-left">
+          ${r.brkPct > 0
+            ? `<span class="bf-pct brk-pct">${r.brkPct.toFixed(1)}%</span>
+               <div class="bar-wrap bar-wrap-l"><div class="bar bar-brk" style="width:${bW}%"></div></div>`
+            : `<span class="bf-pct zero">—</span><div class="bar-wrap"></div>`}
+        </div>
+        <div class="bf-mid">
+          <span class="bf-ticker">${isShared ? '★ ' : ''}${r.ticker}</span>
+          <span class="bf-name">${r.name}</span>
+        </div>
+        <div class="bf-right">
+          ${r.himPct > 0
+            ? `<div class="bar-wrap bar-wrap-r"><div class="bar bar-him" style="width:${hW}%"></div></div>
+               <span class="bf-pct him-pct">${r.himPct.toFixed(1)}%</span>`
+            : `<div class="bar-wrap"></div><span class="bf-pct zero">—</span>`}
+        </div>
+      </div>`;
+    }
+
+    const header = `<div class="bf-header">
+      <div class="bf-header-brk">← Berkshire</div>
+      <div class="bf-header-mid">持仓</div>
+      <div class="bf-header-him">喜马拉雅 →</div>
+    </div>`;
+
+    const sharedHtml = shared.map(r => rowHtml(r, 'shared-row')).join('');
+    const brkOnlyHtml = brkOnly.slice(0, 12).map(r => rowHtml(r, 'only-brk')).join('');
+    const himOnlyHtml = himOnly.map(r => rowHtml(r, 'only-him')).join('');
+
+    document.getElementById('butterfly').innerHTML = header
+      + (shared.length ? `<div class="bf-divider-label">★ 共同持仓（${shared.length}只）</div>` + sharedHtml : '')
+      + `<div class="bf-divider-label">Berkshire 独有（前12，共 ${brkOnly.length} 只）</div>` + brkOnlyHtml
+      + `<div class="bf-divider-label">喜马拉雅独有（${himOnly.length}只）</div>` + himOnlyHtml;
+  }
+
+  function renderTable() {
+    // Build unified rows: all unique tickers, normalised (keep GOOGL and GOOG separate here)
+    const brkMap = new Map(BRK.holdings.map(h => [h.ticker, h]));
+    const himMap = new Map(HIM.holdings.map(h => [h.ticker, h]));
+    const allTickers = new Set([...brkMap.keys(), ...himMap.keys()]);
+
+    const rows = [];
+    allTickers.forEach(ticker => {
+      const b = brkMap.get(ticker);
+      const h = himMap.get(ticker);
+      const brkPct = b?.pct || 0;
+      const himPct = h?.pct || 0;
+      rows.push({
+        ticker,
+        name: b?.name || h?.name,
+        brkPct, brkShares: b?.shares || 0,
+        himPct, himShares: h?.shares || 0,
+        shared: brkPct > 0 && himPct > 0,
+        sum: brkPct + himPct,
+      });
+    });
+    rows.sort((a, b) => b.sum - a.sum);
+
+    const fmtShares = n => n > 0 ? n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}) : '—';
+
+    document.getElementById('tablebody').innerHTML = rows.map(r => `
+      <tr class="${r.shared ? 'shared-row-tbl' : ''}">
+        <td class="td-ticker">${r.ticker}</td>
+        <td class="td-name">${r.name}</td>
+        <td class="${r.brkPct > 0 ? 'pct-brk' : 'pct-zero'}">${r.brkPct > 0 ? r.brkPct.toFixed(2)+'%' : '—'}</td>
+        <td style="color:var(--muted)">${fmtShares(r.brkShares)}</td>
+        <td class="${r.himPct > 0 ? 'pct-him' : 'pct-zero'}">${r.himPct > 0 ? r.himPct.toFixed(2)+'%' : '—'}</td>
+        <td style="color:var(--muted)">${fmtShares(r.himShares)}</td>
+      </tr>
+    `).join('');
+  }
+
+  renderButterfly();
+  renderTable();
+</script>
+</body>
+</html>

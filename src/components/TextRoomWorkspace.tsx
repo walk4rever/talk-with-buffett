@@ -26,6 +26,7 @@ import {
   streamChatAPI,
   getSourceTypeLabel,
 } from "@/lib/chat";
+import { getTribeMember } from "@/lib/tribe";
 
 const STARTERS = [
   "护城河这个概念，你怎么理解？",
@@ -363,6 +364,8 @@ export function TextRoomWorkspace() {
   const canvasTitle = params.get("t") ?? "";
   const hasReader = !!canvasType && canvasYear > 0;
   const initialQuestion = params.get("ask") ?? "";
+  const personId = params.get("person") ?? "buffett";
+  const person = getTribeMember(personId);
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const transfer = readTransferFromSessionStorage();
@@ -604,9 +607,10 @@ export function TextRoomWorkspace() {
           setActiveSources([]);
           setLoading(false);
         },
+        personId,
       );
     },
-    [messages, loading, posthog],
+    [messages, loading, posthog, personId],
   );
 
   useEffect(() => {
@@ -644,10 +648,14 @@ export function TextRoomWorkspace() {
             </div>
           ) : messages.length === 0 ? (
             <div className="empty-chat">
-              <Image src="/buffett-avarta.jpg" alt="Warren Buffett" className="empty-chat-avatar" width={120} height={120} />
-              <h2 className="empty-chat-title">Text Room</h2>
+              <div className="empty-chat-avatar empty-chat-avatar--initials" style={{ background: person.color }}>
+                {person.initials.slice(0, 2)}
+              </div>
+              <h2 className="empty-chat-title">{person.nameZh}</h2>
               <p className="empty-chat-sub">
-                基于 1958–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧
+                {person.hasData
+                  ? "基于 1958–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧"
+                  : `${person.nameZh}的资料正在整理中，敬请期待`}
               </p>
               <div className="starter-grid">
                 {STARTERS.map((s) => (
@@ -682,7 +690,7 @@ export function TextRoomWorkspace() {
             <input
               className="chat-input"
               type="text"
-              placeholder="问巴菲特任何关于投资的问题…"
+              placeholder={`问${person.nameZh}任何关于投资的问题…`}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={loading}

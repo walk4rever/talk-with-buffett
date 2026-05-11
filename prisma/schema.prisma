@@ -178,6 +178,7 @@ model Entity {
   canonicalName String
   aliases       String[] @default([])
   cik           String?  @unique // SEC Central Index Key (companies + filers)
+  tribeId       String?  @unique // 'buffett' | 'lilu' | 'duan' — links to TRIBE_MEMBERS
   ticker        String?
   sector        String?
   metadata      Json?
@@ -201,6 +202,9 @@ model ExtSource {
   kind          String // '10k' | '10q' | '13f' | 'xbrl' | 'price'
   url           String?
   ts            DateTime?
+  periodYear    Int? // e.g. 2025 — calendar year of the reporting period
+  periodQuarter Int? // 1–4 — quarter of the reporting period
+  filedAt       DateTime? // SEC EDGAR accepted date
   filerEntityId String?
   metadata      Json?
   createdAt     DateTime  @default(now())

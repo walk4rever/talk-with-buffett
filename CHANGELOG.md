@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.34.0] - 2026-05-11
+
+### Added
+- 全新首页 v2：信号栏（共识持仓/新动作/各有判断）、HeroSearch、部落成员卡片
+- 持仓快照页（`/person/[id]/holdings`）：13F 数据展示
+- 13F 数据导入脚本（`scripts/import-13f.ts`）
+- Prisma schema 新增 13F 持仓表
+- 新品牌资源：logo.svg、Buffett/李录/段永平 avatar
+
+### Changed
+- 项目目录与 GitHub 仓库统一更名为 `buffett-tribe`
+- 首页内置导航栏，移除全局 Header 组件
+- 导航栏删除无意义的硬编码 "2025 Q4" 标签
+
+### Removed
+- Live Room 功能（`/live`、`/live/room` 页面及 `LiveRoomWorkspace` 组件）
+
 ## [v0.2.0] - 2026-03-19
 
 ### 项目重命名

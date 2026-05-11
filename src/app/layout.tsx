@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { Providers } from "@/components/Providers";
-import { Header } from "@/components/Header";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Talk with Buffett",
-  description: "与虚拟巴菲特对话 — 基于 1965–2024 年全部股东信的对话引擎。",
+  title: "巴菲特部落 · Buffett Tribe",
+  description: "追踪顶级价值投资人的信件与持仓 — 他们说了什么，他们怎么做的。",
 };
 
 export default function RootLayout({
@@ -19,8 +18,7 @@ export default function RootLayout({
       <body>
         <Providers>
           <ErrorBoundary>
-            <Header />
-            <main className="container">
+            <main>
               {children}
             </main>
           </ErrorBoundary>

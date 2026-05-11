@@ -1520,6 +1520,15 @@ body.layout-no-header {
   margin-bottom: 0.75rem;
 }
 
+.empty-chat-avatar--initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
 .empty-chat-title {
   font-family: var(--font-serif);
   font-size: 1.5rem;
@@ -3690,3 +3699,576 @@ body.layout-no-header {
     gap: 0.35rem;
   }
 }
+
+/* ════════════════════════════════
+   Home v2 — 巴菲特部落
+   ════════════════════════════════ */
+
+.home-v2 {
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+}
+
+/* ── Nav ── */
+.home-nav {
+  border-bottom: 1px solid #ececec;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+}
+
+.home-nav-in {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.home-nav-logo {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.home-nav-logo-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home-nav-logo-sub {
+  color: #999;
+  font-weight: 400;
+  font-size: 0.85rem;
+  margin-left: 0.4rem;
+}
+
+.home-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.home-nav-badge {
+  background: #fefce8;
+  border: 1px solid #e8d590;
+  color: #7a5c00;
+  border-radius: 99px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.home-nav-login {
+  font-size: 0.78rem;
+  color: #666;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #ececec;
+  border-radius: 6px;
+  transition: border-color 0.1s, color 0.1s;
+  text-decoration: none;
+}
+
+.home-nav-login:hover {
+  border-color: #bbb;
+  color: var(--foreground);
+}
+
+/* ── Signals strip ── */
+.home-signals {
+  border-bottom: 1px solid #ececec;
+  background: var(--background);
+}
+
+.home-signals-in {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.home-sig {
+  border: 1px solid #ececec;
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.home-sig:hover {
+  border-color: #ccc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.home-sig::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.home-sig--consensus::before { background: #d4af37; }
+.home-sig--new::before        { background: #3b82f6; }
+.home-sig--divergent::before  { background: linear-gradient(90deg, #2f855a, #c53030); }
+
+.home-sig-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.home-sig--consensus .home-sig-tag { color: #92400e; }
+.home-sig--new .home-sig-tag       { color: #1d4ed8; }
+.home-sig--divergent .home-sig-tag { color: #666; }
+
+.home-sig-ticker {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.home-sig-company {
+  font-size: 0.65rem;
+  color: #666;
+  margin-bottom: 0.35rem;
+}
+
+.home-sig-body {
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.home-sig-chips {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
+.home-sig-chip {
+  font-size: 0.6rem;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-weight: 600;
+}
+
+/* ── Search hero ── */
+.home-hero {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 3rem;
+  text-align: center;
+}
+
+.home-hero-brand {
+  font-family: var(--font-serif);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.3rem;
+}
+
+.home-hero-brand em {
+  color: var(--primary);
+  font-style: normal;
+}
+
+.home-hero-sub {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+/* ── HeroSearch component ── */
+.hero-search {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hero-persons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.person-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.8rem 0.35rem 0.35rem;
+  border: 1.5px solid #ececec;
+  border-radius: 99px;
+  background: var(--background);
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s;
+  font-size: 0.8rem;
+  color: var(--foreground);
+}
+
+.person-chip:hover {
+  border-color: #bbb;
+}
+
+.person-chip--selected {
+  border-color: var(--person-color, var(--primary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--person-color, var(--primary)) 15%, transparent);
+}
+
+.person-chip-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.person-chip-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.person-chip-initials {
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.person-chip-name {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.hero-input-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+}
+
+.hero-input {
+  width: 100%;
+  padding: 0.9rem 3.2rem 0.9rem 1.2rem;
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  border: 1.5px solid #d1d5db;
+  border-radius: 12px;
+  outline: none;
+  background: var(--background);
+  color: var(--foreground);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.hero-input::placeholder {
+  color: #999;
+}
+
+.hero-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(139, 0, 0, 0.07);
+}
+
+.hero-input-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.hero-input-btn:hover {
+  background: #6b0000;
+}
+
+.hero-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: center;
+}
+
+.hero-example {
+  font-size: 0.73rem;
+  color: #666;
+  border: 1px solid #ececec;
+  border-radius: 99px;
+  padding: 0.3rem 0.8rem;
+  background: var(--background);
+  cursor: pointer;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+  white-space: nowrap;
+}
+
+.hero-example:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #fdf2f2;
+}
+
+/* ── Tribe members ── */
+.home-members {
+  border-top: 1px solid #ececec;
+}
+
+.home-members-in {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 3rem;
+}
+
+.home-members-hd {
+  font-size: 0.68rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.2rem;
+}
+
+.home-member-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+}
+
+.home-member-card {
+  border: 1px solid #ececec;
+  border-radius: 10px;
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.home-member-card:hover {
+  border-color: #bbb;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.home-member-top {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.home-member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.home-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-member-name {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.home-member-firm {
+  font-size: 0.65rem;
+  color: #666;
+  margin-top: 0.1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-member-aum {
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: #999;
+  background: var(--secondary);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  white-space: nowrap;
+}
+
+.home-member-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.home-member-link {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #ececec;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  color: #666;
+  text-decoration: none;
+  transition: border-color 0.1s, color 0.1s, background 0.1s;
+}
+
+.home-member-link:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #fdf2f2;
+}
+
+.home-member-link-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.home-member-link-text {
+  line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-member-link-text em {
+  font-style: normal;
+  font-size: 0.6rem;
+  color: #999;
+}
+
+/* ── Footer ── */
+.home-footer-v2 {
+  border-top: 1px solid #ececec;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.2rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.home-footer-logo {
+  font-family: var(--font-serif);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.home-footer-note {
+  font-size: 0.61rem;
+  color: #999;
+  line-height: 1.5;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .home-signals-in {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .home-member-list {
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero {
+    padding: 2.5rem 1.2rem 2rem;
+  }
+
+  .hero-examples {
+    gap: 0.35rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-nav-login {
+    display: none;
+  }
+}
+
+/* ─── Holdings page ─────────────────────────────────────────────────────── */
+.holdings-page { background: var(--background); min-height: 100vh; }
+.holdings-wrap { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+.holdings-hd { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.holdings-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 1.1rem; flex-shrink: 0; }
+.holdings-hd-info { flex: 1; }
+.holdings-name { font-size: 1.3rem; font-weight: 700; margin: 0 0 0.15rem; }
+.holdings-firm { font-size: 0.85rem; color: #666; margin: 0; }
+.holdings-aum { font-size: 0.8rem; font-weight: 600; color: #555; background: #f4f4f4; padding: 0.3rem 0.6rem; border-radius: 20px; }
+
+.holdings-quarters { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.holdings-q { font-size: 0.8rem; font-weight: 500; padding: 0.3rem 0.75rem; border-radius: 20px; border: 1.5px solid #ddd; color: #666; text-decoration: none; transition: all 0.15s; }
+.holdings-q:hover { border-color: #999; color: #333; }
+.holdings-q--active { font-weight: 600; }
+
+.holdings-summary { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: #888; margin-bottom: 1.25rem; }
+.holdings-summary em { font-style: normal; font-weight: 600; color: #333; }
+.holdings-summary-sep { color: #ccc; }
+
+.holdings-table-wrap { overflow-x: auto; border: 1px solid #ebebeb; border-radius: 10px; }
+.holdings-table { width: 100%; border-collapse: collapse; }
+.holdings-th { padding: 0.6rem 0.9rem; font-size: 0.75rem; font-weight: 600; color: #888; text-align: left; border-bottom: 1px solid #ebebeb; background: #fafafa; }
+.holdings-th--rank { width: 36px; text-align: center; }
+.holdings-th--num { text-align: right; }
+
+.holdings-row:not(:last-child) td { border-bottom: 1px solid #f2f2f2; }
+.holdings-row:hover { background: #fafafa; }
+.holdings-td { padding: 0.6rem 0.9rem; font-size: 0.875rem; vertical-align: middle; }
+.holdings-td--rank { text-align: center; color: #bbb; font-size: 0.78rem; }
+.holdings-td--name { max-width: 320px; }
+.holdings-td--num { text-align: right; font-variant-numeric: tabular-nums; color: #444; }
+
+.holdings-company { font-weight: 500; color: #111; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.holdings-ticker { font-size: 0.75rem; color: #999; background: #f4f4f4; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.35rem; vertical-align: middle; }
+
+.holdings-pct-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 72px; }
+.holdings-pct { font-weight: 600; font-size: 0.875rem; }
+.holdings-bar { height: 3px; border-radius: 2px; opacity: 0.35; max-width: 72px; }
+
+.holdings-note { margin-top: 1.5rem; font-size: 0.75rem; color: #aaa; text-align: center; }

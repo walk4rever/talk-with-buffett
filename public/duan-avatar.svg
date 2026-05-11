@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <filter id="paper" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" seed="9" result="n"/>
+      <feColorMatrix type="saturate" values="0" in="n" result="g"/>
+      <feComponentTransfer in="g" result="p">
+        <feFuncR type="linear" slope="0.07" intercept="0.93"/>
+        <feFuncG type="linear" slope="0.07" intercept="0.89"/>
+        <feFuncB type="linear" slope="0.05" intercept="0.83"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="p" mode="multiply"/>
+    </filter>
+    <filter id="stone" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="3" seed="17" result="n"/>
+      <feComponentTransfer in="n" result="s">
+        <feFuncR type="linear" slope="0.04" intercept="0.90"/>
+        <feFuncG type="linear" slope="0.03" intercept="0.87"/>
+        <feFuncB type="linear" slope="0.03" intercept="0.82"/>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="s" mode="multiply"/>
+    </filter>
+    <filter id="stamp" x="-8%" y="-8%" width="116%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="22" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <clipPath id="circ"><circle cx="200" cy="200" r="199"/></clipPath>
+  </defs>
+
+  <!-- ── Background ─────────────────────────────── -->
+  <circle cx="200" cy="200" r="200" fill="#f6f1e6"/>
+  <circle cx="200" cy="200" r="200" fill="#eee8d6" filter="url(#paper)" opacity="0.7" clip-path="url(#circ)"/>
+
+  <!-- ── Guilloche border ───────────────────────── -->
+  <circle cx="200" cy="200" r="197" fill="none" stroke="#c8a870" stroke-width="3.5"/>
+  <circle cx="200" cy="200" r="192" fill="none" stroke="#8b6030" stroke-width="1"/>
+  <circle cx="200" cy="200" r="188" fill="none" stroke="#c8a870" stroke-width="2"/>
+  <circle cx="200" cy="200" r="184" fill="none" stroke="#8b6030" stroke-width="0.8"/>
+  <circle cx="200" cy="200" r="180" fill="none" stroke="#c8a870" stroke-width="1.5"/>
+  <circle cx="200" cy="200" r="176" fill="none" stroke="#8b6030" stroke-width="0.7"/>
+  <circle cx="200" cy="200" r="172" fill="none" stroke="#c8a870" stroke-width="1.5"/>
+  <circle cx="200" cy="200" r="168" fill="none" stroke="#8b6030" stroke-width="0.7"/>
+  <circle cx="200" cy="200" r="164" fill="none" stroke="#c8a870" stroke-width="2"/>
+  <circle cx="200" cy="200" r="159" fill="none" stroke="#8b6030" stroke-width="0.9"/>
+  <circle cx="200" cy="200" r="156" fill="none" stroke="#c8a870" stroke-width="3"/>
+  <circle cx="200" cy="200" r="151" fill="none" stroke="#8b6030" stroke-width="1"/>
+
+  <!-- ── Inner stone ground ─────────────────────── -->
+  <circle cx="200" cy="200" r="144" fill="#e5dfc8"/>
+  <circle cx="200" cy="200" r="144" fill="#ddd6be" filter="url(#stone)" opacity="0.55"/>
+
+  <!-- ── Seal impression (rotated +1.5°) ──────── -->
+  <g transform="translate(200,196) rotate(1.5)" filter="url(#stamp)">
+    <!-- Outer border -->
+    <rect x="-75" y="-88" width="150" height="176" fill="none" stroke="#8b0000" stroke-width="5"/>
+    <!-- Inner border -->
+    <rect x="-68" y="-81" width="136" height="162" fill="none" stroke="#8b0000" stroke-width="1.8"/>
+    <!-- Seal ground -->
+    <rect x="-67" y="-80" width="134" height="160" fill="#f4edd8" opacity="0.92"/>
+
+    <!-- 段 -->
+    <text x="0" y="-42"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Songti SC','STSong','Noto Serif SC','SimSun',serif"
+          font-size="56" font-weight="900" fill="#8b0000">段</text>
+    <!-- 永 -->
+    <text x="0" y="16"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Songti SC','STSong','Noto Serif SC','SimSun',serif"
+          font-size="56" font-weight="900" fill="#8b0000">永</text>
+    <!-- 平 -->
+    <text x="0" y="74"
+          text-anchor="middle" dominant-baseline="middle"
+          font-family="'Songti SC','STSong','Noto Serif SC','SimSun',serif"
+          font-size="56" font-weight="900" fill="#8b0000">平</text>
+  </g>
+
+  <!-- ── Accent ring (green — Duan) ────────────── -->
+  <circle cx="200" cy="200" r="145" fill="none" stroke="#059669" stroke-width="2" opacity="0.65"/>
+
+  <!-- ── Name inscription ───────────────────────── -->
+  <line x1="118" y1="356" x2="148" y2="356" stroke="#c8a870" stroke-width="1"/>
+  <line x1="252" y1="356" x2="282" y2="356" stroke="#c8a870" stroke-width="1"/>
+  <text x="200" y="360" text-anchor="middle"
+        font-family="'Songti SC','STSong','Noto Serif SC',serif"
+        font-size="17" fill="#6b5030" letter-spacing="4">段  永  平</text>
+
+  <!-- Small subtitle -->
+  <text x="200" y="378" text-anchor="middle"
+        font-family="'Lora','Georgia',serif"
+        font-size="10" fill="#998050" letter-spacing="3">DUAN  YONGPING</text>
+</svg>

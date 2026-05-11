@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Buffett Tribe · 巴菲特部落</title>
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #171717;
+      --primary: #8b0000;
+      --primary-faint: #fdf2f2;
+      --accent: #d4af37;
+      --accent-faint: #fefce8;
+      --muted: #666;
+      --line: #ececec;
+      --secondary: #f5f5f5;
+      --ok: #2f855a;
+      --bad: #c53030;
+      --serif: "Lora","Noto Serif SC","Georgia",serif;
+      --sans: "Inter","Noto Sans SC",-apple-system,sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6; }
+    a { text-decoration: none; color: inherit; }
+
+    /* ── Nav ── */
+    .nav { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 40; background: var(--bg); }
+    .nav-in { max-width: 1140px; margin: 0 auto; padding: 0 1.4rem; height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+    .nav-logo { font-family: var(--serif); font-size: 1.2rem; font-weight: 700; color: var(--primary); flex-shrink: 0; }
+    .nav-logo span { color: var(--fg); font-weight: 400; }
+    .nav-links { display: flex; gap: 0.2rem; }
+    .nav-link { font-size: 0.8rem; color: var(--muted); padding: 0.35rem 0.65rem; border-radius: 6px; transition: background 0.1s, color 0.1s; }
+    .nav-link:hover { background: var(--secondary); color: var(--fg); }
+    .nav-link.active { color: var(--primary); font-weight: 600; }
+    .nav-badge { background: var(--accent-faint); border: 1px solid #e8d590; color: #7a5c00; border-radius: 99px; padding: 0.15rem 0.55rem; font-size: 0.68rem; font-weight: 600; }
+
+    /* ── Page ── */
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 0 1.4rem; }
+
+    /* ── Hero ── */
+    .hero { padding: 4rem 0 3rem; text-align: center; border-bottom: 1px solid var(--line); }
+    .hero-eyebrow { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+    .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .hero-title { font-family: var(--serif); font-size: clamp(2.2rem, 6vw, 3.8rem); font-weight: 400; line-height: 1.1; color: var(--fg); margin-bottom: 1rem; }
+    .hero-title em { color: var(--primary); font-style: normal; }
+    .hero-sub { font-size: 1rem; color: var(--muted); max-width: 520px; margin: 0 auto 2rem; line-height: 1.65; }
+    .hero-stats { display: inline-flex; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    .hero-stat { padding: 0.55rem 1.1rem; text-align: center; border-right: 1px solid var(--line); }
+    .hero-stat:last-child { border-right: none; }
+    .hero-stat-v { font-size: 1.1rem; font-weight: 700; color: var(--fg); display: block; }
+    .hero-stat-k { font-size: 0.62rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* ── Section ── */
+    .section { padding: 2.8rem 0; border-bottom: 1px solid var(--line); }
+    .section:last-child { border-bottom: none; }
+    .section-hd { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.2rem; gap: 1rem; }
+    .section-title { font-family: var(--serif); font-size: 1.2rem; font-weight: 500; }
+    .section-link { font-size: 0.75rem; color: var(--muted); }
+    .section-link:hover { color: var(--primary); }
+
+    /* ── Signal Cards ── */
+    .signal-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+    .signal-card { border-radius: 10px; padding: 1rem 1.1rem; border: 1px solid var(--line); position: relative; overflow: hidden; }
+    .signal-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .signal-card.sc-consensus::before { background: var(--accent); }
+    .signal-card.sc-new::before { background: #3b82f6; }
+    .signal-card.sc-divergent::before { background: linear-gradient(90deg, var(--ok), var(--bad)); }
+    .signal-tag { font-size: 0.63rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.5rem; }
+    .signal-card.sc-consensus .signal-tag { color: #92400e; }
+    .signal-card.sc-new .signal-tag { color: #1d4ed8; }
+    .signal-card.sc-divergent .signal-tag { color: var(--muted); }
+    .signal-ticker { font-family: var(--serif); font-size: 1.5rem; font-weight: 700; color: var(--fg); line-height: 1; margin-bottom: 0.15rem; }
+    .signal-company { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.55rem; }
+    .signal-body { font-size: 0.76rem; color: var(--fg); line-height: 1.5; }
+    .signal-body strong { color: var(--fg); }
+    .signal-who { margin-top: 0.5rem; display: flex; gap: 0.3rem; flex-wrap: wrap; }
+    .who-chip { font-size: 0.62rem; border-radius: 4px; padding: 0.1rem 0.35rem; font-weight: 600; }
+
+    /* ── Company Cards ── */
+    .company-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+    .company-card { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; transition: border-color 0.15s, box-shadow 0.15s; cursor: pointer; }
+    .company-card:hover { border-color: #ccc; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+    .company-card:hover .cc-link { color: var(--primary); }
+    .cc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+    .cc-ticker { font-family: var(--serif); font-size: 1.25rem; font-weight: 700; line-height: 1; }
+    .cc-name { font-size: 0.68rem; color: var(--muted); margin-top: 0.1rem; }
+    .cc-signal-badge { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 4px; padding: 0.2rem 0.45rem; white-space: nowrap; flex-shrink: 0; }
+    .badge-consensus { background: var(--accent-faint); color: #7a5c00; border: 1px solid #e8d590; }
+    .badge-new       { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .badge-divergent { background: #f3f4f6; color: var(--muted); border: 1px solid var(--line); }
+    .badge-reducing  { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+    .badge-unique    { background: #f5f3ff; color: #5b21b6; border: 1px solid #ddd6fe; }
+    .cc-holders { display: flex; flex-direction: column; gap: 0.28rem; }
+    .cc-holder { display: flex; align-items: center; gap: 0.5rem; font-size: 0.71rem; }
+    .holder-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .holder-who { color: var(--muted); flex: 1; }
+    .holder-pct { font-weight: 700; }
+    .holder-tag { font-size: 0.6rem; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 0.25rem; }
+    .cc-insight { font-size: 0.7rem; color: var(--muted); line-height: 1.45; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+    .cc-link { font-size: 0.7rem; color: var(--muted); display: flex; align-items: center; gap: 0.25rem; margin-top: auto; transition: color 0.1s; }
+
+    /* ── Tribe ── */
+    .tribe-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+    .tribe-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.65rem 0.75rem; cursor: pointer; transition: border-color 0.12s, background 0.12s; }
+    .tribe-card:hover { border-color: #bbb; background: #fafafa; }
+    .tribe-avatar { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 0.45rem; }
+    .tribe-name { font-size: 0.78rem; font-weight: 600; line-height: 1.2; }
+    .tribe-firm { font-size: 0.63rem; color: var(--muted); margin-top: 0.05rem; }
+    .tribe-tags { display: flex; gap: 0.25rem; margin-top: 0.3rem; flex-wrap: wrap; }
+    .tribe-tag { font-size: 0.58rem; background: var(--secondary); border-radius: 3px; padding: 0 0.28rem; color: var(--muted); }
+
+    /* ── Entry Points ── */
+    .entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+    .entry-card { border: 1px solid var(--line); border-radius: 10px; padding: 1.4rem 1.4rem; display: flex; flex-direction: column; gap: 0.55rem; transition: border-color 0.12s; }
+    .entry-card:hover { border-color: var(--primary); }
+    .entry-icon { font-size: 1.5rem; }
+    .entry-title { font-family: var(--serif); font-size: 1rem; font-weight: 500; }
+    .entry-body { font-size: 0.75rem; color: var(--muted); line-height: 1.55; flex: 1; }
+    .entry-cta { font-size: 0.73rem; color: var(--primary); font-weight: 600; margin-top: 0.3rem; }
+
+    /* ── Footer ── */
+    .footer { border-top: 1px solid var(--line); padding: 1.8rem 0; }
+    .footer-in { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .footer-logo { font-family: var(--serif); font-size: 0.95rem; font-weight: 700; color: var(--primary); }
+    .footer-note { font-size: 0.63rem; color: var(--muted); max-width: 500px; line-height: 1.5; }
+
+    @media (max-width: 860px) {
+      .signal-row { grid-template-columns: 1fr; }
+      .company-grid { grid-template-columns: repeat(2, 1fr); }
+      .tribe-grid { grid-template-columns: repeat(2, 1fr); }
+      .entry-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .company-grid { grid-template-columns: 1fr; }
+      .hero-stats { flex-direction: column; border-radius: 8px; }
+      .hero-stat { border-right: none; border-bottom: 1px solid var(--line); }
+      .hero-stat:last-child { border-bottom: none; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-in wrap">
+    <a href="home.html" class="nav-logo">Talk with <span>Buffett</span></a>
+    <div style="display:flex;align-items:center;gap:0.6rem">
+      <div class="nav-links">
+        <a href="home.html" class="nav-link active">首页</a>
+        <a href="berkshire-13f-preview.html" class="nav-link">持仓对比</a>
+        <a href="fund-13f.html" class="nav-link">13F 快照</a>
+        <a href="company-bac.html" class="nav-link">公司分析</a>
+      </div>
+      <span class="nav-badge">2025Q4</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="wrap">
+  <section class="hero">
+    <p class="hero-eyebrow">
+      <span class="eyebrow-dot"></span>
+      Buffett Tribe · 巴菲特部落
+      <span class="eyebrow-dot"></span>
+    </p>
+    <h1 class="hero-title">他们<em>说了什么</em>，<br>他们<em>做了什么</em></h1>
+    <p class="hero-sub">追踪10位顶级价值投资人的13F持仓与年度信件，从共识中发现机会，从分歧中理解风险</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-v">10</span>
+        <span class="hero-stat-k">部落成员</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-v">$430B+</span>
+        <span class="hero-stat-k">合计持仓</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-v">2025Q4</span>
+        <span class="hero-stat-k">最新季度</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-v">50+</span>
+        <span class="hero-stat-k">公司覆盖</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Signals -->
+<div class="wrap">
+  <section class="section">
+    <div class="section-hd">
+      <h2 class="section-title">本季三大信号</h2>
+      <a href="berkshire-13f-preview.html" class="section-link">查看完整对比 →</a>
+    </div>
+    <div class="signal-row">
+      <div class="signal-card sc-consensus">
+        <div class="signal-tag">★ 共识重仓</div>
+        <div class="signal-ticker">BAC</div>
+        <div class="signal-company">Bank of America</div>
+        <div class="signal-body">
+          <strong>师徒二人不约而同</strong>——巴菲特持有14年，李录独立建仓，两人均将其列为<strong>前3大重仓</strong>，金融板块最强共识信号
+        </div>
+        <div class="signal-who">
+          <span class="who-chip" style="background:var(--primary-faint);color:var(--primary)">Buffett 10.4%</span>
+          <span class="who-chip" style="background:#eff6ff;color:#1d4ed8">Li Lu 16.1%</span>
+        </div>
+      </div>
+      <div class="signal-card sc-new">
+        <div class="signal-tag">↑ 共识新仓</div>
+        <div class="signal-ticker">NVDA</div>
+        <div class="signal-company">Nvidia</div>
+        <div class="signal-body">
+          本季<strong>4位部落成员同时新建仓</strong>，分布宏观派与对冲派，AI基础设施的价值共识正在部落内快速形成
+        </div>
+        <div class="signal-who">
+          <span class="who-chip" style="background:#f5f3ff;color:#5b21b6">Drucken. 15.8%</span>
+          <span class="who-chip" style="background:#f5f3ff;color:#5b21b6">Tepper 9.4%</span>
+          <span class="who-chip" style="background:#f5f3ff;color:#5b21b6">Soros 6.8%</span>
+          <span class="who-chip" style="background:#f5f3ff;color:#5b21b6">Dalio 3.8%</span>
+        </div>
+      </div>
+      <div class="signal-card sc-divergent">
+        <div class="signal-tag">⇅ 持仓分歧</div>
+        <div class="signal-ticker">GOOGL</div>
+        <div class="signal-company">Alphabet</div>
+        <div class="signal-body">
+          同一季度，Ackman / Einhorn <strong>新建大仓</strong>；Druckenmiller <strong>减持</strong>；Burry <strong>清仓</strong>——对同一资产的判断出现明显分叉
+        </div>
+        <div class="signal-who">
+          <span class="who-chip" style="background:#ecfdf5;color:var(--ok)">Ackman +14.8%</span>
+          <span class="who-chip" style="background:#fef2f2;color:var(--bad)">Drucken. ↓</span>
+          <span class="who-chip" style="background:#f3f4f6;color:var(--muted)">Burry 清仓</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Companies -->
+<div class="wrap">
+  <section class="section">
+    <div class="section-hd">
+      <h2 class="section-title">聚焦公司</h2>
+      <a href="#" class="section-link">全部公司 →</a>
+    </div>
+    <div class="company-grid" id="companyGrid"></div>
+  </section>
+</div>
+
+<!-- Tribe -->
+<div class="wrap">
+  <section class="section">
+    <div class="section-hd">
+      <h2 class="section-title">部落成员</h2>
+      <a href="berkshire-13f-preview.html" class="section-link">对比持仓 →</a>
+    </div>
+    <div class="tribe-grid" id="tribeGrid"></div>
+  </section>
+</div>
+
+<!-- Entry points -->
+<div class="wrap">
+  <section class="section">
+    <div class="section-hd">
+      <h2 class="section-title">探索方式</h2>
+    </div>
+    <div class="entry-grid">
+      <a href="company-bac.html" class="entry-card">
+        <div class="entry-icon">🏢</div>
+        <div class="entry-title">从公司出发</div>
+        <div class="entry-body">选择一家公司，看部落谁持有、持有多久，读他们写过什么，用价值投资框架评估护城河与回报</div>
+        <div class="entry-cta">查看 BAC 示例 →</div>
+      </a>
+      <a href="fund-13f.html" class="entry-card">
+        <div class="entry-icon">📋</div>
+        <div class="entry-title">从投资人出发</div>
+        <div class="entry-body">深入某一位成员的完整13F持仓，查看行业分布、仓位集中度，以及本季度的增减操作</div>
+        <div class="entry-cta">查看 Berkshire 持仓 →</div>
+      </a>
+      <a href="berkshire-13f-preview.html" class="entry-card">
+        <div class="entry-icon">⚖️</div>
+        <div class="entry-title">从对比出发</div>
+        <div class="entry-body">选择2–5位成员并排对比，通过热力图一眼看出共识持仓、新进信号与持仓分歧</div>
+        <div class="entry-cta">打开对比视图 →</div>
+      </a>
+    </div>
+  </section>
+</div>
+
+<!-- Footer -->
+<div class="wrap">
+  <footer class="footer">
+    <div class="footer-in">
+      <div class="footer-logo">Buffett Tribe</div>
+      <p class="footer-note">数据来源：SEC EDGAR 13F-HR 申报文件。本站为研究工具，不构成投资建议。持仓数据滞后约45天，以实际申报为准。</p>
+    </div>
+  </footer>
+</div>
+
+<script>
+  const COMPANIES = [
+    {
+      ticker: 'BAC', name: 'Bank of America',
+      badge: '共识重仓', badgeClass: 'badge-consensus',
+      holders: [
+        { who: 'Warren Buffett', pct: 10.4, color: '#8b0000', tag: '第3 · 14年' },
+        { who: 'Li Lu',          pct: 16.1, color: '#1d4ed8', tag: '第3' },
+      ],
+      insight: '师徒二人独立判断，均列为前3重仓。巴菲特2011年$50亿出手，14年持有至今。',
+      link: 'company-bac.html',
+    },
+    {
+      ticker: 'NVDA', name: 'Nvidia',
+      badge: '共识新仓', badgeClass: 'badge-new',
+      holders: [
+        { who: 'Druckenmiller', pct: 15.8, color: '#7c3aed', tag: 'NEW' },
+        { who: 'Tepper',        pct: 9.4,  color: '#7c3aed', tag: 'NEW' },
+        { who: 'Soros',         pct: 6.8,  color: '#7c3aed', tag: 'NEW' },
+        { who: 'Dalio',         pct: 3.8,  color: '#7c3aed', tag: 'NEW' },
+      ],
+      insight: '4位成员本季同时新建仓，横跨宏观与对冲风格，AI基础设施共识快速凝聚。',
+      link: '#',
+    },
+    {
+      ticker: 'GOOGL', name: 'Alphabet',
+      badge: '持仓分歧', badgeClass: 'badge-divergent',
+      holders: [
+        { who: 'Li Lu',    pct: 43.9, color: '#1d4ed8', tag: '第1' },
+        { who: 'Ackman',   pct: 14.8, color: '#059669', tag: 'NEW' },
+        { who: 'Einhorn',  pct: 9.1,  color: '#059669', tag: 'NEW' },
+        { who: 'Drucken.', pct: 9.4,  color: '#c53030', tag: '↓减持' },
+      ],
+      insight: 'Ackman 与 Einhorn 同季度新进，Druckenmiller 减持，Burry 清仓——分歧最大标的。',
+      link: '#',
+    },
+    {
+      ticker: 'AAPL', name: 'Apple',
+      badge: '连续减持', badgeClass: 'badge-reducing',
+      holders: [
+        { who: 'Buffett', pct: 22.6, color: '#c53030', tag: '第1·↓' },
+        { who: 'Tepper',  pct: 8.1,  color: '#059669', tag: '↑' },
+        { who: 'Li Lu',   pct: 0.84, color: '#9ca3af', tag: '微持' },
+      ],
+      insight: '巴菲特从峰值10亿股减至5.2亿，仍是第1仓位。Li Lu持仓极少，分歧鲜明。',
+      link: '#',
+    },
+    {
+      ticker: 'PDD', name: 'PDD Holdings (Temu)',
+      badge: '独门重仓', badgeClass: 'badge-unique',
+      holders: [
+        { who: 'Li Lu', pct: 14.6, color: '#1d4ed8', tag: '第4' },
+      ],
+      insight: '仅李录持有，押注中国消费崛起。部落其他成员均未涉足，是喜马拉雅的独特标注。',
+      link: '#',
+    },
+    {
+      ticker: 'GLD', name: 'SPDR Gold Trust',
+      badge: '持仓分歧', badgeClass: 'badge-divergent',
+      holders: [
+        { who: 'Dalio', pct: 12.5, color: '#059669', tag: '↑' },
+        { who: 'Soros', pct: 12.3, color: '#c53030', tag: '↓' },
+        { who: 'Drucken.', pct: 8.2, color: '#c53030', tag: '↓' },
+      ],
+      insight: 'Dalio 增持黄金，Soros 同季减持——宏观派对黄金走势出现判断分叉。',
+      link: '#',
+    },
+  ];
+
+  const TRIBE = [
+    { name: 'Warren Buffett', short: 'WB', firm: 'Berkshire Hathaway', style: '价值', aum: '$294B', color: '#8b0000', link: 'fund-13f.html' },
+    { name: 'Li Lu',          short: 'LL', firm: '喜马拉雅资本',        style: '价值', aum: '$3.6B',  color: '#1d4ed8', link: '#' },
+    { name: 'Bill Ackman',    short: 'BA', firm: 'Pershing Square',     style: '激进', aum: '$16B',   color: '#059669', link: '#' },
+    { name: 'Stan Drucken.',  short: 'SD', firm: 'Duquesne',            style: '宏观', aum: '$4.8B',  color: '#7c3aed', link: '#' },
+    { name: 'David Tepper',   short: 'DT', firm: 'Appaloosa Mgmt',      style: '对冲', aum: '$6.1B',  color: '#0891b2', link: '#' },
+    { name: 'David Einhorn',  short: 'DE', firm: 'Greenlight Capital',  style: '价值', aum: '$1.6B',  color: '#d97706', link: '#' },
+    { name: 'Michael Burry',  short: 'MB', firm: 'Scion Asset Mgmt',    style: '逆势', aum: '$0.2B',  color: '#4b5563', link: '#' },
+    { name: 'Seth Klarman',   short: 'SK', firm: 'Baupost Group',       style: '价值', aum: '$32B',   color: '#9a3412', link: '#' },
+    { name: 'George Soros',   short: 'GS', firm: 'Soros Fund Mgmt',     style: '宏观', aum: '$44B',   color: '#6b7280', link: '#' },
+    { name: 'Ray Dalio',      short: 'RD', firm: 'Bridgewater',         style: '全天候', aum: '$97B', color: '#0f766e', link: '#' },
+  ];
+
+  // Render company cards
+  document.getElementById('companyGrid').innerHTML = COMPANIES.map(c => `
+    <a href="${c.link}" class="company-card">
+      <div class="cc-top">
+        <div>
+          <div class="cc-ticker">${c.ticker}</div>
+          <div class="cc-name">${c.name}</div>
+        </div>
+        <span class="cc-signal-badge ${c.badgeClass}">${c.badge}</span>
+      </div>
+      <div class="cc-holders">
+        ${c.holders.map(h => `
+          <div class="cc-holder">
+            <span class="holder-dot" style="background:${h.color}"></span>
+            <span class="holder-who">${h.who}</span>
+            <span class="holder-pct" style="color:${h.color}">${h.pct}%</span>
+            <span class="holder-tag">${h.tag}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="cc-insight">${c.insight}</div>
+      <div class="cc-link">深度分析 <span>→</span></div>
+    </a>
+  `).join('');
+
+  // Render tribe
+  document.getElementById('tribeGrid').innerHTML = TRIBE.map(t => `
+    <a href="${t.link}" class="tribe-card">
+      <div class="tribe-avatar" style="background:${t.color}">${t.short}</div>
+      <div class="tribe-name">${t.name}</div>
+      <div class="tribe-firm">${t.firm}</div>
+      <div class="tribe-tags">
+        <span class="tribe-tag">${t.style}</span>
+        <span class="tribe-tag">${t.aum}</span>
+      </div>
+    </a>
+  `).join('');
+</script>
+</body>
+</html>

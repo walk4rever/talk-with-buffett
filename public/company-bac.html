@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Talk with Buffett · BAC · Bank of America</title>
+  <style>
+    :root {
+      --bg: #fff;
+      --fg: #171717;
+      --primary: #8b0000;
+      --primary-faint: #fdf2f2;
+      --him: #1d4ed8;
+      --him-faint: #eff6ff;
+      --accent: #d4af37;
+      --muted: #666;
+      --line: #ececec;
+      --secondary: #f5f5f5;
+      --ok: #2f855a;
+      --bad: #c53030;
+      --serif: "Lora","Noto Serif SC","Georgia",serif;
+      --sans: "Inter","Noto Sans SC",-apple-system,sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.7; }
+
+    /* Header */
+    .hdr { border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 30; background: var(--bg); }
+    .hdr-in { max-width: 1000px; margin: 0 auto; padding: 0.52rem 1.4rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+    .logo { font-family: var(--serif); font-size: 1.35rem; font-weight: 700; color: var(--primary); text-decoration: none; }
+    .breadcrumb { font-size: 0.72rem; color: var(--muted); display: flex; align-items: center; gap: 0.4rem; }
+    .breadcrumb a { color: var(--muted); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--fg); }
+
+    /* Page */
+    .page { max-width: 1000px; margin: 0 auto; padding: 1.4rem 1.4rem 5rem; }
+
+    /* ── Hero ── */
+    .hero { margin-bottom: 2rem; }
+    .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; margin-bottom: 1.2rem; }
+    .hero-left { flex: 1; }
+    .hero-eyebrow { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.4rem; }
+    .hero-ticker { font-family: var(--serif); font-size: clamp(2rem, 5vw, 3rem); font-weight: 700; color: var(--fg); line-height: 1; }
+    .hero-name { font-family: var(--serif); font-size: clamp(1rem, 2.5vw, 1.35rem); font-weight: 400; color: var(--muted); margin-top: 0.2rem; }
+    .hero-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.7rem; }
+    .pill { display: inline-block; border: 1px solid var(--line); border-radius: 99px; padding: 0.14rem 0.5rem; font-size: 0.68rem; color: var(--muted); background: var(--secondary); }
+
+    /* Tribe conviction */
+    .conviction { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    .cv-card { border-radius: 10px; padding: 0.8rem 1rem; }
+    .cv-card.brk { border: 1.5px solid color-mix(in srgb, var(--primary) 30%, #fff); background: var(--primary-faint); }
+    .cv-card.him { border: 1.5px solid color-mix(in srgb, var(--him) 25%, #fff); background: var(--him-faint); }
+    .cv-who { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; margin-bottom: 0.45rem; }
+    .cv-card.brk .cv-who { color: var(--primary); }
+    .cv-card.him .cv-who { color: var(--him); }
+    .cv-main { display: flex; align-items: baseline; gap: 0.5rem; }
+    .cv-pct { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .cv-card.brk .cv-pct { color: var(--primary); }
+    .cv-card.him .cv-pct { color: var(--him); }
+    .cv-rank { font-size: 0.72rem; color: var(--muted); }
+    .cv-meta { margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.1rem; }
+    .cv-row { font-size: 0.7rem; color: var(--muted); }
+    .cv-row strong { color: var(--fg); font-weight: 600; }
+
+    /* ── Section ── */
+    .section { margin-bottom: 2.5rem; }
+    .section-title { font-family: var(--serif); font-size: 1.15rem; font-weight: 500; color: var(--fg); margin-bottom: 0.2rem; }
+    .section-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.1rem; }
+    hr.divider { border: none; border-top: 1px solid var(--line); margin: 2.5rem 0; }
+
+    /* ── Sparkline chart ── */
+    .chart-wrap { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1rem 0.6rem; background: var(--bg); }
+    .chart-legend { display: flex; gap: 1rem; margin-bottom: 0.6rem; font-size: 0.68rem; color: var(--muted); }
+    svg.sparkline { width: 100%; overflow: visible; }
+    .annotation-label { font-size: 9px; font-family: var(--sans); fill: var(--muted); }
+    .annotation-label.event { fill: var(--primary); font-weight: 600; }
+
+    /* ── Editorial timeline ── */
+    .timeline { position: relative; padding-left: 1.4rem; }
+    .timeline::before { content:''; position:absolute; left:5px; top:12px; bottom:8px; width:1px; background:var(--line); }
+    .tl-item { position: relative; margin-bottom: 1.5rem; }
+    .tl-dot { position:absolute; left:-1.4rem; top:5px; width:10px; height:10px; border-radius:50%; border:2px solid var(--line); background:var(--bg); }
+    .tl-item.highlight .tl-dot { border-color:var(--primary); background:var(--primary); }
+    .tl-item.him-event .tl-dot { border-color:var(--him); background:var(--him); }
+    .tl-date { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.15rem; }
+    .tl-item.highlight .tl-date { color: var(--primary); }
+    .tl-item.him-event .tl-date { color: var(--him); }
+    .tl-title { font-size: 0.9rem; font-weight: 600; color: var(--fg); line-height: 1.35; margin-bottom: 0.25rem; }
+    .tl-body { font-size: 0.78rem; color: var(--muted); line-height: 1.55; }
+    .tl-body em { color: var(--fg); font-style: normal; font-weight: 500; }
+    .tl-quote { margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: var(--secondary); border-left: 3px solid var(--accent); border-radius: 0 5px 5px 0; font-size: 0.78rem; font-style: italic; color: var(--fg); line-height: 1.5; }
+    .tl-quote cite { font-style: normal; font-size: 0.68rem; color: var(--muted); display: block; margin-top: 0.25rem; }
+
+    /* ── Quotes ── */
+    .quotes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+    .quote-card { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+    .quote-text { font-family: var(--serif); font-size: 0.95rem; line-height: 1.6; color: var(--fg); margin-bottom: 0.6rem; }
+    .quote-text::before { content: '\201C'; color: var(--accent); font-size: 1.8rem; line-height: 0; vertical-align: -0.5rem; margin-right: 0.1rem; }
+    .quote-text::after  { content: '\201D'; color: var(--accent); font-size: 1.8rem; line-height: 0; vertical-align: -0.5rem; margin-left: 0.1rem; }
+    .quote-attr { display: flex; align-items: center; gap: 0.45rem; }
+    .quote-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .quote-who { font-size: 0.68rem; font-weight: 600; }
+    .quote-src { font-size: 0.65rem; color: var(--muted); }
+
+    /* ── Framework scorecard ── */
+    .scorecard { display: flex; flex-direction: column; gap: 0.7rem; }
+    .sc-row { display: grid; grid-template-columns: 120px 100px 1fr; gap: 0.8rem; align-items: start; }
+    .sc-label { font-size: 0.78rem; font-weight: 600; padding-top: 0.1rem; }
+    .sc-score { display: flex; gap: 3px; align-items: center; padding-top: 0.15rem; }
+    .sc-dot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--line); }
+    .sc-dot.on { background: var(--primary); border-color: var(--primary); }
+    .sc-dot.half { background: linear-gradient(90deg, var(--primary) 50%, transparent 50%); border-color: var(--primary); }
+    .sc-desc { font-size: 0.74rem; color: var(--muted); line-height: 1.5; }
+    .sc-desc strong { color: var(--fg); font-weight: 600; }
+
+    /* ── Metrics table ── */
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+    .metric-card { border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.75rem; }
+    .metric-k { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .metric-v { font-size: 1.05rem; font-weight: 700; color: var(--fg); margin-top: 0.05rem; }
+    .metric-ctx { font-size: 0.62rem; color: var(--muted); margin-top: 0.04rem; }
+
+    /* ── Related ── */
+    .related-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .rel-card { border: 1px solid var(--line); border-radius: 9px; padding: 0.75rem 0.9rem; display: flex; align-items: flex-start; gap: 0.6rem; }
+    .rel-ticker-box { font-weight: 700; font-size: 0.85rem; border-radius: 6px; padding: 0.2rem 0.45rem; flex-shrink: 0; }
+    .rel-title { font-size: 0.78rem; font-weight: 600; margin-bottom: 0.15rem; }
+    .rel-body { font-size: 0.71rem; color: var(--muted); line-height: 1.45; }
+
+    /* ── Note ── */
+    .note { font-size: 0.64rem; color: var(--muted); margin-top: 1rem; padding: 0.6rem 0.8rem; background: var(--secondary); border-radius: 7px; line-height: 1.5; }
+
+    @media (max-width: 680px) {
+      .hero-top { flex-direction: column; }
+      .conviction { grid-template-columns: 1fr; }
+      .quotes-grid { grid-template-columns: 1fr; }
+      .sc-row { grid-template-columns: 1fr; gap: 0.2rem; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .related-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <a class="logo" href="/">Talk with Buffett</a>
+    <nav class="breadcrumb">
+      <a href="/">Buffett Tribe</a>
+      <span>›</span>
+      <a href="#">13F 持仓</a>
+      <span>›</span>
+      <span>BAC</span>
+    </nav>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-top">
+      <div class="hero-left">
+        <p class="hero-eyebrow">NYSE · 金融 · 银行</p>
+        <h1 class="hero-ticker">BAC</h1>
+        <p class="hero-name">Bank of America Corp</p>
+        <div class="hero-pills">
+          <span class="pill">总资产 $3.41万亿</span>
+          <span class="pill">存款 $2.02万亿</span>
+          <span class="pill">净资产收益率 ROTCE 14.2%</span>
+          <span class="pill">成立于 1904年</span>
+        </div>
+      </div>
+      <div class="conviction">
+        <div class="cv-card brk">
+          <div class="cv-who">Warren Buffett · Berkshire</div>
+          <div class="cv-main">
+            <span class="cv-pct">10.4%</span>
+            <span class="cv-rank">第3大仓位</span>
+          </div>
+          <div class="cv-meta">
+            <div class="cv-row">持股 <strong>5.17 亿股</strong></div>
+            <div class="cv-row">市值约 <strong>$284 亿</strong></div>
+            <div class="cv-row">持仓时长 <strong>14年</strong>（2011–今）</div>
+          </div>
+        </div>
+        <div class="cv-card him">
+          <div class="cv-who">Li Lu · 喜马拉雅资本</div>
+          <div class="cv-main">
+            <span class="cv-pct">16.1%</span>
+            <span class="cv-rank">第3大仓位</span>
+          </div>
+          <div class="cv-meta">
+            <div class="cv-row">持股 <strong>1,043 万股</strong></div>
+            <div class="cv-row">市值约 <strong>$5.74 亿</strong></div>
+            <div class="cv-row">同时持有 <strong>EWBC 8.7%</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Holdings journey -->
+  <div class="section">
+    <h2 class="section-title">伯克希尔持仓轨迹</h2>
+    <p class="section-sub">2011年主动出击，14年持续持有——BAC 是巴菲特金融危机后最大手笔之一</p>
+
+    <div class="chart-wrap">
+      <div class="chart-legend">
+        <span>持股数量（百万股）· 2017Q3–2025Q4</span>
+        <span style="margin-left:auto;color:var(--bad)">▼ 2024年7月起开始减持</span>
+      </div>
+      <svg class="sparkline" viewBox="0 0 600 130" id="chart"></svg>
+    </div>
+
+    <div style="margin-top:1.8rem"></div>
+
+    <div class="timeline">
+      <div class="tl-item highlight">
+        <div class="tl-dot"></div>
+        <div class="tl-date">2011年8月25日</div>
+        <div class="tl-title">浴缸里的灵感——$50亿换优先股+认股权证</div>
+        <div class="tl-body">
+          巴菲特想到这笔投资时正在洗澡，随即致电 CEO Brian Moynihan。结构：<em>5万张永久优先股（6%股息，年收$3亿）+ 按$7.14/股购买7亿股普通股的认股权证</em>，期限10年。彼时 BAC 股价约$6.99，市场对银行业信心跌至低谷。
+        </div>
+        <div class="tl-quote">
+          "Bank of America is a strong, well-led company, and I called Brian to tell him I wanted to invest in it. I am impressed with the profit-generating abilities of this franchise."
+          <cite>— Warren Buffett，2011年8月25日官方声明</cite>
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-date">2011–2016年</div>
+        <div class="tl-title">优先股阶段：每年稳收$3亿股息</div>
+        <div class="tl-body">
+          持有优先股期间，伯克希尔每年获得$3亿固定股息收入。巴菲特在2016年年报中写明转股条件：
+        </div>
+        <div class="tl-quote">
+          "If the dividend rate on Bank of America common stock — now 30 cents annually — should rise above 44 cents before 2021, we would anticipate making a cashless exchange of our preferred into common."
+          <cite>— Warren Buffett，2016年致股东信</cite>
+        </div>
+      </div>
+
+      <div class="tl-item highlight">
+        <div class="tl-dot"></div>
+        <div class="tl-date">2017年8月29日</div>
+        <div class="tl-title">行使认股权证——$5亿换来$165亿</div>
+        <div class="tl-body">
+          BAC 股息超过44美分触发条件。伯克希尔以<em>无现金方式</em>（用优先股换普通股）行使权证，以$7.14/股获得<em>7亿股普通股</em>。行权当日市价$24.32，账面浮盈约$120亿。此后转为普通股分红，年收$3.36亿，反超之前的优先股股息。
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-date">2018–2023年</div>
+        <div class="tl-title">持续增持——峰值超10亿股</div>
+        <div class="tl-body">
+          行权后伯克希尔在公开市场继续加仓约<em>3亿股</em>，2023年末持股达<em>10.33亿股</em>，为历史最高点，占伯克希尔权益组合约11%。
+        </div>
+      </div>
+
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-date">2024年7月–2025年</div>
+        <div class="tl-title">分批减持——12个交易日套现$38亿</div>
+        <div class="tl-body">
+          2024年7月17日首次披露减持，此后连续12个交易日出售。<em>持股降至10%以下</em>，退出强制实时披露门槛。减持原因未公开说明，格雷格·阿贝尔（接任 CEO 后）延续减持操作，至2025Q4持股降至<em>5.17亿股</em>，较峰值减少约50%。
+        </div>
+      </div>
+
+      <div class="tl-item him-event">
+        <div class="tl-dot"></div>
+        <div class="tl-date">喜马拉雅资本（李录）</div>
+        <div class="tl-title">独立判断：BAC 占组合 16.1%，高于巴菲特</div>
+        <div class="tl-body">
+          2025Q4，李录持有<em>1,043万股</em>，BAC 是喜马拉雅第三大重仓，权重高于巴菲特同期持仓占比（10.4%）。李录同时持有东西银行 EWBC（8.7%），聚焦华美银行这一细分赛道。两人独立持有 BAC 作为前三重仓，是少见的英雄所见略同。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Quotes -->
+  <div class="section">
+    <h2 class="section-title">部落怎么说</h2>
+    <p class="section-sub">真实引用 · 来源标注</p>
+    <div class="quotes-grid">
+      <div class="quote-card">
+        <p class="quote-text">Bank of America is a strong, well-led company, and I called Brian to tell him I wanted to invest in it. I am impressed with the profit-generating abilities of this franchise.</p>
+        <div class="quote-attr">
+          <span class="quote-dot" style="background:var(--primary)"></span>
+          <div>
+            <div class="quote-who">Warren Buffett</div>
+            <div class="quote-src">2011年8月 · 官方投资声明</div>
+          </div>
+        </div>
+      </div>
+      <div class="quote-card">
+        <p class="quote-text">Banking is a very good business unless you do dumb things. You've got millions and millions of customers, they keep their money with you, and you get to use it.</p>
+        <div class="quote-attr">
+          <span class="quote-dot" style="background:var(--primary)"></span>
+          <div>
+            <div class="quote-who">Warren Buffett</div>
+            <div class="quote-src">Fortune 杂志 · 银行业评论</div>
+          </div>
+        </div>
+      </div>
+      <div class="quote-card" style="grid-column: 1 / -1; background: var(--him-faint); border-color: color-mix(in srgb, var(--him) 20%, #fff);">
+        <p class="quote-text" style="font-size:0.85rem;color:var(--muted)">李录从未公开谈论过具体持仓。但从行动推断：同时持有 BAC（全国最大零售银行）和 EWBC（华美社区银行），前者是规模护城河，后者是无法被大行复制的利基护城河——两者在银行板块形成互补，而非重复。</p>
+        <div class="quote-attr">
+          <span class="quote-dot" style="background:var(--him)"></span>
+          <div>
+            <div class="quote-who">Li Lu · 喜马拉雅资本</div>
+            <div class="quote-src">基于 13F 持仓推断 · 非直接引用</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Framework -->
+  <div class="section">
+    <h2 class="section-title">投资框架评估</h2>
+    <p class="section-sub">用巴菲特体系解构 BAC · 五个维度</p>
+
+    <div class="scorecard">
+      <div class="sc-row">
+        <div class="sc-label">🏰 护城河</div>
+        <div class="sc-score">
+          <span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot"></span>
+          <span style="font-size:0.68rem;color:var(--muted);margin-left:0.3rem">4/5</span>
+        </div>
+        <div class="sc-desc"><strong>$2.02万亿存款特许经营权</strong>，是美国最大的零售银行网络之一。数亿客户的资金沉淀形成极低成本的资金来源，这是规模效应最典型的体现。Merrill Lynch 财富管理部门（约3.5万名顾问）提供差异化黏性。</div>
+      </div>
+      <div class="sc-row">
+        <div class="sc-label">👤 管理层</div>
+        <div class="sc-score">
+          <span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot"></span>
+          <span style="font-size:0.68rem;color:var(--muted);margin-left:0.3rem">4/5</span>
+        </div>
+        <div class="sc-desc">Brian Moynihan 自2010年执掌，将一家危机后千疮百孔的大行重塑为效率领先的机构。<strong>ROTCE 从2011年的负值升至2025年的14.2%</strong>，股息与回购持续稳定。稳定的管理层是巴菲特长期持有的重要前提。</div>
+      </div>
+      <div class="sc-row">
+        <div class="sc-label">💰 资本回报</div>
+        <div class="sc-score">
+          <span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot"></span>
+          <span style="font-size:0.68rem;color:var(--muted);margin-left:0.3rem">4/5</span>
+        </div>
+        <div class="sc-desc">FY2025 <strong>ROTCE 14.2%</strong>，ROE 10.6%，净利润$305亿，同比+13%。CET1资本充足率11.4%，位于监管要求舒适区。2025年股份回购规模显著提升，资本分配质量持续改善。</div>
+      </div>
+      <div class="sc-row">
+        <div class="sc-label">📊 定价权</div>
+        <div class="sc-score">
+          <span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot"></span><span class="sc-dot"></span>
+          <span style="font-size:0.68rem;color:var(--muted);margin-left:0.3rem">3/5</span>
+        </div>
+        <div class="sc-desc">银行业的「定价权」主要体现在<strong>净息差（NIM）</strong>，而 NIM 高度依赖利率环境，非银行主导。存款利率竞争趋激烈，尤其面对货币市场基金的替代压力。但BAC的零售存款黏性（支票账户/工资代发）提供了一定缓冲。</div>
+      </div>
+      <div class="sc-row">
+        <div class="sc-label">🔭 持续性</div>
+        <div class="sc-score">
+          <span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot on"></span><span class="sc-dot"></span>
+          <span style="font-size:0.68rem;color:var(--muted);margin-left:0.3rem">4/5</span>
+        </div>
+        <div class="sc-desc">银行牌照壁垒极高，大型商业银行在监管框架下几乎不可能被「颠覆」。数字化转型上 BAC 是传统银行中投入最大的之一（每年科技预算超$120亿）。<strong>10年后的 BAC 大概率仍然存在，且仍是市场主导者</strong>——这是巴菲特最重视的判断标准。</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Metrics -->
+  <div class="section">
+    <h2 class="section-title">关键数据</h2>
+    <p class="section-sub">FY2025 · 来源：BAC Q4 2025 财报（2026年1月14日发布）</p>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-k">总资产</div>
+        <div class="metric-v">$3.41 万亿</div>
+        <div class="metric-ctx">美国第二大银行</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">总存款</div>
+        <div class="metric-v">$2.02 万亿</div>
+        <div class="metric-ctx">同比 +3%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">贷款总额</div>
+        <div class="metric-v">$1.19 万亿</div>
+        <div class="metric-ctx">同比 +8%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">全年净利润</div>
+        <div class="metric-v">$305 亿</div>
+        <div class="metric-ctx">同比 +13%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">ROTCE</div>
+        <div class="metric-v">14.2%</div>
+        <div class="metric-ctx">2011年为负值</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">CET1 资本充足率</div>
+        <div class="metric-v">11.4%</div>
+        <div class="metric-ctx">高于监管最低要求</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">股息收益率</div>
+        <div class="metric-v">~2.1%</div>
+        <div class="metric-ctx">年派 $1.12/股</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">市净率 P/B</div>
+        <div class="metric-v">~1.37x</div>
+        <div class="metric-ctx">高于10年中位数 1.14x</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-k">市值</div>
+        <div class="metric-v">~$3,700 亿</div>
+        <div class="metric-ctx">约2.7万亿人民币</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Related -->
+  <div class="section">
+    <h2 class="section-title">延伸阅读</h2>
+    <p class="section-sub">部落持仓中的关联标的</p>
+    <div class="related-grid">
+      <div class="rel-card">
+        <div class="rel-ticker-box" style="background:var(--him-faint);color:var(--him)">EWBC</div>
+        <div>
+          <div class="rel-title">East West Bancorp · 李录独有视角</div>
+          <div class="rel-body">喜马拉雅持仓 8.7%。服务华美移民社区的精品银行，ROE ~20%，NPL 极低（0.14%）。李录同时持有 BAC + EWBC 构成「大而全」+「小而精」的银行组合，是他理解中美经济交汇带的独特标注。</div>
+        </div>
+      </div>
+      <div class="rel-card">
+        <div class="rel-ticker-box" style="background:var(--primary-faint);color:var(--primary)">AXP</div>
+        <div>
+          <div class="rel-title">American Express · 巴菲特的另一张金融牌</div>
+          <div class="rel-body">伯克希尔持仓 20.5%，第2大仓位。同为金融业，但 AXP 是支付网络+消费信贷，与银行存贷款模式不同。两者共存于组合，体现巴菲特对金融特许经营权多形式的偏爱。</div>
+        </div>
+      </div>
+      <div class="rel-card">
+        <div class="rel-ticker-box" style="background:#fffbeb;color:#92400e">MCO</div>
+        <div>
+          <div class="rel-title">Moody's · 金融基础设施的护城河</div>
+          <div class="rel-body">伯克希尔持仓 4.6%。评级机构是金融体系的「通行证颁发者」，BAC 每次发债都需要 MCO 的评级。巴菲特同时持有 BAC 和 MCO，相当于既投了借贷者也投了定价者。</div>
+        </div>
+      </div>
+      <div class="rel-card" style="border-style:dashed;background:var(--secondary);">
+        <div class="rel-ticker-box" style="background:#fff;color:var(--muted);border:1px solid var(--line)">+</div>
+        <div>
+          <div class="rel-title" style="color:var(--muted)">更多巴菲特部落持仓分析</div>
+          <div class="rel-body">KO（持有30年的消费护城河）、OXY（能源转型中的价值赌注）、GOOGL（李录押注最重的一张牌）……</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    数据来源：SEC EDGAR 13F-HR（CIK 0001067983 / 0001709323），报告期 2025Q4；BAC Q4 2025 财报（2026-01-14）；Buffett 2011年投资声明及2016年致股东信（原文引用）；李录相关内容基于公开持仓推断，非直接引用。持仓历史部分数据为近似值。本页面为产品原型，不构成投资建议。
+  </div>
+
+</main>
+
+<script>
+  // Sparkline chart
+  const chartData = [
+    { label:'2017Q3', shares:700,  event:'行使权证' },
+    { label:'2018',   shares:900,  event:null },
+    { label:'2019',   shares:950,  event:null },
+    { label:'2020',   shares:1000, event:'新冠加仓' },
+    { label:'2021',   shares:1010, event:null },
+    { label:'2022',   shares:1010, event:null },
+    { label:'2023',   shares:1033, event:'峰值' },
+    { label:'2024Q1', shares:1033, event:null },
+    { label:'2024Q3', shares:870,  event:'开始减持' },
+    { label:'2024Q4', shares:680,  event:null },
+    { label:'2025Q2', shares:560,  event:null },
+    { label:'2025Q4', shares:517,  event:'当前' },
+  ];
+
+  const W = 600, H = 130;
+  const PAD = { t: 20, r: 24, b: 28, l: 48 };
+  const cW = W - PAD.l - PAD.r;
+  const cH = H - PAD.t - PAD.b;
+  const MAX = 1100;
+
+  const xOf = i => PAD.l + (i / (chartData.length - 1)) * cW;
+  const yOf = s => PAD.t + (1 - s / MAX) * cH;
+
+  // Y grid lines
+  const gridYs = [0, 200, 400, 600, 800, 1000];
+  const gridLines = gridYs.map(s => {
+    const y = yOf(s);
+    return `<line x1="${PAD.l}" y1="${y}" x2="${PAD.l + cW}" y2="${y}" stroke="#f0f0f0" stroke-width="1"/>
+            <text x="${PAD.l - 5}" y="${y + 3.5}" text-anchor="end" font-size="9" fill="#bbb">${s}</text>`;
+  }).join('');
+
+  // Peak area fill (2017–2023)
+  const peakIdx = chartData.findIndex(d => d.label === '2023');
+  const startIdx = 0;
+  const peakX = xOf(peakIdx);
+  const peakY = yOf(1033);
+  const baseY = yOf(0);
+  const areaPoints = chartData.slice(0, peakIdx + 1).map((d, i) => `${xOf(i)},${yOf(d.shares)}`).join(' ');
+  const area = `<polygon points="${xOf(0)},${baseY} ${areaPoints} ${peakX},${baseY}" fill="rgba(139,0,0,0.06)"/>`;
+
+  // Sell phase area
+  const sellStartIdx = chartData.findIndex(d => d.label === '2024Q3');
+  const sellPoints = chartData.slice(peakIdx, chartData.length).map((d, i) => `${xOf(peakIdx + i)},${yOf(d.shares)}`).join(' ');
+  const sellArea = `<polygon points="${xOf(peakIdx)},${baseY} ${sellPoints} ${xOf(chartData.length-1)},${baseY}" fill="rgba(220,38,38,0.05)"/>`;
+
+  // Polyline
+  const points = chartData.map((d, i) => `${xOf(i)},${yOf(d.shares)}`).join(' ');
+  const line = `<polyline points="${points}" fill="none" stroke="#8b0000" stroke-width="2" stroke-linejoin="round"/>`;
+
+  // Dots & labels
+  const dotsAndLabels = chartData.map((d, i) => {
+    if (!d.event) return `<circle cx="${xOf(i)}" cy="${yOf(d.shares)}" r="2.5" fill="#8b0000" opacity="0.4"/>`;
+    const isLast = i === chartData.length - 1;
+    const isSell = d.event === '开始减持';
+    const color = isSell ? '#c53030' : '#8b0000';
+    const labelY = yOf(d.shares) - 8;
+    return `<circle cx="${xOf(i)}" cy="${yOf(d.shares)}" r="4" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+            <text x="${xOf(i)}" y="${labelY}" text-anchor="middle" font-size="8.5" fill="${color}" font-weight="600">${d.event}</text>`;
+  }).join('');
+
+  // X axis labels (every other)
+  const xLabels = chartData.map((d, i) => {
+    if (i % 2 !== 0 && i !== chartData.length - 1) return '';
+    return `<text x="${xOf(i)}" y="${H - 3}" text-anchor="middle" font-size="8.5" fill="#bbb">${d.label}</text>`;
+  }).join('');
+
+  document.getElementById('chart').innerHTML = gridLines + area + sellArea + line + dotsAndLabels + xLabels;
+</script>
+</body>
+</html>
