@@ -1,7 +1,22 @@
 import Link from "next/link";
-import Image from "next/image";
 import { HeroSearch } from "@/components/HeroSearch";
 import { TRIBE_MEMBERS } from "@/lib/tribe";
+
+function BtMark({ className }: { className?: string }) {
+  return (
+    <svg
+      width="22" height="18"
+      viewBox="0 0 44 36"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <rect x="0"  y="22" width="11" height="14" rx="3"/>
+      <rect x="16" y="13" width="11" height="23" rx="3"/>
+      <rect x="32" y="0"  width="11" height="36" rx="3"/>
+    </svg>
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +62,7 @@ export default function Home() {
       <nav className="home-nav">
         <div className="home-nav-in">
           <Link href="/" className="home-nav-logo">
-            <div className="home-nav-logo-mark">BT</div>
+            <BtMark />
             Buffett Tribe
           </Link>
           <div className="home-nav-right">

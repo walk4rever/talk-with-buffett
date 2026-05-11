@@ -1,5 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
+function BtMark() {
+  return (
+    <svg width="22" height="18" viewBox="0 0 44 36" fill="currentColor" aria-hidden="true">
+      <rect x="0"  y="22" width="11" height="14" rx="3"/>
+      <rect x="16" y="13" width="11" height="23" rx="3"/>
+      <rect x="32" y="0"  width="11" height="36" rx="3"/>
+    </svg>
+  );
+}
 import db from "@/lib/prisma";
 import { getTribeMember } from "@/lib/tribe";
 
@@ -35,9 +45,9 @@ async function getHoldings(tribeId: string, year: number, quarter: number) {
 function fmtValue(valueUsd: bigint | null): string {
   if (valueUsd == null) return "—";
   const usd = Number(valueUsd);
-  if (usd >= 1e9) return `$${(usd / 1e9).toFixed(2)}B`;
-  if (usd >= 1e6) return `$${(usd / 1e6).toFixed(0)}M`;
-  return `$${usd.toLocaleString()}`;
+  if (usd < 1e6) return `$${usd.toLocaleString()}`;
+  const yi = usd / 1e8;
+  return `$${yi >= 10 ? yi.toFixed(1) : yi.toFixed(2)}亿`;
 }
 
 function fmtShares(shares: bigint | null): string {
@@ -75,7 +85,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
       <nav className="home-nav">
         <div className="home-nav-in">
           <Link href="/" className="home-nav-logo">
-            <div className="home-nav-logo-mark">BT</div>
+            <BtMark />
             Buffett Tribe
           </Link>
           <div className="home-nav-right">

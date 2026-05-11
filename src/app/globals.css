@@ -3776,24 +3776,9 @@ body.layout-no-header {
   opacity: 1;
 }
 
-.home-nav-logo-mark {
-  width: 20px;
-  height: 20px;
-  background: var(--apple-white);
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: var(--apple-black);
-  flex-shrink: 0;
-}
-
 .home-nav-logo-img {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 22px;
+  height: 18px;
   flex-shrink: 0;
 }
 
