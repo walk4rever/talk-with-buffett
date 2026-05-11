@@ -142,6 +142,8 @@ function parseInfoTable(xml: string): InfoTableEntry[] {
       cusip: String(row.cusip ?? ""),
       value: BigInt(Math.round(valueRaw)),
       shares: BigInt(Number(sharesRaw)),
+      investmentDiscretion: String(row.investmentDiscretion ?? "SOLE"),
+      putCall: row.putCall != null ? String(row.putCall) : undefined,
     };
   });
 
