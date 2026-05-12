@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BtLogoMark } from "@/components/BtLogoMark";
+import { SiteNav } from "@/components/SiteNav";
 import { HeroSearch } from "@/components/HeroSearch";
 import { TRIBE_MEMBERS } from "@/lib/tribe";
 
@@ -10,6 +11,7 @@ const SIGNALS = [
     type: "consensus" as const,
     tag: "★ 共识持仓",
     ticker: "BAC",
+    tickerLabel: "美国银行（BAC）",
     company: "Bank of America",
     body: "巴菲特持有14年，李录独立建仓，均列前3重仓",
     chips: [
@@ -21,6 +23,7 @@ const SIGNALS = [
     type: "new" as const,
     tag: "↑ 新动作",
     ticker: "OXY",
+    tickerLabel: "西方石油（OXY）",
     company: "Occidental Petroleum",
     body: "巴菲特本季继续增持，持仓占比突破28%，接近收购门槛",
     chips: [
@@ -31,6 +34,7 @@ const SIGNALS = [
     type: "divergent" as const,
     tag: "⇅ 各有判断",
     ticker: "AAPL",
+    tickerLabel: "苹果（AAPL）",
     company: "Apple",
     body: "巴菲特连续4季减持至5.2亿股；段永平仍视为核心持仓",
     chips: [
@@ -43,18 +47,7 @@ const SIGNALS = [
 export default function Home() {
   return (
     <div className="home-v2">
-      {/* Nav */}
-      <nav className="home-nav">
-        <div className="home-nav-in">
-          <Link href="/" className="home-nav-logo">
-            <BtLogoMark />
-            Buffett Tribe
-          </Link>
-          <div className="home-nav-right">
-            <Link href="/login" className="home-nav-login">登录</Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* Signals */}
       <section className="home-signals">
@@ -63,7 +56,7 @@ export default function Home() {
             <div key={s.ticker} className={`home-sig home-sig--${s.type}`}>
               <span className="home-sig-tag">{s.tag}</span>
               <Link href={`/company/${s.ticker}`} className="home-sig-ticker">
-                {s.ticker}
+                {s.tickerLabel}
               </Link>
               <div className="home-sig-company">{s.company}</div>
               <div className="home-sig-body">{s.body}</div>
@@ -81,11 +74,11 @@ export default function Home() {
 
       {/* Hero search */}
       <section className="home-hero">
-        <p className="home-hero-eyebrow">伟大投资人的思想档案</p>
-        <h1 className="home-hero-brand">
-          他们说了什么<br /><em>他们怎么做的</em>
-        </h1>
-        <p className="home-hero-sub">追踪 Warren Buffett、李录、段永平的信件、演讲与持仓<br />与他们的思想直接对话</p>
+        <p className="home-hero-sub home-hero-sub--compact">
+          追踪 <strong>巴菲特</strong>、<strong>李录</strong>、<strong>段永平</strong> 等价值投资大师的信件、演讲与持仓
+          <br />
+          与他们的思想直接对话
+        </p>
         <HeroSearch />
       </section>
 
@@ -95,7 +88,7 @@ export default function Home() {
           <p className="home-members-hd">部落成员</p>
           <div className="home-member-list">
             {TRIBE_MEMBERS.map((m) => (
-              <Link key={m.id} href={`/person/${m.id}`} className="home-member-card">
+              <Link key={m.id} href={`/master/${m.id}`} className="home-member-card">
                 <div className="home-member-top">
                   <span
                     className="home-member-avatar"

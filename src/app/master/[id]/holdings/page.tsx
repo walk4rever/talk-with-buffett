@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BtLogoMark } from "@/components/BtLogoMark";
+import { SiteNav } from "@/components/SiteNav";
 import { getTribeMember } from "@/lib/tribe";
 import {
   formatShares,
@@ -8,10 +8,6 @@ import {
   getAvailableQuarters,
   getHoldingsByQuarter,
 } from "@/lib/person-data";
-
-function BtMark() {
-  return <BtLogoMark />;
-}
 
 export const dynamic = "force-dynamic";
 
@@ -67,19 +63,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
 
   return (
     <div className="holdings-page">
-      {/* Nav */}
-      <nav className="home-nav">
-        <div className="home-nav-in">
-          <Link href="/" className="home-nav-logo">
-            <BtMark />
-            Buffett Tribe
-          </Link>
-          <div className="home-nav-right">
-            <Link href="/" className="home-nav-link">首页</Link>
-            <Link href={`/text/room?person=${id}`} className="home-nav-login">对话</Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <div className="holdings-wrap">
         {/* Person header */}
@@ -104,7 +88,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
               return (
                 <Link
                   key={`${q.year}-${q.quarter}`}
-                  href={`/person/${id}/holdings?year=${q.year}&quarter=${q.quarter}`}
+                  href={`/master/${id}/holdings?year=${q.year}&quarter=${q.quarter}`}
                   className={`holdings-timeline-node${active ? " holdings-timeline-node--active" : ""}`}
                   style={active ? { borderColor: member.color, color: member.color } : undefined}
                 >

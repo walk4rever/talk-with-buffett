@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BtLogoMark } from "@/components/BtLogoMark";
+import { SiteNav } from "@/components/SiteNav";
 import { getTribeMember } from "@/lib/tribe";
 import {
   buildHoldingInsights,
@@ -170,19 +170,7 @@ export default async function PersonHubPage({ params }: Props) {
 
   return (
     <div className="person-page">
-      <nav className="home-nav">
-        <div className="home-nav-in">
-          <Link href="/" className="home-nav-logo">
-            <BtLogoMark />
-            Buffett Tribe
-          </Link>
-          <div className="home-nav-right">
-            <Link href="/" className="home-nav-link">首页</Link>
-            <Link href={`/person/${id}/holdings`} className="home-nav-link">持仓明细</Link>
-            <Link href={`/text/room?person=${id}`} className="home-nav-login">对话</Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <div className="person-wrap">
         <section className="person-hero">
@@ -217,11 +205,19 @@ export default async function PersonHubPage({ params }: Props) {
 
         <section className="person-section">
           <div className="person-section-head">
-            <h2 className="person-section-title">大师课堂</h2>
+            <h2 className="person-section-title">资料库</h2>
           </div>
           <div className="person-master-grid">
             {masterClass.filter((item) => item.count > 0).map((item) => (
-              <Link key={item.key} href={item.href} className="person-master-card">
+              <Link
+                key={item.key}
+                href={
+                  item.latest
+                    ? `/master/${id}/library?type=${encodeURIComponent(item.key)}&year=${item.latest}`
+                    : item.href
+                }
+                className="person-master-card"
+              >
                 <div className="person-master-title">{item.label}</div>
                 <div className="person-master-meta">
                   <span>{item.count} 篇</span>
@@ -242,7 +238,7 @@ export default async function PersonHubPage({ params }: Props) {
               <p className="person-compare-note">对比基准：{baseLabel}</p>
             </div>
             {latest ? (
-              <Link href={`/person/${id}/holdings`} className="person-view-all">
+              <Link href={`/master/${id}/holdings`} className="person-view-all">
                 持仓历史
               </Link>
             ) : null}

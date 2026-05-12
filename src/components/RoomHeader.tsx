@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 type RoomHeaderProps = {
-  title: string;
+  title: ReactNode;
   onOpenSide: () => void;
   sideLabel?: string;
   rightSlot?: ReactNode;

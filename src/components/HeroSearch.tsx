@@ -18,9 +18,7 @@ export function HeroSearch() {
   const [query, setQuery] = useState("");
 
   function submit() {
-    const q = query.trim();
-    if (!q) return;
-    const params = new URLSearchParams({ ask: q, person: selectedId });
+    const params = new URLSearchParams({ person: selectedId });
     router.push(`/text/room?${params.toString()}`);
   }
 
@@ -49,16 +47,14 @@ export function HeroSearch() {
           ref={inputRef}
           className="hero-input"
           type="text"
-          placeholder="问巴菲特部落任何投资问题..."
+          placeholder="点击进入 Text Room 对话"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          readOnly
+          onClick={submit}
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
         <button className="hero-input-btn" onClick={submit} aria-label="提问">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-            <line x1="4" y1="10" x2="16" y2="10" />
-            <polyline points="11,5 16,10 11,15" />
-          </svg>
+          <span className="hero-input-enter" aria-hidden="true">↵</span>
         </button>
       </div>
 

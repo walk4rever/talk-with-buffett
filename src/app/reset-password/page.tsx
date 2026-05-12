@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { SiteNav } from "@/components/SiteNav";
 
 function ResetPasswordForm() {
   const params = useSearchParams();
@@ -18,11 +19,15 @@ function ResetPasswordForm() {
 
   if (!token || !email) {
     return (
-      <div className="login-wrap">
-        <Link href="/" className="login-brand">Talk with Buffett</Link>
-        <div className="login-card">
-          <p className="login-error">链接无效，请重新申请密码重置。</p>
-          <Link href="/login" className="login-submit" style={{ display: "block", textAlign: "center", marginTop: 16 }}>返回登录</Link>
+      <div className="login-page">
+        <SiteNav />
+        <div className="login-wrap">
+          <Link href="/" className="login-brand">Buffett Tribe</Link>
+          <p className="login-sub">密码重置链接无效或缺失</p>
+          <div className="login-card">
+            <p className="login-error">链接无效，请返回登录页重新发起重置。</p>
+            <Link href="/login" className="login-submit" style={{ display: "block", textAlign: "center", marginTop: 16 }}>返回登录</Link>
+          </div>
         </div>
       </div>
     );
@@ -50,45 +55,53 @@ function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="login-wrap">
-        <Link href="/" className="login-brand">Talk with Buffett</Link>
-        <div className="login-card">
-          <p style={{ textAlign: "center", color: "var(--accent)" }}>密码重置成功，正在跳转登录…</p>
+      <div className="login-page">
+        <SiteNav />
+        <div className="login-wrap">
+          <Link href="/" className="login-brand">Buffett Tribe</Link>
+          <p className="login-sub">密码已更新</p>
+          <div className="login-card">
+            <p style={{ textAlign: "center", color: "var(--graphite-accent)" }}>密码重置成功，正在跳转登录…</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="login-wrap">
-      <Link href="/" className="login-brand">Talk with Buffett</Link>
-      <div className="login-card">
-        <div className="login-tabs">
-          <span className="login-tab login-tab--active">设置新密码</span>
+    <div className="login-page">
+      <SiteNav />
+      <div className="login-wrap">
+        <Link href="/" className="login-brand">Buffett Tribe</Link>
+        <p className="login-sub">设置你的新密码后即可继续使用资料库与工作台</p>
+        <div className="login-card">
+          <div className="login-tabs">
+            <span className="login-tab login-tab--active">重置密码</span>
+          </div>
+          <form className="login-form" onSubmit={handleSubmit}>
+            <input
+              className="login-input"
+              type="password"
+              placeholder="新密码（至少 6 位）"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoFocus
+            />
+            <input
+              className="login-input"
+              type="password"
+              placeholder="确认新密码"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
+            {error && <p className="login-error">{error}</p>}
+            <button className="login-submit" type="submit" disabled={loading}>
+              {loading ? "请稍候…" : "确认重置"}
+            </button>
+          </form>
         </div>
-        <form className="login-form" onSubmit={handleSubmit}>
-          <input
-            className="login-input"
-            type="password"
-            placeholder="新密码（至少 6 位）"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoFocus
-          />
-          <input
-            className="login-input"
-            type="password"
-            placeholder="确认新密码"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            required
-          />
-          {error && <p className="login-error">{error}</p>}
-          <button className="login-submit" type="submit" disabled={loading}>
-            {loading ? "请稍候…" : "确认重置"}
-          </button>
-        </form>
       </div>
     </div>
   );

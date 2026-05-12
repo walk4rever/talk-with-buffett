@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BtLogoMark } from "@/components/BtLogoMark";
+import { SiteNav } from "@/components/SiteNav";
 import {
   formatMoney,
   getCompanyByTicker,
@@ -119,19 +119,7 @@ export default async function CompanyPage({ params }: Props) {
 
   return (
     <div className="company-page">
-      <nav className="home-nav">
-        <div className="home-nav-in">
-          <Link href="/" className="home-nav-logo">
-            <BtLogoMark />
-            Buffett Tribe
-          </Link>
-          <div className="home-nav-right">
-            <Link href="/" className="home-nav-link">首页</Link>
-            <Link href="/person/buffett" className="home-nav-link">Investors</Link>
-            <Link href="/chat" className="home-nav-login">对话</Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <div className="company-wrap">
         <section className="company-hero">
@@ -253,7 +241,7 @@ export default async function CompanyPage({ params }: Props) {
                   <div>
                     <strong>{h.name}</strong>
                     {h.tribeId ? (
-                      <Link href={`/person/${h.tribeId}`} className="company-holder-link">
+                      <Link href={`/master/${h.tribeId}`} className="company-holder-link">
                         {h.tribeId}
                       </Link>
                     ) : null}

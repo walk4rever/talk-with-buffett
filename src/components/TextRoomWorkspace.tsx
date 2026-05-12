@@ -642,7 +642,7 @@ export function TextRoomWorkspace() {
     <>
     <div className="workspace workspace--split">
       <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
-        <RoomHeader title="Text Room" onOpenSide={() => setMobilePanel("canvas")} />
+        <RoomHeader title="巴菲特" onOpenSide={() => setMobilePanel("canvas")} />
 
         <div className="workspace-chat-body">
           {historyLoading ? (

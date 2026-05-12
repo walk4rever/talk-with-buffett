@@ -117,21 +117,21 @@ export type MasterClassItem = {
 export async function getMasterClassSummary(personId: string): Promise<MasterClassItem[]> {
   const presets: Record<string, Array<{ key: string; label: string; href: string; sourceType?: string }>> = {
     buffett: [
-      { key: "shareholder", label: "致股东信", href: `/person/${personId}/masterclass?type=shareholder`, sourceType: "shareholder" },
-      { key: "partnership", label: "合伙人信", href: `/person/${personId}/masterclass?type=partnership`, sourceType: "partnership" },
-      { key: "annual_meeting", label: "股东大会", href: `/person/${personId}/masterclass?type=annual_meeting`, sourceType: "annual_meeting" },
-      { key: "article", label: "文章（建设中）", href: `/person/${personId}`, sourceType: undefined },
-      { key: "video", label: "视频（建设中）", href: `/person/${personId}`, sourceType: undefined },
+      { key: "shareholder", label: "致股东信", href: `/master/${personId}/library?type=shareholder`, sourceType: "shareholder" },
+      { key: "partnership", label: "合伙人信", href: `/master/${personId}/library?type=partnership`, sourceType: "partnership" },
+      { key: "annual_meeting", label: "股东大会", href: `/master/${personId}/library?type=annual_meeting`, sourceType: "annual_meeting" },
+      { key: "article", label: "文章（建设中）", href: `/master/${personId}`, sourceType: undefined },
+      { key: "video", label: "视频（建设中）", href: `/master/${personId}`, sourceType: undefined },
     ],
     lilu: [
-      { key: "speech", label: "演讲（建设中）", href: `/person/${personId}` },
-      { key: "article", label: "文章（建设中）", href: `/person/${personId}` },
-      { key: "video", label: "视频（建设中）", href: `/person/${personId}` },
+      { key: "speech", label: "演讲（建设中）", href: `/master/${personId}` },
+      { key: "article", label: "文章（建设中）", href: `/master/${personId}` },
+      { key: "video", label: "视频（建设中）", href: `/master/${personId}` },
     ],
     duan: [
-      { key: "post", label: "公开言论（建设中）", href: `/person/${personId}` },
-      { key: "article", label: "文章（建设中）", href: `/person/${personId}` },
-      { key: "video", label: "视频（建设中）", href: `/person/${personId}` },
+      { key: "post", label: "公开言论（建设中）", href: `/master/${personId}` },
+      { key: "article", label: "文章（建设中）", href: `/master/${personId}` },
+      { key: "video", label: "视频（建设中）", href: `/master/${personId}` },
     ],
   };
 

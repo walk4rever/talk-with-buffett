@@ -72,7 +72,8 @@ export function LoginForm() {
 
   return (
     <div className="login-wrap">
-      <Link href="/" className="login-brand">Talk with Buffett</Link>
+      <Link href="/" className="login-brand">Buffett Tribe</Link>
+      <p className="login-sub">登录后可使用资料库、持仓历史与对话工作台</p>
 
       <div className="login-card">
         <div className="login-tabs">
@@ -103,7 +104,7 @@ export function LoginForm() {
           <input
             className="login-input"
             type="email"
-            placeholder="邮箱"
+            placeholder="邮箱地址"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -113,7 +114,7 @@ export function LoginForm() {
             <input
               className="login-input"
               type="password"
-              placeholder={tab === "register" ? "密码（至少 6 位）" : "密码"}
+              placeholder={tab === "register" ? "设置密码（至少 6 位）" : "输入密码"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -124,7 +125,7 @@ export function LoginForm() {
           {info && <p className="login-info">{info}</p>}
 
           <button className="login-submit" type="submit" disabled={loading}>
-            {loading ? "请稍候…" : tab === "login" ? "登录" : tab === "register" ? "注册" : "发送重置链接"}
+            {loading ? "请稍候…" : tab === "login" ? "登录" : tab === "register" ? "创建账号" : "发送重置邮件"}
           </button>
 
           {tab === "login" && (

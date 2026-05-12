@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { TextRoomWorkspace } from "@/components/TextRoomWorkspace";
+import { SiteNav } from "@/components/SiteNav";
 
 export const metadata = {
   title: "Text Room — Talk with Buffett",
@@ -8,8 +9,11 @@ export const metadata = {
 
 export default function TextRoomPage() {
   return (
-    <Suspense>
-      <TextRoomWorkspace />
-    </Suspense>
+    <>
+      <SiteNav />
+      <Suspense>
+        <TextRoomWorkspace />
+      </Suspense>
+    </>
   );
 }

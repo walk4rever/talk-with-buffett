@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import prisma from "@/lib/prisma";
-import { BtLogoMark } from "@/components/BtLogoMark";
+import { SiteNav } from "@/components/SiteNav";
 import { getTribeMember } from "@/lib/tribe";
 
 export const dynamic = "force-dynamic";
@@ -58,14 +58,9 @@ export default async function PersonMasterclassPage({ params, searchParams }: Pr
   if (id !== "buffett") {
     return (
       <div className="person-page">
-        <nav className="home-nav">
-          <div className="home-nav-in">
-            <Link href="/" className="home-nav-logo"><BtLogoMark />Buffett Tribe</Link>
-            <div className="home-nav-right"><Link href={`/person/${id}`} className="home-nav-link">返回人物页</Link></div>
-          </div>
-        </nav>
+        <SiteNav />
         <div className="person-wrap">
-          <section className="person-section"><p className="person-empty">该人物的大师课堂内容建设中。</p></section>
+          <section className="person-section"><p className="person-empty">该人物的资料库内容建设中。</p></section>
         </div>
       </div>
     );
@@ -104,19 +99,11 @@ export default async function PersonMasterclassPage({ params, searchParams }: Pr
 
   return (
     <div className="person-page">
-      <nav className="home-nav">
-        <div className="home-nav-in">
-          <Link href="/" className="home-nav-logo"><BtLogoMark />Buffett Tribe</Link>
-          <div className="home-nav-right">
-            <Link href={`/person/${id}`} className="home-nav-link">返回人物页</Link>
-            <Link href={`/text/room?person=${id}`} className="home-nav-login">对话</Link>
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       <div className="masterclass-layout">
         <aside className="masterclass-sidebar">
-          <div className="masterclass-sidebar-head">{member.nameZh} · 大师课堂</div>
+          <div className="masterclass-sidebar-head">{member.nameZh} · 资料库</div>
           {VALID_TYPES.map((type) => {
             const list = byType.get(type) ?? [];
             if (!list.length) return null;
@@ -131,7 +118,7 @@ export default async function PersonMasterclassPage({ params, searchParams }: Pr
                     return (
                       <li key={`${type}-${year}`}>
                         <Link
-                          href={`/person/${id}/masterclass?type=${type}&year=${year}`}
+                          href={`/master/${id}/library?type=${type}&year=${year}`}
                           className={`masterclass-year-link${active ? " masterclass-year-link--active" : ""}`}
                         >
                           {year}
