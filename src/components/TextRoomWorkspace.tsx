@@ -365,7 +365,10 @@ export function TextRoomWorkspace() {
   const hasReader = !!canvasType && canvasYear > 0;
   const initialQuestion = params.get("ask") ?? "";
   const personId = params.get("person") ?? "buffett";
-  const person = getTribeMember(personId);
+  const person = getTribeMember(personId) ?? getTribeMember("buffett");
+  if (!person) {
+    throw new Error("Missing default tribe member: buffett");
+  }
 
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const transfer = readTransferFromSessionStorage();

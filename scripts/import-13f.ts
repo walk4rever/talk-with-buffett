@@ -5,14 +5,29 @@
  * Entity / ExtSource / Holding rows into the database.
  *
  * Usage:
- *   npx tsx scripts/import-13f.ts [--filer buffett|lilu|duan] [--quarters 4]
+ *   npx tsx scripts/import-13f.ts [--investor buffett|lilu|duan] [--quarters 4]
+ *   npx tsx scripts/import-13f.ts --investor buffett --quarter-list 2025Q4,2025Q3
+ *   npx tsx scripts/import-13f.ts --investor buffett --from 2024Q1 --to 2025Q4
  *
  * Defaults: all filers, last 4 quarters.
  */
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
+import {
+  normalizeEnglishName,
+  resolveZhFromName,
+  resolveTickerFromName,
+} from "../src/lib/company-name-map";
 
 const db = new PrismaClient();
+
+function resolveNames(canonicalName: string, existingNameZh?: string | null) {
+  const nameEnShort = normalizeEnglishName(canonicalName);
+  // Mapping beats stale stored data; existingNameZh is last resort.
+  const nameZh = resolveZhFromName(canonicalName) ?? existingNameZh ?? nameEnShort;
+  const ticker = resolveTickerFromName(canonicalName);
+  return { nameZh, nameEnShort, ticker };
+}
 
 // ─── Filer definitions ──────────────────────────────────────────────────────
 
@@ -77,6 +92,50 @@ async function getFilings(cik: string, maxFilings: number) {
     }
   }
   return results;
+}
+
+function quarterKey(year: number, quarter: number): string {
+  return `${year}Q${quarter}`;
+}
+
+function parseQuarterToken(token: string): { year: number; quarter: number } | null {
+  const normalized = token.trim().toUpperCase().replace(/[\s_-]/g, "");
+  const m = normalized.match(/^(\d{4})Q([1-4])$/);
+  if (!m) return null;
+  return { year: Number(m[1]), quarter: Number(m[2]) };
+}
+
+function parseQuarterListArg(raw: string): Array<{ year: number; quarter: number }> {
+  const parts = raw.split(",").map((x) => x.trim()).filter(Boolean);
+  const parsed = parts.map((p) => {
+    const q = parseQuarterToken(p);
+    if (!q) throw new Error(`Invalid quarter token: "${p}". Use format like 2025Q4.`);
+    return q;
+  });
+
+  const uniq = new Map<string, { year: number; quarter: number }>();
+  for (const q of parsed) uniq.set(quarterKey(q.year, q.quarter), q);
+  return [...uniq.values()];
+}
+
+function quarterOrdinal(year: number, quarter: number): number {
+  return year * 4 + quarter;
+}
+
+function quarterRange(from: { year: number; quarter: number }, to: { year: number; quarter: number }) {
+  const start = quarterOrdinal(from.year, from.quarter);
+  const end = quarterOrdinal(to.year, to.quarter);
+  if (start > end) {
+    throw new Error(`Invalid quarter range: from ${quarterKey(from.year, from.quarter)} is after to ${quarterKey(to.year, to.quarter)}.`);
+  }
+
+  const list: Array<{ year: number; quarter: number }> = [];
+  for (let n = start; n <= end; n++) {
+    const year = Math.floor((n - 1) / 4);
+    const quarter = ((n - 1) % 4) + 1;
+    list.push({ year, quarter });
+  }
+  return list;
 }
 
 async function getInfoTableXml(cik: string, accno: string, primaryDoc: string): Promise<string> {
@@ -173,6 +232,7 @@ function parseReportDate(reportDate: string): { year: number; quarter: number; d
 
 // In-memory cache: cusip → entity id, seeded from DB at startup
 const entityCache = new Map<string, string>(); // cusip → entity.id
+const backfilledCusips = new Set<string>();
 
 async function seedEntityCache() {
   const companies = await db.entity.findMany({
@@ -203,15 +263,81 @@ async function upsertFilerEntity(filer: (typeof FILERS)[number]) {
 
 async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
   const cached = entityCache.get(entry.cusip);
-  if (cached) return cached;
+  if (cached) {
+    if (!backfilledCusips.has(entry.cusip)) {
+      const row = await db.entity.findUnique({
+        where: { id: cached },
+        select: { metadata: true, canonicalName: true },
+      });
+      if (row) {
+        const meta = (row.metadata as Record<string, unknown> | null) ?? {};
+        const names = resolveNames(
+          row.canonicalName || entry.nameOfIssuer,
+          typeof meta.nameZh === "string" ? meta.nameZh : null,
+        );
+        await db.entity.update({
+          where: { id: cached },
+          data: {
+            canonicalName: entry.nameOfIssuer,
+            ticker: names.ticker,
+            metadata: {
+              ...meta,
+              cusip: entry.cusip,
+              titleOfClass: entry.titleOfClass,
+              nameZh: names.nameZh,
+              nameEnShort: names.nameEnShort,
+            },
+          },
+        });
+      }
+      backfilledCusips.add(entry.cusip);
+    }
+    return cached;
+  }
+
+  const existing = await db.entity.findFirst({
+    where: { metadata: { path: ["cusip"], equals: entry.cusip } },
+    select: { id: true, metadata: true, canonicalName: true },
+  });
+  if (existing) {
+    const meta = (existing.metadata as Record<string, unknown> | null) ?? {};
+    const names = resolveNames(
+      existing.canonicalName || entry.nameOfIssuer,
+      typeof meta.nameZh === "string" ? meta.nameZh : null,
+    );
+    const nextMeta = {
+      ...meta,
+      cusip: entry.cusip,
+      titleOfClass: entry.titleOfClass,
+      nameZh: names.nameZh,
+      nameEnShort: names.nameEnShort,
+    };
+    await db.entity.update({
+      where: { id: existing.id },
+      data: {
+        canonicalName: entry.nameOfIssuer,
+        ticker: names.ticker,
+        metadata: nextMeta,
+      },
+    });
+    backfilledCusips.add(entry.cusip);
+    entityCache.set(entry.cusip, existing.id);
+    return existing.id;
+  }
 
   // Not in cache — create and cache
+  const names = resolveNames(entry.nameOfIssuer);
   const created = await db.entity.create({
     data: {
       type: "company",
       canonicalName: entry.nameOfIssuer,
-      ticker: null,
-      metadata: { cusip: entry.cusip, titleOfClass: entry.titleOfClass },
+      ticker: names.ticker,
+      metadata: {
+        cusip: entry.cusip,
+        titleOfClass: entry.titleOfClass,
+        nameZh: names.nameZh,
+        nameEnShort: names.nameEnShort,
+      },
     },
   }).catch(async () => {
     // Race condition: another process created it; fetch it
@@ -223,6 +349,7 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
   });
 
   entityCache.set(entry.cusip, created.id);
+  backfilledCusips.add(entry.cusip);
   return created.id;
 }
 
@@ -300,9 +427,35 @@ async function importFiling(
 
 async function main() {
   const args = process.argv.slice(2);
-  const filerArg = args.find((_, i) => args[i - 1] === "--filer");
+  const filerArg =
+    args.find((_, i) => args[i - 1] === "--filer") ??
+    args.find((_, i) => args[i - 1] === "--investor");
   const quartersArg = args.find((_, i) => args[i - 1] === "--quarters");
+  const quarterListArg =
+    args.find((_, i) => args[i - 1] === "--quarter-list") ??
+    args.find((_, i) => args[i - 1] === "--quarters-list");
+  const fromArg = args.find((_, i) => args[i - 1] === "--from");
+  const toArg = args.find((_, i) => args[i - 1] === "--to");
   const maxQuarters = quartersArg ? parseInt(quartersArg, 10) : 4;
+  if (quarterListArg && (fromArg || toArg)) {
+    throw new Error("Use either --quarter-list or --from/--to, not both.");
+  }
+  if ((fromArg && !toArg) || (!fromArg && toArg)) {
+    throw new Error("Both --from and --to are required when using quarter range mode.");
+  }
+
+  let quarterList: Array<{ year: number; quarter: number }> = [];
+  if (quarterListArg) {
+    quarterList = parseQuarterListArg(quarterListArg);
+  } else if (fromArg && toArg) {
+    const from = parseQuarterToken(fromArg);
+    const to = parseQuarterToken(toArg);
+    if (!from || !to) {
+      throw new Error(`Invalid --from/--to value. Use format like 2024Q1, 2025Q4.`);
+    }
+    quarterList = quarterRange(from, to);
+  }
+  const quarterSet = new Set(quarterList.map((q) => quarterKey(q.year, q.quarter)));
 
   const filersToRun = filerArg
     ? FILERS.filter((f) => f.tribeId === filerArg)
@@ -321,10 +474,33 @@ async function main() {
     const filerEntity = await upsertFilerEntity(filer);
     console.log(`  Entity: ${filerEntity.id}`);
 
-    const filings = await getFilings(filer.cik, maxQuarters);
-    console.log(`  Found ${filings.length} 13F filings`);
+    const fetchCount = quarterList.length > 0 ? 120 : maxQuarters;
+    const filings = await getFilings(filer.cik, fetchCount);
+    console.log(`  Found ${filings.length} 13F filings (fetched window: ${fetchCount})`);
 
-    for (const filing of filings) {
+    const filingsToImport = quarterList.length > 0
+      ? filings.filter((f) => {
+          const { year, quarter } = parseReportDate(f.reportDate);
+          return quarterSet.has(quarterKey(year, quarter));
+        })
+      : filings;
+
+    if (quarterList.length > 0) {
+      const foundSet = new Set(
+        filingsToImport.map((f) => {
+          const { year, quarter } = parseReportDate(f.reportDate);
+          return quarterKey(year, quarter);
+        }),
+      );
+      const missing = quarterList
+        .map((q) => quarterKey(q.year, q.quarter))
+        .filter((k) => !foundSet.has(k));
+      if (missing.length > 0) {
+        console.warn(`  Missing requested quarters in fetched window: ${missing.join(", ")}`);
+      }
+    }
+
+    for (const filing of filingsToImport) {
       console.log(`  Filing ${filing.accno} (${filing.reportDate}, filed ${filing.filedAt}) → ${filing.xmlFile}`);
       try {
         const xml = await getInfoTableXml(filer.cik, filing.accno, filing.xmlFile);

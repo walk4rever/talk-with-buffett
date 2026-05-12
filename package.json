@@ -1,6 +1,6 @@
 {
   "name": "buffett-tribe",
-  "version": "0.34.0",
+  "version": "0.34.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,12 @@
     "eval:mvp:benchmark": "node --loader ts-node/esm scripts/eval-mvp-benchmark.ts",
     "eval:mvp:compare": "node --loader ts-node/esm scripts/compare-mvp-benchmark.ts",
     "test:asr": "node scripts/test-volc-asr.mjs",
+    "import:13f": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/import-13f.ts",
+    "import:13f:range": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/import-13f.ts --from 2024Q1 --to 2025Q4",
+    "import:10k": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/import-10k-xbrl.ts",
+    "backfill:names": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-names.ts",
+    "backfill:names:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-names.ts --dry-run",
+    "check:db": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/check-db.ts",
     "neo4j:smoke": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-smoke-test.ts",
     "neo4j:schema:v2": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-schema-v2.ts",
     "neo4j:schema:v2:reset": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-schema-v2.ts --reset",
@@ -52,6 +58,7 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -61,8 +68,10 @@
     "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "playwright": "^1.60.0",
     "prisma": "6.19.2",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vitest": "^4.1.0"
   }

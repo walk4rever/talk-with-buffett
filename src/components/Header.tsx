@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
+import { BtLogoMark } from "@/components/BtLogoMark";
 import DarkModeToggle from './DarkModeToggle';
 
 export function Header() {
@@ -30,6 +31,7 @@ export function Header() {
     <header className="header">
       <div className="container header-content">
         <Link href="/" className="logo">
+          <BtLogoMark className="logo-mark" />
           Talk with Buffett
         </Link>
         <div className="nav-actions">

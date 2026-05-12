@@ -57,6 +57,6 @@ export const TRIBE_MEMBERS: TribeMember[] = [
   },
 ];
 
-export function getTribeMember(id: string): TribeMember {
-  return TRIBE_MEMBERS.find((m) => m.id === id) ?? TRIBE_MEMBERS[0];
+export function getTribeMember(id: string): TribeMember | null {
+  return TRIBE_MEMBERS.find((m) => m.id === id) ?? null;
 }

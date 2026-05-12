@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BtLogoMark } from "@/components/BtLogoMark";
+import { getTribeMember } from "@/lib/tribe";
+import {
+  formatShares,
+  formatValueUsd,
+  getAvailableQuarters,
+  getHoldingsByQuarter,
+} from "@/lib/person-data";
 
 function BtMark() {
-  return (
-    <svg width="22" height="18" viewBox="0 0 44 36" fill="currentColor" aria-hidden="true">
-      <rect x="0"  y="22" width="11" height="14" rx="3"/>
-      <rect x="16" y="13" width="11" height="23" rx="3"/>
-      <rect x="32" y="0"  width="11" height="36" rx="3"/>
-    </svg>
-  );
+  return <BtLogoMark />;
 }
-import db from "@/lib/prisma";
-import { getTribeMember } from "@/lib/tribe";
 
 export const dynamic = "force-dynamic";
 
@@ -20,43 +20,23 @@ interface Props {
   searchParams: Promise<{ year?: string; quarter?: string }>;
 }
 
-async function getAvailableQuarters(tribeId: string) {
-  const sources = await db.extSource.findMany({
-    where: { filer: { is: { tribeId } }, kind: "13f" },
-    select: { periodYear: true, periodQuarter: true },
-    orderBy: [{ periodYear: "desc" }, { periodQuarter: "desc" }],
-  });
-  return sources
-    .filter((s) => s.periodYear != null && s.periodQuarter != null)
-    .map((s) => ({ year: s.periodYear!, quarter: s.periodQuarter! }));
+function formatPriceFromValueAndShares(valueUsd: bigint | null, shares: bigint | null) {
+  if (valueUsd == null || shares == null) return "—";
+  const v = Number(valueUsd);
+  const s = Number(shares);
+  if (!Number.isFinite(v) || !Number.isFinite(s) || s <= 0) return "—";
+  return `$${(v / s).toFixed(2)}`;
 }
 
-async function getHoldings(tribeId: string, year: number, quarter: number) {
-  return db.holding.findMany({
-    where: {
-      holder: { tribeId },
-      source: { is: { periodYear: year, periodQuarter: quarter, kind: "13f" } },
-    },
-    include: { security: true },
-    orderBy: { percentOfPortfolio: "desc" },
-  });
+function formatSignedPct(diffPct: number | null) {
+  if (diffPct == null || !Number.isFinite(diffPct)) return "—";
+  const sign = diffPct > 0 ? "+" : "";
+  return `${sign}${diffPct.toFixed(1)}%`;
 }
 
-function fmtValue(valueUsd: bigint | null): string {
-  if (valueUsd == null) return "—";
-  const usd = Number(valueUsd);
-  if (usd < 1e6) return `$${usd.toLocaleString()}`;
-  const yi = usd / 1e8;
-  return `$${yi >= 10 ? yi.toFixed(1) : yi.toFixed(2)}亿`;
-}
-
-function fmtShares(shares: bigint | null): string {
-  if (shares == null) return "—";
-  const n = Number(shares);
-  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
-  return n.toLocaleString();
+function shortZhName(name: string, max = 8) {
+  const cleaned = name.replace(/\s+/g, "");
+  return cleaned.length > max ? `${cleaned.slice(0, max)}…` : cleaned;
 }
 
 export default async function HoldingsPage({ params, searchParams }: Props) {
@@ -72,7 +52,13 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
   const selectedYear = yearStr ? parseInt(yearStr) : quarters[0].year;
   const selectedQuarter = quarterStr ? parseInt(quarterStr) : quarters[0].quarter;
 
-  const holdings = await getHoldings(id, selectedYear, selectedQuarter);
+  const holdings = await getHoldingsByQuarter(id, selectedYear, selectedQuarter);
+  const selectedIndex = quarters.findIndex((q) => q.year === selectedYear && q.quarter === selectedQuarter);
+  const prevQuarter = selectedIndex >= 0 ? quarters[selectedIndex + 1] : undefined;
+  const prevHoldings = prevQuarter
+    ? await getHoldingsByQuarter(id, prevQuarter.year, prevQuarter.quarter)
+    : [];
+  const prevBySecurityId = new Map(prevHoldings.map((h) => [h.securityEntityId, h] as const));
 
   const totalValue = holdings.reduce(
     (sum, h) => sum + (h.valueUsd ? Number(h.valueUsd) : 0),
@@ -109,21 +95,25 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
           </div>
         </div>
 
-        {/* Quarter selector */}
-        <div className="holdings-quarters">
-          {quarters.map((q) => {
-            const active = q.year === selectedYear && q.quarter === selectedQuarter;
-            return (
-              <Link
-                key={`${q.year}-${q.quarter}`}
-                href={`/person/${id}/holdings?year=${q.year}&quarter=${q.quarter}`}
-                className={`holdings-q${active ? " holdings-q--active" : ""}`}
-                style={active ? { borderColor: member.color, color: member.color } : undefined}
-              >
-                {q.year} Q{q.quarter}
-              </Link>
-            );
-          })}
+        {/* Quarter selector timeline */}
+        <div className="holdings-timeline-wrap">
+          <div className="holdings-timeline-line" />
+          <div className="holdings-timeline">
+            {quarters.map((q) => {
+              const active = q.year === selectedYear && q.quarter === selectedQuarter;
+              return (
+                <Link
+                  key={`${q.year}-${q.quarter}`}
+                  href={`/person/${id}/holdings?year=${q.year}&quarter=${q.quarter}`}
+                  className={`holdings-timeline-node${active ? " holdings-timeline-node--active" : ""}`}
+                  style={active ? { borderColor: member.color, color: member.color } : undefined}
+                >
+                  <span className="holdings-timeline-dot" />
+                  <span className="holdings-timeline-label">{q.year} Q{q.quarter}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
         {/* Summary bar */}
@@ -133,7 +123,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
           </span>
           <span className="holdings-summary-sep">·</span>
           <span className="holdings-summary-item">
-            总计 <em>{fmtValue(BigInt(Math.round(totalValue)))}</em>
+            总计 <em>{formatValueUsd(BigInt(Math.round(totalValue)))}</em>
           </span>
           <span className="holdings-summary-sep">·</span>
           <span className="holdings-summary-item">
@@ -147,42 +137,104 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
             <thead>
               <tr>
                 <th className="holdings-th holdings-th--rank">#</th>
-                <th className="holdings-th">公司</th>
-                <th className="holdings-th holdings-th--num">占比</th>
-                <th className="holdings-th holdings-th--num">市值</th>
-                <th className="holdings-th holdings-th--num">股数</th>
+                <th className="holdings-th">Stock</th>
+                <th className="holdings-th holdings-th--num">% of Portfolio</th>
+                <th className="holdings-th">Recent Activity</th>
+                <th className="holdings-th holdings-th--num">Shares</th>
+                <th className="holdings-th holdings-th--num">Reported Price*</th>
+                <th className="holdings-th holdings-th--num">Value</th>
+                <th className="holdings-th holdings-th--num">Current Price</th>
+                <th className="holdings-th holdings-th--num">+/- Reported Price</th>
+                <th className="holdings-th holdings-th--num">52 Week Low</th>
+                <th className="holdings-th holdings-th--num">52 Week High</th>
               </tr>
             </thead>
             <tbody>
-              {holdings.map((h, i) => (
-                <tr key={h.id} className="holdings-row">
-                  <td className="holdings-td holdings-td--rank">{i + 1}</td>
-                  <td className="holdings-td holdings-td--name">
-                    <span className="holdings-company">{h.security.canonicalName}</span>
-                    {h.security.ticker && (
-                      <span className="holdings-ticker">{h.security.ticker}</span>
-                    )}
-                  </td>
-                  <td className="holdings-td holdings-td--num">
-                    <div className="holdings-pct-wrap">
-                      <span className="holdings-pct">
-                        {h.percentOfPortfolio != null
-                          ? `${h.percentOfPortfolio.toFixed(2)}%`
-                          : "—"}
+              {holdings.map((h, i) => {
+                const prev = prevBySecurityId.get(h.securityEntityId);
+                const prevShares = prev?.shares ? Number(prev.shares) : null;
+                const nowShares = h.shares ? Number(h.shares) : null;
+                const shareDeltaPct =
+                  prevShares && nowShares && prevShares > 0
+                    ? ((nowShares - prevShares) / prevShares) * 100
+                    : null;
+                const activity = !prev
+                  ? "New"
+                  : shareDeltaPct == null || Math.abs(shareDeltaPct) < 1
+                    ? "Unchanged"
+                    : shareDeltaPct > 0
+                      ? "Added"
+                      : "Reduced";
+                const rowClass =
+                  activity === "New"
+                    ? "holdings-row holdings-row--new"
+                    : activity === "Added"
+                      ? "holdings-row holdings-row--added"
+                      : activity === "Reduced"
+                        ? "holdings-row holdings-row--reduced"
+                        : "holdings-row";
+
+                const reportedPrice = formatPriceFromValueAndShares(h.valueUsd, h.shares);
+                const currentPrice = "—";
+                const pctVsReported = "—";
+                const low52 = "—";
+                const high52 = "—";
+                const ticker = h.security.ticker ?? "—";
+                const stockLabel = `${shortZhName(h.security.canonicalName)} ${ticker}`;
+
+                return (
+                  <tr key={h.id} className={rowClass}>
+                    <td className="holdings-td holdings-td--rank">{i + 1}</td>
+                    <td className="holdings-td holdings-td--name">
+                      <span className="holdings-company">
+                        {h.security.ticker ? (
+                          <Link href={`/company/${h.security.ticker}`}>{stockLabel}</Link>
+                        ) : (
+                          stockLabel
+                        )}
                       </span>
-                      <div
-                        className="holdings-bar"
-                        style={{
-                          width: `${Math.min(h.percentOfPortfolio ?? 0, 100)}%`,
-                          background: member.color,
-                        }}
-                      />
-                    </div>
-                  </td>
-                  <td className="holdings-td holdings-td--num">{fmtValue(h.valueUsd)}</td>
-                  <td className="holdings-td holdings-td--num">{fmtShares(h.shares)}</td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="holdings-td holdings-td--num">
+                      <div className="holdings-pct-wrap">
+                        <span className="holdings-pct">
+                          {h.percentOfPortfolio != null
+                            ? `${h.percentOfPortfolio.toFixed(2)}%`
+                            : "—"}
+                        </span>
+                        <div
+                          className="holdings-bar"
+                          style={{
+                            width: `${Math.min(h.percentOfPortfolio ?? 0, 100)}%`,
+                            background: member.color,
+                          }}
+                        />
+                      </div>
+                    </td>
+                    <td className="holdings-td">
+                      {activity === "New" ? (
+                        <span className="holdings-activity-new" aria-label="new position">*</span>
+                      ) : activity === "Added" ? (
+                        <span className="holdings-activity-delta holdings-activity-delta--up">
+                          ↑ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "—"}
+                        </span>
+                      ) : activity === "Reduced" ? (
+                        <span className="holdings-activity-delta holdings-activity-delta--down">
+                          ↓ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "—"}
+                        </span>
+                      ) : (
+                        <span className="holdings-activity-delta">—</span>
+                      )}
+                    </td>
+                    <td className="holdings-td holdings-td--num">{formatShares(h.shares)}</td>
+                    <td className="holdings-td holdings-td--num">{reportedPrice}</td>
+                    <td className="holdings-td holdings-td--num">{formatValueUsd(h.valueUsd)}</td>
+                    <td className="holdings-td holdings-td--num">{currentPrice}</td>
+                    <td className="holdings-td holdings-td--num">{pctVsReported}</td>
+                    <td className="holdings-td holdings-td--num">{low52}</td>
+                    <td className="holdings-td holdings-td--num">{high52}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

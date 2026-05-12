@@ -1,22 +1,7 @@
 import Link from "next/link";
+import { BtLogoMark } from "@/components/BtLogoMark";
 import { HeroSearch } from "@/components/HeroSearch";
 import { TRIBE_MEMBERS } from "@/lib/tribe";
-
-function BtMark({ className }: { className?: string }) {
-  return (
-    <svg
-      width="22" height="18"
-      viewBox="0 0 44 36"
-      fill="currentColor"
-      aria-hidden="true"
-      className={className}
-    >
-      <rect x="0"  y="22" width="11" height="14" rx="3"/>
-      <rect x="16" y="13" width="11" height="23" rx="3"/>
-      <rect x="32" y="0"  width="11" height="36" rx="3"/>
-    </svg>
-  );
-}
 
 export const dynamic = "force-dynamic";
 
@@ -62,13 +47,10 @@ export default function Home() {
       <nav className="home-nav">
         <div className="home-nav-in">
           <Link href="/" className="home-nav-logo">
-            <BtMark />
+            <BtLogoMark />
             Buffett Tribe
           </Link>
           <div className="home-nav-right">
-            <Link href="/person/buffett" className="home-nav-link">信件</Link>
-            <Link href="/person/buffett/holdings" className="home-nav-link">持仓</Link>
-            <Link href="/chat" className="home-nav-link">对话</Link>
             <Link href="/login" className="home-nav-login">登录</Link>
           </div>
         </div>
@@ -80,7 +62,9 @@ export default function Home() {
           {SIGNALS.map((s) => (
             <div key={s.ticker} className={`home-sig home-sig--${s.type}`}>
               <span className="home-sig-tag">{s.tag}</span>
-              <div className="home-sig-ticker">{s.ticker}</div>
+              <Link href={`/company/${s.ticker}`} className="home-sig-ticker">
+                {s.ticker}
+              </Link>
               <div className="home-sig-company">{s.company}</div>
               <div className="home-sig-body">{s.body}</div>
               <div className="home-sig-chips">
@@ -111,7 +95,7 @@ export default function Home() {
           <p className="home-members-hd">部落成员</p>
           <div className="home-member-list">
             {TRIBE_MEMBERS.map((m) => (
-              <div key={m.id} className="home-member-card">
+              <Link key={m.id} href={`/person/${m.id}`} className="home-member-card">
                 <div className="home-member-top">
                   <span
                     className="home-member-avatar"
@@ -126,7 +110,7 @@ export default function Home() {
                   {m.aum && <span className="home-member-aum">{m.aum}</span>}
                 </div>
                 <div className="home-member-links">
-                  <Link href={m.materialHref} className="home-member-link">
+                  <div className="home-member-link">
                     <span className="home-member-link-icon">
                       {m.id === "duan" ? "✍️" : m.id === "lilu" ? "🎙" : "📝"}
                     </span>
@@ -134,16 +118,16 @@ export default function Home() {
                       {m.materialLabel}
                       <em>{m.materialSub}</em>
                     </span>
-                  </Link>
-                  <Link href={m.holdingsHref} className="home-member-link">
+                  </div>
+                  <div className="home-member-link">
                     <span className="home-member-link-icon">📊</span>
                     <span className="home-member-link-text">
                       持仓快照
                       <em>2025 Q4</em>
                     </span>
-                  </Link>
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -151,7 +135,10 @@ export default function Home() {
 
       <footer className="home-footer-v2">
         <div className="home-footer-v2-in">
-          <span className="home-footer-logo">Buffett Tribe</span>
+          <span className="home-footer-logo">
+            <BtLogoMark />
+            Buffett Tribe
+          </span>
           <p className="home-footer-note">
             数据来源：SEC EDGAR 13F-HR · 本站为研究工具，不构成投资建议
           </p>
