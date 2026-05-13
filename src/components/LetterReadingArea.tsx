@@ -20,6 +20,8 @@ interface LetterReadingAreaProps {
   year: number;
   contentMd: string;
   sourceType?: string;
+  /** Where the ← 返回 link goes. Defaults to "/" */
+  backHref?: string;
 }
 
 const FONT_SIZES = [14, 15, 16, 17, 18, 20];
@@ -202,7 +204,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" }: LetterReadingAreaProps) {
+export function LetterReadingArea({ year, contentMd, sourceType = "shareholder", backHref = "/" }: LetterReadingAreaProps) {
   const router = useRouter();
   const [fontIdx, setFontIdx] = useState(getInitialFontIdx);
   const [lineIdx, setLineIdx] = useState(getInitialLineIdx);
@@ -231,7 +233,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder" 
     <>
       {/* Sticky bar */}
       <div className="letter-bar">
-        <Link href="/" className="back-link">← 返回</Link>
+        <Link href={backHref} className="back-link">← 返回</Link>
         <span className="letter-bar-title">
           {year} {{ shareholder: "致股东信", partnership: "致合伙人信", annual_meeting: "股东大会", article: "文章", interview: "采访" }[sourceType] ?? sourceType}
         </span>

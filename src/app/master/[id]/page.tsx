@@ -12,7 +12,8 @@ import {
 } from "@/lib/person-data";
 import { normalizeEnglishName, resolveTickerFromName, resolveZhFromName } from "@/lib/company-name-map";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300; // cache 5 min — holdings/letters update infrequently
+
 
 interface Props {
   params: Promise<{ id: string }>;

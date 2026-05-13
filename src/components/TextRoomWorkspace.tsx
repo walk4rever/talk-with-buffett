@@ -395,6 +395,34 @@ export function TextRoomWorkspace() {
   );
   const [shareData, setShareData] = useState<{ question: string; answer: string } | null>(null);
 
+  // Canvas reader font / line-height controls (shared localStorage keys with LetterReadingArea)
+  const CANVAS_FONT_SIZES = [14, 15, 16, 17, 18, 20];
+  const CANVAS_LINE_HEIGHTS = [1.5, 1.65, 1.8, 2.0, 2.2];
+  const [canvasFontIdx, setCanvasFontIdx] = useState(() => {
+    if (typeof window === "undefined") return 2;
+    const saved = window.localStorage.getItem("reader-font-idx");
+    const parsed = Number(saved);
+    if (!Number.isFinite(parsed)) return 2;
+    return Math.max(0, Math.min(CANVAS_FONT_SIZES.length - 1, parsed));
+  });
+  const [canvasLineIdx, setCanvasLineIdx] = useState(() => {
+    if (typeof window === "undefined") return 2;
+    const saved = window.localStorage.getItem("reader-line-idx");
+    const parsed = Number(saved);
+    if (!Number.isFinite(parsed)) return 2;
+    return Math.max(0, Math.min(CANVAS_LINE_HEIGHTS.length - 1, parsed));
+  });
+  function changeCanvasFontIdx(next: number) {
+    const clamped = Math.max(0, Math.min(CANVAS_FONT_SIZES.length - 1, next));
+    setCanvasFontIdx(clamped);
+    localStorage.setItem("reader-font-idx", String(clamped));
+  }
+  function changeCanvasLineIdx(next: number) {
+    const clamped = Math.max(0, Math.min(CANVAS_LINE_HEIGHTS.length - 1, next));
+    setCanvasLineIdx(clamped);
+    localStorage.setItem("reader-line-idx", String(clamped));
+  }
+
   const filteredCanvasContent = useMemo(() => {
     if (!canvasContent?.contentMd) return "";
     const md = filterByLanguage(stripHeader(canvasContent.contentMd), readingMode);
@@ -749,7 +777,52 @@ export function TextRoomWorkspace() {
               <div className="workspace-canvas-loading">加载中…</div>
             ) : canvasContent ? (
               <>
-                <div className="md-reader md-reader--canvas" style={{ fontSize: 16, lineHeight: 1.8 }}>
+                {/* Canvas reading controls */}
+                <div className="canvas-reader-controls">
+                  <div className="reader-ctrl-group" title="字体大小">
+                    <button
+                      className="reader-ctrl-btn"
+                      onClick={() => changeCanvasFontIdx(canvasFontIdx - 1)}
+                      disabled={canvasFontIdx === 0}
+                      aria-label="缩小字体"
+                    >
+                      A<sup>−</sup>
+                    </button>
+                    <span className="reader-ctrl-val">{CANVAS_FONT_SIZES[canvasFontIdx]}px</span>
+                    <button
+                      className="reader-ctrl-btn"
+                      onClick={() => changeCanvasFontIdx(canvasFontIdx + 1)}
+                      disabled={canvasFontIdx === CANVAS_FONT_SIZES.length - 1}
+                      aria-label="放大字体"
+                    >
+                      A<sup>+</sup>
+                    </button>
+                  </div>
+                  <div className="reader-ctrl-sep" />
+                  <div className="reader-ctrl-group" title="行间距">
+                    <button
+                      className="reader-ctrl-btn"
+                      onClick={() => changeCanvasLineIdx(canvasLineIdx - 1)}
+                      disabled={canvasLineIdx === 0}
+                      aria-label="减小行距"
+                    >
+                      <CanvasLineHeightIcon tight />
+                    </button>
+                    <span className="reader-ctrl-val">{CANVAS_LINE_HEIGHTS[canvasLineIdx].toFixed(1)}</span>
+                    <button
+                      className="reader-ctrl-btn"
+                      onClick={() => changeCanvasLineIdx(canvasLineIdx + 1)}
+                      disabled={canvasLineIdx === CANVAS_LINE_HEIGHTS.length - 1}
+                      aria-label="增大行距"
+                    >
+                      <CanvasLineHeightIcon />
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className="md-reader md-reader--canvas"
+                  style={{ fontSize: CANVAS_FONT_SIZES[canvasFontIdx], lineHeight: CANVAS_LINE_HEIGHTS[canvasLineIdx] }}
+                >
                   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={readerMarkdownComponents}>
                     {filteredCanvasContent}
                   </ReactMarkdown>
@@ -959,5 +1032,16 @@ function ReferenceList({
         );
       })}
     </div>
+  );
+}
+
+function CanvasLineHeightIcon({ tight }: { tight?: boolean }) {
+  const gap = tight ? 3 : 6;
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <line x1="4" y1="3" x2="12" y2="3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="4" y1={3 + gap} x2="12" y2={3 + gap} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="4" y1={3 + gap * 2} x2="12" y2={3 + gap * 2} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
   );
 }

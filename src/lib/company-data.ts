@@ -1,7 +1,7 @@
 import db from "@/lib/prisma";
 
 export async function getCompanyByTicker(ticker: string) {
-  return db.entity.findFirst({
+  const rows = await db.entity.findMany({
     where: {
       type: "company",
       ticker: {
@@ -16,13 +16,65 @@ export async function getCompanyByTicker(ticker: string) {
       cik: true,
       sector: true,
       metadata: true,
+      updatedAt: true,
+      _count: {
+        select: {
+          financials: true,
+          holdingsAsSecurity: true,
+        },
+      },
     },
   });
+
+  if (rows.length === 0) return null;
+
+  const best = [...rows].sort((a, b) => {
+    const score = (x: (typeof rows)[number]) =>
+      (x.cik ? 100 : 0) +
+      (x._count.financials > 0 ? 50 : 0) +
+      (x._count.holdingsAsSecurity > 0 ? 30 : 0);
+    const diff = score(b) - score(a);
+    if (diff !== 0) return diff;
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  })[0];
+
+  return {
+    id: best.id,
+    canonicalName: best.canonicalName,
+    ticker: best.ticker,
+    cik: best.cik,
+    sector: best.sector,
+    metadata: best.metadata,
+  };
+}
+
+async function getEntityFamilyIds(entityId: string) {
+  const base = await db.entity.findUnique({
+    where: { id: entityId },
+    select: { id: true, ticker: true },
+  });
+  if (!base) return [entityId];
+  if (!base.ticker) return [entityId];
+
+  const siblings = await db.entity.findMany({
+    where: {
+      type: "company",
+      ticker: {
+        equals: base.ticker,
+        mode: "insensitive",
+      },
+    },
+    select: { id: true },
+  });
+
+  if (!siblings.length) return [entityId];
+  return siblings.map((s) => s.id);
 }
 
 export async function getCompanyFinancials(entityId: string, limit = 8) {
+  const familyIds = await getEntityFamilyIds(entityId);
   const rows = await db.financial.findMany({
-    where: { entityId, periodType: "FY" },
+    where: { entityId: { in: familyIds }, periodType: "FY" },
     orderBy: [{ periodEnd: "desc" }, { lineItem: "asc" }],
     select: {
       id: true,
@@ -51,16 +103,17 @@ export async function getCompanyFinancials(entityId: string, limit = 8) {
 }
 
 export async function getRecentHolders(entityId: string, limit = 20) {
+  const familyIds = await getEntityFamilyIds(entityId);
   const latest = await db.holding.findFirst({
-    where: { securityEntityId: entityId },
+    where: { securityEntityId: { in: familyIds } },
     orderBy: { asOfDate: "desc" },
     select: { asOfDate: true },
   });
   if (!latest) return { asOfDate: null, holders: [] as Array<{ id: string; name: string; tribeId: string | null; percent: number | null; valueUsd: bigint | null; sourceYear: number | null; sourceQuarter: number | null }> };
 
-  const holders = await db.holding.findMany({
+  const rows = await db.holding.findMany({
     where: {
-      securityEntityId: entityId,
+      securityEntityId: { in: familyIds },
       asOfDate: latest.asOfDate,
     },
     orderBy: { valueUsd: "desc" },
@@ -71,17 +124,46 @@ export async function getRecentHolders(entityId: string, limit = 20) {
     take: limit,
   });
 
+  const byHolder = new Map<string, {
+    id: string;
+    name: string;
+    tribeId: string | null;
+    percent: number | null;
+    valueUsd: bigint | null;
+    sourceYear: number | null;
+    sourceQuarter: number | null;
+  }>();
+
+  for (const h of rows) {
+    const prev = byHolder.get(h.holder.id);
+    if (!prev) {
+      byHolder.set(h.holder.id, {
+        id: h.holder.id,
+        name: h.holder.canonicalName,
+        tribeId: h.holder.tribeId,
+        percent: h.percentOfPortfolio,
+        valueUsd: h.valueUsd,
+        sourceYear: h.source.periodYear,
+        sourceQuarter: h.source.periodQuarter,
+      });
+      continue;
+    }
+    byHolder.set(h.holder.id, {
+      ...prev,
+      percent: h.percentOfPortfolio ?? prev.percent,
+      valueUsd: (prev.valueUsd ?? BigInt(0)) + (h.valueUsd ?? BigInt(0)),
+      sourceYear: h.source.periodYear ?? prev.sourceYear,
+      sourceQuarter: h.source.periodQuarter ?? prev.sourceQuarter,
+    });
+  }
+
+  const holders = [...byHolder.values()]
+    .sort((a, b) => Number(b.valueUsd ?? BigInt(0)) - Number(a.valueUsd ?? BigInt(0)))
+    .slice(0, limit);
+
   return {
     asOfDate: latest.asOfDate,
-    holders: holders.map((h) => ({
-      id: h.holder.id,
-      name: h.holder.canonicalName,
-      tribeId: h.holder.tribeId,
-      percent: h.percentOfPortfolio,
-      valueUsd: h.valueUsd,
-      sourceYear: h.source.periodYear,
-      sourceQuarter: h.source.periodQuarter,
-    })),
+    holders,
   };
 }
 

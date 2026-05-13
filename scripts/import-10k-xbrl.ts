@@ -220,11 +220,22 @@ function decimalFromNumber(value: number) {
 }
 
 async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
-  const existing = await db.entity.findUnique({
+  const byCik = await db.entity.findUnique({
     where: { cik },
-    select: { metadata: true },
+    select: { id: true, metadata: true },
   });
-  const existingMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  const byTicker = byCik
+    ? null
+    : await db.entity.findFirst({
+      where: {
+        type: "company",
+        ticker: { equals: ticker, mode: "insensitive" },
+      },
+      select: { id: true, metadata: true },
+    });
+
+  const target = byCik ?? byTicker;
+  const existingMeta = (target?.metadata as Record<string, unknown> | null) ?? {};
   const existingZh = typeof existingMeta.nameZh === "string" ? existingMeta.nameZh : null;
   const names = resolveCompanyNames({
     ticker,
@@ -232,31 +243,33 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
     existingNameZh: existingZh,
   });
 
-  return db.entity.upsert({
-    where: { cik },
-    create: {
+  const nextMeta = {
+    ...existingMeta,
+    source: "sec-edgar",
+    importedBy: "import-10k-xbrl",
+    nameZh: names.nameZh,
+    nameEnShort: names.nameEnShort,
+  };
+
+  if (target) {
+    return db.entity.update({
+      where: { id: target.id },
+      data: {
+        canonicalName: title,
+        cik,
+        ticker,
+        metadata: nextMeta,
+      },
+    });
+  }
+
+  return db.entity.create({
+    data: {
       type: "company",
       canonicalName: title,
       cik,
       ticker,
-      metadata: {
-        ...existingMeta,
-        source: "sec-edgar",
-        importedBy: "import-10k-xbrl",
-        nameZh: names.nameZh,
-        nameEnShort: names.nameEnShort,
-      },
-    },
-    update: {
-      canonicalName: title,
-      ticker,
-      metadata: {
-        ...existingMeta,
-        source: "sec-edgar",
-        importedBy: "import-10k-xbrl",
-        nameZh: names.nameZh,
-        nameEnShort: names.nameEnShort,
-      },
+      metadata: nextMeta,
     },
   });
 }

@@ -2,7 +2,8 @@ import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { LetterReadingArea } from "@/components/LetterReadingArea";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // cache 1 hour — letter content is immutable
+
 
 interface LetterPageProps {
   params: Promise<{ type: string; year: string }>;
