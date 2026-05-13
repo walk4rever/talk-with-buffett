@@ -3,25 +3,30 @@
  *
  * Fetches SEC EDGAR 13F-HR filings for the three tribe filers and upserts
  * Entity / ExtSource / Holding rows into the database.
- *
- * Usage:
- *   npx tsx scripts/import-13f.ts [--investor buffett|lilu|duan] [--quarters 4]
- *   npx tsx scripts/import-13f.ts --investor buffett --quarter-list 2025Q4,2025Q3
- *   npx tsx scripts/import-13f.ts --investor buffett --from 2024Q1 --to 2025Q4
- *
- * Defaults: all filers, last 4 quarters.
  */
 import { PrismaClient } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
-import {
-  resolveCompanyNamesFromMaps,
-} from "../src/lib/company-name-map";
+import { issuerKey, resolveCompanyNamesFromMaps } from "../src/lib/company-name-map";
+import { translateCompanyNameToZh, upsertNameMapEntries } from "./lib/company-name-zh";
 
 const db = new PrismaClient();
 
 const zhByTickerDb = new Map<string, string>();
 const zhByIssuerDb = new Map<string, string>();
 const tickerByIssuerDb = new Map<string, string>();
+
+const entityByCusip = new Map<string, { id: string; backfilled: boolean }>();
+const companyByTickerCache = new Map<string, string>();
+const securityIdByEntityId = new Map<string, string>();
+
+type SecuritySnapshot = {
+  entityId: string;
+  ticker: string | null;
+  cusip: string;
+  titleOfClass: string;
+  companyEntityId: string | null;
+  metadata: Record<string, unknown>;
+};
 
 function resolveNamesDbFirst(canonicalName: string, existingNameZh?: string | null) {
   const resolved = resolveCompanyNamesFromMaps({
@@ -33,34 +38,77 @@ function resolveNamesDbFirst(canonicalName: string, existingNameZh?: string | nu
       tickerByIssuer: tickerByIssuerDb,
     },
   });
+
   return {
+    ticker: resolved.ticker,
     nameZh: resolved.nameZh,
     nameEnShort: resolved.nameEnShort,
-    ticker: resolved.ticker,
+    issuerKey: issuerKey(canonicalName),
   };
 }
 
-// ─── Filer definitions ──────────────────────────────────────────────────────
+async function mapLimit<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>) {
+  let index = 0;
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+    while (true) {
+      const i = index++;
+      if (i >= items.length) return;
+      await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+async function translateMissingNames(entries: InfoTableEntry[], concurrency = 4) {
+  const pending = new Map<string, { canonicalName: string; ticker: string | null; nameEnShort: string; key: string }>();
+
+  for (const entry of entries) {
+    const names = resolveNamesDbFirst(entry.nameOfIssuer);
+    if (names.nameZh !== names.nameEnShort) continue;
+    if (!pending.has(names.issuerKey)) {
+      pending.set(names.issuerKey, {
+        canonicalName: entry.nameOfIssuer,
+        ticker: names.ticker,
+        nameEnShort: names.nameEnShort,
+        key: names.issuerKey,
+      });
+    }
+  }
+
+  const tasks = [...pending.values()];
+  if (!tasks.length) return;
+
+  await mapLimit(tasks, concurrency, async (task) => {
+    const nameZh = await translateCompanyNameToZh({
+      englishName: task.canonicalName,
+      ticker: task.ticker,
+    });
+
+    await upsertNameMapEntries({
+      db,
+      issuerKey: task.key,
+      ticker: task.ticker,
+      nameZh,
+      nameEnShort: task.nameEnShort,
+      source: "import-translation",
+    });
+
+    zhByIssuerDb.set(task.key, nameZh);
+    if (task.ticker) zhByTickerDb.set(task.ticker.toUpperCase(), nameZh);
+  });
+}
 
 const FILERS = [
-  {
-    tribeId: "buffett",
-    name: "Berkshire Hathaway Inc",
-    cik: "1067983",
-  },
-  {
-    tribeId: "lilu",
-    name: "Himalaya Capital Management LLC",
-    cik: "1709323",
-  },
-  {
-    tribeId: "duan",
-    name: "H&H International Investment LLC",
-    cik: "1759760",
-  },
+  { tribeId: "buffett", name: "Berkshire Hathaway Inc", cik: "1067983" },
+  { tribeId: "lilu", name: "Himalaya Capital Management LLC", cik: "1709323" },
+  { tribeId: "duan", name: "H&H International Investment LLC", cik: "1759760" },
 ] as const;
-
-// ─── SEC EDGAR helpers ───────────────────────────────────────────────────────
 
 const EDGAR = "https://data.sec.gov";
 const HEADERS = {
@@ -73,6 +121,7 @@ async function getFilings(cik: string, maxFilings: number) {
   const url = `${EDGAR}/submissions/CIK${paddedCik}.json`;
   const res = await fetch(url, { headers: HEADERS });
   if (!res.ok) throw new Error(`EDGAR submissions 404 for CIK ${cik}`);
+
   const data = (await res.json()) as {
     filings: {
       recent: {
@@ -84,24 +133,21 @@ async function getFilings(cik: string, maxFilings: number) {
       };
     };
   };
+
   const { form, filingDate, accessionNumber, reportDate, primaryDocument } = data.filings.recent;
-  const results: Array<{
-    accno: string;
-    filedAt: string;
-    reportDate: string;
-    xmlFile: string;
-  }> = [];
+  const results: Array<{ accno: string; filedAt: string; reportDate: string; xmlFile: string }> = [];
+
   for (let i = 0; i < form.length; i++) {
-    if (form[i] === "13F-HR") {
-      results.push({
-        accno: accessionNumber[i],
-        filedAt: filingDate[i],
-        reportDate: reportDate[i],
-        xmlFile: primaryDocument[i],
-      });
-      if (results.length >= maxFilings) break;
-    }
+    if (form[i] !== "13F-HR") continue;
+    results.push({
+      accno: accessionNumber[i],
+      filedAt: filingDate[i],
+      reportDate: reportDate[i],
+      xmlFile: primaryDocument[i],
+    });
+    if (results.length >= maxFilings) break;
   }
+
   return results;
 }
 
@@ -153,18 +199,15 @@ async function getInfoTableXml(cik: string, accno: string, primaryDoc: string): 
   const accnoPath = accno.replace(/-/g, "");
   const wwwBase = `https://www.sec.gov/Archives/edgar/data/${cik}/${accnoPath}`;
 
-  // If primaryDoc is a direct XML file, try it first
   if (primaryDoc.endsWith(".xml") && !primaryDoc.includes("/")) {
     const xmlRes = await fetch(`${wwwBase}/${primaryDoc}`, { headers: HEADERS });
     if (xmlRes.ok) return xmlRes.text();
   }
 
-  // Otherwise scrape the directory listing to find the information table XML
   const dirRes = await fetch(`${wwwBase}/`, { headers: HEADERS });
   if (!dirRes.ok) throw new Error(`Directory listing failed: ${wwwBase}/`);
   const html = await dirRes.text();
 
-  // Extract all XML hrefs, exclude cover-page XML
   const xmlFiles = [...html.matchAll(/href="([^"]+\.xml)"/g)]
     .map((m) => m[1].split("/").pop()!)
     .filter((n) => n !== "primary_doc.xml");
@@ -181,7 +224,7 @@ interface InfoTableEntry {
   nameOfIssuer: string;
   titleOfClass: string;
   cusip: string;
-  value: bigint; // in USD (the XML reports in $1,000 units)
+  value: bigint;
   shares: bigint;
   investmentDiscretion: string;
   putCall?: string;
@@ -191,19 +234,14 @@ function parseInfoTable(xml: string): InfoTableEntry[] {
   const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true });
   const doc = parser.parse(xml);
 
-  // Navigate to infoTable array (path varies by filer)
   let tables: unknown[] = [];
   const root = doc?.informationTable ?? doc?.["ns1:informationTable"] ?? doc;
-  if (root?.infoTable) {
-    tables = Array.isArray(root.infoTable) ? root.infoTable : [root.infoTable];
-  }
+  if (root?.infoTable) tables = Array.isArray(root.infoTable) ? root.infoTable : [root.infoTable];
 
   const rawEntries = tables.map((t: unknown) => {
     const row = t as Record<string, unknown>;
     const shrsOrPrnAmt = row.shrsOrPrnAmt as Record<string, unknown> | undefined;
     const sharesRaw = shrsOrPrnAmt?.sshPrnamt ?? row.sshPrnamt ?? 0;
-    // SEC 13F value field is in full USD (despite the spec saying $1,000 units,
-    // actual EDGAR filings use full dollar amounts in the XML)
     const valueRaw = Number(row.value ?? 0);
 
     return {
@@ -217,8 +255,6 @@ function parseInfoTable(xml: string): InfoTableEntry[] {
     };
   });
 
-  // Aggregate by CUSIP — some filers (e.g. Berkshire) split the same security
-  // across multiple sub-managers, each appearing as a separate infoTable row.
   const byCusip = new Map<string, InfoTableEntry>();
   for (const e of rawEntries) {
     const existing = byCusip.get(e.cusip);
@@ -232,31 +268,21 @@ function parseInfoTable(xml: string): InfoTableEntry[] {
 }
 
 function parseReportDate(reportDate: string): { year: number; quarter: number; date: Date } {
-  // reportDate: "2025-12-31"
   const d = new Date(reportDate);
   const month = d.getUTCMonth() + 1;
   const quarter = Math.ceil(month / 3);
   return { year: d.getUTCFullYear(), quarter, date: d };
 }
 
-// ─── DB upsert helpers ───────────────────────────────────────────────────────
-
-// In-memory cache: cusip → entity id, seeded from DB at startup
-const entityCache = new Map<string, string>(); // cusip → entity.id
-const backfilledCusips = new Set<string>();
-const companyByTickerCache = new Map<string, string>(); // ticker → company entity.id
-
 async function seedEntityCache() {
   const entities = await db.entity.findMany({
-    where: {
-      type: "security",
-    },
+    where: { type: "security" },
     select: { id: true, metadata: true },
   });
   for (const e of entities) {
     const meta = e.metadata as Record<string, unknown> | null;
     if (meta?.cusip && typeof meta.cusip === "string") {
-      entityCache.set(meta.cusip, e.id);
+      entityByCusip.set(meta.cusip, { id: e.id, backfilled: true });
     }
   }
 
@@ -267,7 +293,15 @@ async function seedEntityCache() {
   for (const c of companies) {
     if (c.ticker) companyByTickerCache.set(c.ticker.toUpperCase(), c.id);
   }
-  console.log(`  Entity cache seeded: ${entityCache.size} security entities by cusip`);
+
+  const securityRows = await db.security.findMany({
+    select: { id: true, entityId: true },
+  });
+  for (const s of securityRows) {
+    securityIdByEntityId.set(s.entityId, s.id);
+  }
+
+  console.log(`  Entity cache seeded: ${entityByCusip.size} security entities by cusip`);
 
   const dbMaps = await db.companyNameMap.findMany({
     where: { keyType: { in: ["ticker", "issuer"] } },
@@ -276,7 +310,7 @@ async function seedEntityCache() {
   for (const row of dbMaps) {
     if (row.keyType === "ticker") {
       if (row.nameZh) zhByTickerDb.set(row.key.toUpperCase(), row.nameZh);
-    } else if (row.keyType === "issuer") {
+    } else {
       if (row.nameZh) zhByIssuerDb.set(row.key, row.nameZh);
       if (row.ticker) tickerByIssuerDb.set(row.key, row.ticker.toUpperCase());
     }
@@ -297,65 +331,74 @@ async function upsertFilerEntity(filer: (typeof FILERS)[number]) {
   });
 }
 
-async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
-  const namesFromEntry = resolveNamesDbFirst(entry.nameOfIssuer);
-  const maybeCompanyId =
-    (namesFromEntry.ticker ? companyByTickerCache.get(namesFromEntry.ticker.toUpperCase()) : undefined) ?? null;
+async function upsertSecurityEntity(entry: InfoTableEntry): Promise<SecuritySnapshot> {
+  const resolved = resolveNamesDbFirst(entry.nameOfIssuer);
+  const maybeCompanyId = (resolved.ticker ? companyByTickerCache.get(resolved.ticker.toUpperCase()) : undefined) ?? null;
 
-  const cached = entityCache.get(entry.cusip);
+  const cached = entityByCusip.get(entry.cusip);
   if (cached) {
-    if (!backfilledCusips.has(entry.cusip)) {
+    if (!cached.backfilled) {
       const row = await db.entity.findUnique({
-        where: { id: cached },
+        where: { id: cached.id },
         select: { metadata: true, canonicalName: true },
       });
       if (row) {
         const meta = (row.metadata as Record<string, unknown> | null) ?? {};
-        const names = resolveNamesDbFirst(
-          row.canonicalName || entry.nameOfIssuer,
-          typeof meta.nameZh === "string" ? meta.nameZh : null,
-        );
+        const names = resolveNamesDbFirst(row.canonicalName || entry.nameOfIssuer, typeof meta.nameZh === "string" ? meta.nameZh : null);
+        const nextMeta = {
+          ...meta,
+          cusip: entry.cusip,
+          titleOfClass: entry.titleOfClass,
+          nameZh: names.nameZh,
+          nameEnShort: names.nameEnShort,
+          companyEntityId: typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
+        };
         await db.entity.update({
-          where: { id: cached },
+          where: { id: cached.id },
           data: {
             canonicalName: entry.nameOfIssuer,
             ticker: names.ticker,
-            metadata: {
-              ...meta,
-              cusip: entry.cusip,
-              titleOfClass: entry.titleOfClass,
-              nameZh: names.nameZh,
-              nameEnShort: names.nameEnShort,
-              companyEntityId:
-                typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
-            },
+            metadata: nextMeta,
           },
         });
       }
-      backfilledCusips.add(entry.cusip);
+      cached.backfilled = true;
+      entityByCusip.set(entry.cusip, cached);
     }
-    return cached;
+
+    return {
+      entityId: cached.id,
+      ticker: resolved.ticker,
+      cusip: entry.cusip,
+      titleOfClass: entry.titleOfClass,
+      companyEntityId: maybeCompanyId,
+      metadata: {
+        cusip: entry.cusip,
+        titleOfClass: entry.titleOfClass,
+        nameZh: resolved.nameZh,
+        nameEnShort: resolved.nameEnShort,
+        companyEntityId: maybeCompanyId,
+      },
+    };
   }
 
   const existing = await db.entity.findFirst({
     where: { type: "security", metadata: { path: ["cusip"], equals: entry.cusip } },
     select: { id: true, metadata: true, canonicalName: true },
   });
+
   if (existing) {
     const meta = (existing.metadata as Record<string, unknown> | null) ?? {};
-    const names = resolveNamesDbFirst(
-      existing.canonicalName || entry.nameOfIssuer,
-      typeof meta.nameZh === "string" ? meta.nameZh : null,
-    );
+    const names = resolveNamesDbFirst(existing.canonicalName || entry.nameOfIssuer, typeof meta.nameZh === "string" ? meta.nameZh : null);
     const nextMeta = {
       ...meta,
       cusip: entry.cusip,
       titleOfClass: entry.titleOfClass,
       nameZh: names.nameZh,
       nameEnShort: names.nameEnShort,
-      companyEntityId:
-        typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
+      companyEntityId: typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
     };
+
     await db.entity.update({
       where: { id: existing.id },
       data: {
@@ -364,70 +407,75 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
         metadata: nextMeta,
       },
     });
-    backfilledCusips.add(entry.cusip);
-    entityCache.set(entry.cusip, existing.id);
-    return existing.id;
+
+    entityByCusip.set(entry.cusip, { id: existing.id, backfilled: true });
+    return {
+      entityId: existing.id,
+      ticker: names.ticker,
+      cusip: entry.cusip,
+      titleOfClass: entry.titleOfClass,
+      companyEntityId: (nextMeta.companyEntityId as string | null) ?? null,
+      metadata: nextMeta,
+    };
   }
 
-  // Not in cache — create and cache
   const created = await db.entity.create({
     data: {
       type: "security",
       canonicalName: entry.nameOfIssuer,
-      ticker: namesFromEntry.ticker,
+      ticker: resolved.ticker,
       metadata: {
         cusip: entry.cusip,
         titleOfClass: entry.titleOfClass,
-        nameZh: namesFromEntry.nameZh,
-        nameEnShort: namesFromEntry.nameEnShort,
+        nameZh: resolved.nameZh,
+        nameEnShort: resolved.nameEnShort,
         companyEntityId: maybeCompanyId,
       },
     },
   }).catch(async () => {
-    // Race condition: another process created it; fetch it
-    const found = await db.entity.findFirst({
-      where: { metadata: { path: ["cusip"], equals: entry.cusip } },
-    });
+    const found = await db.entity.findFirst({ where: { metadata: { path: ["cusip"], equals: entry.cusip } } });
     if (!found) throw new Error(`Entity not found after conflict: ${entry.cusip}`);
     return found;
   });
 
-  entityCache.set(entry.cusip, created.id);
-  backfilledCusips.add(entry.cusip);
-  return created.id;
+  entityByCusip.set(entry.cusip, { id: created.id, backfilled: true });
+  return {
+    entityId: created.id,
+    ticker: resolved.ticker,
+    cusip: entry.cusip,
+    titleOfClass: entry.titleOfClass,
+    companyEntityId: maybeCompanyId,
+    metadata: {
+      cusip: entry.cusip,
+      titleOfClass: entry.titleOfClass,
+      nameZh: resolved.nameZh,
+      nameEnShort: resolved.nameEnShort,
+      companyEntityId: maybeCompanyId,
+    },
+  };
 }
 
-async function ensureSecurityProfile(entityId: string) {
-  const e = await db.entity.findUnique({
-    where: { id: entityId },
-    select: { id: true, ticker: true, metadata: true },
-  });
-  if (!e) return null;
-  const meta = (e.metadata as Record<string, unknown> | null) ?? {};
-  const companyEntityId = typeof meta.companyEntityId === "string" ? meta.companyEntityId : null;
-  const cusip = typeof meta.cusip === "string" ? meta.cusip : null;
-  const titleOfClass = typeof meta.titleOfClass === "string" ? meta.titleOfClass : null;
+async function ensureSecurityProfilesBulk(snapshots: SecuritySnapshot[]) {
+  const missing = snapshots.filter((s) => !securityIdByEntityId.has(s.entityId));
+  if (missing.length) {
+    await db.security.createMany({
+      data: missing.map((s) => ({
+        entityId: s.entityId,
+        companyEntityId: s.companyEntityId,
+        ticker: s.ticker,
+        cusip: s.cusip,
+        titleOfClass: s.titleOfClass,
+        metadata: s.metadata,
+      })),
+      skipDuplicates: true,
+    });
+  }
 
-  const security = await db.security.upsert({
-    where: { entityId: e.id },
-    create: {
-      entityId: e.id,
-      companyEntityId,
-      ticker: e.ticker,
-      cusip,
-      titleOfClass,
-      metadata: meta,
-    },
-    update: {
-      companyEntityId,
-      ticker: e.ticker,
-      cusip,
-      titleOfClass,
-      metadata: meta,
-    },
-    select: { id: true },
+  const rows = await db.security.findMany({
+    where: { entityId: { in: snapshots.map((s) => s.entityId) } },
+    select: { id: true, entityId: true },
   });
-  return security.id;
+  for (const r of rows) securityIdByEntityId.set(r.entityId, r.id);
 }
 
 async function importFiling(
@@ -441,13 +489,12 @@ async function importFiling(
   const { year, quarter, date } = parseReportDate(reportDate);
   const asOfDate = date;
 
-  // Total portfolio value for percentage calculation
   const totalValue = entries.reduce((sum, e) => sum + e.value, BigInt(0));
 
-  // Find or create ExtSource (one per filer × quarter)
   const existingSource = await db.extSource.findFirst({
     where: { filerEntityId, periodYear: year, periodQuarter: quarter, kind: "13f" },
   });
+
   const extSource = existingSource ?? await db.extSource.create({
     data: {
       kind: "13f",
@@ -461,68 +508,117 @@ async function importFiling(
     },
   });
 
-  // Upsert holdings
-  let imported = 0;
-  for (const entry of entries) {
-    const securityEntityId = await upsertSecurityEntity(entry);
-    const securityId = await ensureSecurityProfile(securityEntityId);
-    const percentOfPortfolio =
-      totalValue > BigInt(0)
-        ? Number((entry.value * BigInt(10000)) / totalValue) / 100
-        : 0;
+  await translateMissingNames(entries, 4);
 
-    await db.holding.upsert({
-      where: {
-        holderEntityId_securityEntityId_asOfDate: {
-          holderEntityId: filerEntityId,
-          securityEntityId: securityEntityId,
-          asOfDate,
-        },
-      },
-      create: {
-        holderEntityId: filerEntityId,
-        securityEntityId: securityEntityId,
-        sourceId: extSource.id,
-        securityId,
-        asOfDate,
-        shares: entry.shares,
-        valueUsd: entry.value,
-        percentOfPortfolio,
-      },
-      update: {
-        sourceId: extSource.id,
-        securityId,
-        shares: entry.shares,
-        valueUsd: entry.value,
-        percentOfPortfolio,
-      },
-    });
-    imported++;
+  const prepared: Array<{
+    holderEntityId: string;
+    securityEntityId: string;
+    securityId: string | null;
+    sourceId: string;
+    asOfDate: Date;
+    shares: bigint;
+    valueUsd: bigint;
+    percentOfPortfolio: number;
+  }> = [];
+  const snapshots: SecuritySnapshot[] = [];
+
+  for (const entry of entries) {
+    const snapshot = await upsertSecurityEntity(entry);
+    snapshots.push(snapshot);
   }
 
-  return { imported, year, quarter };
-}
+  await ensureSecurityProfilesBulk(snapshots);
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const snapshot = snapshots[i];
+    const securityId = securityIdByEntityId.get(snapshot.entityId) ?? null;
+    const percentOfPortfolio = totalValue > BigInt(0)
+      ? Number((entry.value * BigInt(10000)) / totalValue) / 100
+      : 0;
+
+    prepared.push({
+      holderEntityId: filerEntityId,
+      securityEntityId: snapshot.entityId,
+      securityId,
+      sourceId: extSource.id,
+      asOfDate,
+      shares: entry.shares,
+      valueUsd: entry.value,
+      percentOfPortfolio,
+    });
+  }
+
+  const securityIds = prepared.map((p) => p.securityId).filter((x): x is string => Boolean(x));
+  const securityEntityIds = prepared.map((p) => p.securityEntityId);
+
+  const existingHoldings = await db.holding.findMany({
+    where: {
+      holderEntityId: filerEntityId,
+      asOfDate,
+      OR: [
+        { securityId: { in: securityIds } },
+        { securityEntityId: { in: securityEntityIds } },
+      ],
+    },
+    select: { id: true, securityId: true, securityEntityId: true },
+  });
+
+  const existingByKey = new Map<string, { id: string }>();
+  for (const row of existingHoldings) {
+    existingByKey.set(row.securityId ?? row.securityEntityId, { id: row.id });
+  }
+
+  const toCreate: typeof prepared = [];
+  const toUpdate: Array<{ id: string; row: typeof prepared[number] }> = [];
+
+  for (const row of prepared) {
+    const key = row.securityId ?? row.securityEntityId;
+    const existing = existingByKey.get(key);
+    if (existing) {
+      toUpdate.push({ id: existing.id, row });
+    } else {
+      toCreate.push(row);
+    }
+  }
+
+  if (toCreate.length) {
+    await db.holding.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+  }
+
+  for (const group of chunk(toUpdate, 8)) {
+    await Promise.all(group.map((item) =>
+      db.holding.update({
+        where: { id: item.id },
+        data: {
+          securityEntityId: item.row.securityEntityId,
+          securityId: item.row.securityId,
+          sourceId: item.row.sourceId,
+          shares: item.row.shares,
+          valueUsd: item.row.valueUsd,
+          percentOfPortfolio: item.row.percentOfPortfolio,
+        },
+      }),
+    ));
+  }
+
+  return { imported: prepared.length, year, quarter };
+}
 
 async function main() {
   const args = process.argv.slice(2);
-  const filerArg =
-    args.find((_, i) => args[i - 1] === "--filer") ??
-    args.find((_, i) => args[i - 1] === "--investor");
+  const filerArg = args.find((_, i) => args[i - 1] === "--filer") ?? args.find((_, i) => args[i - 1] === "--investor");
   const quartersArg = args.find((_, i) => args[i - 1] === "--quarters");
-  const quarterListArg =
-    args.find((_, i) => args[i - 1] === "--quarter-list") ??
-    args.find((_, i) => args[i - 1] === "--quarters-list");
+  const quarterListArg = args.find((_, i) => args[i - 1] === "--quarter-list") ?? args.find((_, i) => args[i - 1] === "--quarters-list");
   const fromArg = args.find((_, i) => args[i - 1] === "--from");
   const toArg = args.find((_, i) => args[i - 1] === "--to");
   const maxQuarters = quartersArg ? parseInt(quartersArg, 10) : 4;
-  if (quarterListArg && (fromArg || toArg)) {
-    throw new Error("Use either --quarter-list or --from/--to, not both.");
-  }
-  if ((fromArg && !toArg) || (!fromArg && toArg)) {
-    throw new Error("Both --from and --to are required when using quarter range mode.");
-  }
+
+  if (quarterListArg && (fromArg || toArg)) throw new Error("Use either --quarter-list or --from/--to, not both.");
+  if ((fromArg && !toArg) || (!fromArg && toArg)) throw new Error("Both --from and --to are required when using quarter range mode.");
 
   let quarterList: Array<{ year: number; quarter: number }> = [];
   if (quarterListArg) {
@@ -530,17 +626,13 @@ async function main() {
   } else if (fromArg && toArg) {
     const from = parseQuarterToken(fromArg);
     const to = parseQuarterToken(toArg);
-    if (!from || !to) {
-      throw new Error(`Invalid --from/--to value. Use format like 2024Q1, 2025Q4.`);
-    }
+    if (!from || !to) throw new Error("Invalid --from/--to value. Use format like 2024Q1, 2025Q4.");
     quarterList = quarterRange(from, to);
   }
+
   const quarterSet = new Set(quarterList.map((q) => quarterKey(q.year, q.quarter)));
 
-  const filersToRun = filerArg
-    ? FILERS.filter((f) => f.tribeId === filerArg)
-    : FILERS;
-
+  const filersToRun = filerArg ? FILERS.filter((f) => f.tribeId === filerArg) : FILERS;
   if (filerArg && filersToRun.length === 0) {
     console.error(`Unknown filer: ${filerArg}. Use buffett, lilu, or duan.`);
     process.exit(1);
@@ -566,23 +658,18 @@ async function main() {
       : filings;
 
     if (quarterList.length > 0) {
-      const foundSet = new Set(
-        filingsToImport.map((f) => {
-          const { year, quarter } = parseReportDate(f.reportDate);
-          return quarterKey(year, quarter);
-        }),
-      );
-      const missing = quarterList
-        .map((q) => quarterKey(q.year, q.quarter))
-        .filter((k) => !foundSet.has(k));
-      if (missing.length > 0) {
-        console.warn(`  Missing requested quarters in fetched window: ${missing.join(", ")}`);
-      }
+      const foundSet = new Set(filingsToImport.map((f) => {
+        const { year, quarter } = parseReportDate(f.reportDate);
+        return quarterKey(year, quarter);
+      }));
+      const missing = quarterList.map((q) => quarterKey(q.year, q.quarter)).filter((k) => !foundSet.has(k));
+      if (missing.length > 0) console.warn(`  Missing requested quarters in fetched window: ${missing.join(", ")}`);
     }
 
     for (const filing of filingsToImport) {
       console.log(`  Filing ${filing.accno} (${filing.reportDate}, filed ${filing.filedAt}) → ${filing.xmlFile}`);
       try {
+        const started = Date.now();
         const xml = await getInfoTableXml(filer.cik, filing.accno, filing.xmlFile);
         const entries = parseInfoTable(xml);
         console.log(`    Parsed ${entries.length} positions`);
@@ -590,6 +677,7 @@ async function main() {
           console.warn("    ⚠ No positions parsed — check XML structure");
           continue;
         }
+
         const { imported, year, quarter } = await importFiling(
           filerEntity.id,
           filing.accno,
@@ -598,7 +686,8 @@ async function main() {
           filing.reportDate,
           entries,
         );
-        console.log(`    ✓ ${imported} holdings saved for Q${quarter} ${year}`);
+        const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+        console.log(`    ✓ ${imported} holdings saved for Q${quarter} ${year} (${elapsed}s)`);
       } catch (err) {
         console.error(`    ✗ Error: ${err instanceof Error ? err.message : err}`);
       }

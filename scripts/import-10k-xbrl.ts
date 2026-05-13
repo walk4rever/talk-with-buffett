@@ -11,7 +11,8 @@
  *   --years 5 (if --from/--to not provided)
  */
 import { PrismaClient } from "@prisma/client";
-import { normalizeEnglishName } from "../src/lib/company-name-map.ts";
+import { issuerKey, normalizeEnglishName } from "../src/lib/company-name-map";
+import { translateCompanyNameToZh, upsertNameMapEntries } from "./lib/company-name-zh";
 
 const db = new PrismaClient();
 
@@ -283,7 +284,23 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
     dbNameMap?.nameZh ??
     (typeof existingMeta.nameZh === "string" ? existingMeta.nameZh : null);
   const nameEnShort = normalizeEnglishName(title);
-  const nameZh = zhByTickerDb.get(ticker.toUpperCase()) ?? existingZh ?? nameEnShort;
+  let nameZh = zhByTickerDb.get(ticker.toUpperCase()) ?? existingZh;
+  if (!nameZh) {
+    nameZh = await translateCompanyNameToZh({
+      englishName: title,
+      ticker,
+    });
+    const mapIssuerKey = issuerKey(title);
+    await upsertNameMapEntries({
+      db,
+      issuerKey: mapIssuerKey,
+      ticker,
+      nameZh,
+      nameEnShort,
+      source: "import-translation",
+    });
+    zhByTickerDb.set(ticker.toUpperCase(), nameZh);
+  }
 
   const nextMeta = {
     ...existingMeta,

@@ -47,13 +47,28 @@ export async function getHoldingsByQuarter(tribeId: string, year: number, quarte
       },
       orderBy: { percentOfPortfolio: "desc" },
     });
-    return rows.map((row) => {
+    const normalized = rows.map((row) => {
       const securityEntity = row.securityProfile?.entity ?? row.security;
       return {
         ...row,
         security: securityEntity,
       };
     });
+
+    // Defensive dedupe: historical imports may contain duplicates that share the same security profile.
+    const deduped = new Map<string, typeof normalized[number]>();
+    for (const row of normalized) {
+      const key = row.securityId ?? row.securityEntityId;
+      const prev = deduped.get(key);
+      if (!prev) {
+        deduped.set(key, row);
+        continue;
+      }
+      const prevValue = prev.valueUsd ?? BigInt(0);
+      const currValue = row.valueUsd ?? BigInt(0);
+      if (currValue >= prevValue) deduped.set(key, row);
+    }
+    return [...deduped.values()];
   } catch (err) {
     logDbFallback("getHoldingsByQuarter", err);
     return [];
