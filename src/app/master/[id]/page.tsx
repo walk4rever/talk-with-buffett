@@ -9,8 +9,7 @@ import {
   getHoldingsByQuarter,
   getLatestHoldingChangeSet,
   getMasterClassSummary,
-} from "@/lib/person-data";
-import { normalizeEnglishName, resolveTickerFromName, resolveZhFromName } from "@/lib/company-name-map";
+} from "@/lib/master-data";
 
 export const revalidate = 300; // cache 5 min — holdings/letters update infrequently
 
@@ -63,8 +62,8 @@ function shortZhName(name: string, max = 8) {
 
 function stockDisplayLabel(security: { canonicalName: string; ticker: string | null; metadata: unknown }) {
   const meta = (security.metadata ?? {}) as { nameZh?: string };
-  const zh = resolveZhFromName(security.canonicalName) ?? meta.nameZh ?? security.canonicalName;
-  const ticker = security.ticker ?? resolveTickerFromName(security.canonicalName) ?? "—";
+  const zh = meta.nameZh ?? security.canonicalName;
+  const ticker = security.ticker ?? "—";
   return `${shortZhName(zh)} ${ticker}`;
 }
 
@@ -96,9 +95,9 @@ function getHoldingDisplay(security: {
   metadata: unknown;
 }) {
   const meta = (security.metadata ?? {}) as { cusip?: string; nameZh?: string; nameEnShort?: string };
-  const code = security.ticker ?? resolveTickerFromName(security.canonicalName) ?? meta.cusip ?? "—";
-  const en = meta.nameEnShort ?? normalizeEnglishName(security.canonicalName);
-  const zh = resolveZhFromName(security.canonicalName) ?? meta.nameZh ?? en;
+  const code = security.ticker ?? meta.cusip ?? "—";
+  const en = meta.nameEnShort ?? security.canonicalName;
+  const zh = meta.nameZh ?? en;
   return { code, zh, en };
 }
 
@@ -167,7 +166,8 @@ export default async function PersonHubPage({ params }: Props) {
   const prevHoldings = changeSet.base
     ? await getHoldingsByQuarter(id, changeSet.base.year, changeSet.base.quarter)
     : [];
-  const prevBySecurityId = new Map(prevHoldings.map((h) => [h.securityEntityId, h] as const));
+  const holdingKey = (h: (typeof prevHoldings)[number]) => h.securityId ?? h.securityEntityId;
+  const prevBySecurityId = new Map(prevHoldings.map((h) => [holdingKey(h), h] as const));
 
   return (
     <div className="person-page">
@@ -304,7 +304,7 @@ export default async function PersonHubPage({ params }: Props) {
                     </thead>
                     <tbody>
                       {fullHoldings.map((h, i) => {
-                        const prev = prevBySecurityId.get(h.securityEntityId);
+                        const prev = prevBySecurityId.get(holdingKey(h));
                         const prevShares = prev?.shares ? Number(prev.shares) : null;
                         const nowShares = h.shares ? Number(h.shares) : null;
                         const shareDeltaPct =

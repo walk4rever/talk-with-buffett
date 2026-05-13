@@ -174,7 +174,7 @@ model DigitalHumanJob {
 
 model Entity {
   id            String   @id @default(cuid())
-  type          String // 'company' | 'person' | 'concept'
+  type          String // 'company' | 'security' | 'master' | 'concept'
   canonicalName String
   aliases       String[] @default([])
   cik           String?  @unique // SEC Central Index Key (companies + filers)
@@ -189,12 +189,36 @@ model Entity {
   financials         Financial[]
   holdingsAsHolder   Holding[]        @relation("HolderEntity")
   holdingsAsSecurity Holding[]        @relation("SecurityEntity")
+  securitiesAsCompany Security[]      @relation("SecurityCompany")
+  securityProfile     Security?       @relation("SecurityEntityProfile")
   extSourcesAsFiler  ExtSource[]
   relationsAsSrc     EntityRelation[] @relation("RelationSrc")
   relationsAsDst     EntityRelation[] @relation("RelationDst")
 
   @@index([type])
   @@index([ticker])
+}
+
+model Security {
+  id              String   @id @default(cuid())
+  entityId        String   @unique // links to legacy Entity(type='security')
+  companyEntityId String? // links to Entity(type='company'|'master via fallback metadata)
+  ticker          String?
+  cusip           String?  @unique
+  shareClass      String?
+  titleOfClass    String?
+  exchange        String?
+  isPrimary       Boolean  @default(false)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  entity  Entity  @relation("SecurityEntityProfile", fields: [entityId], references: [id], onDelete: Cascade)
+  company Entity? @relation("SecurityCompany", fields: [companyEntityId], references: [id], onDelete: SetNull)
+  holdings Holding[]
+
+  @@index([ticker])
+  @@index([companyEntityId])
 }
 
 model ExtSource {
@@ -258,6 +282,7 @@ model Holding {
   id                 String   @id @default(cuid())
   holderEntityId     String
   securityEntityId   String
+  securityId         String?
   sourceId           String
   asOfDate           DateTime
   shares             BigInt?
@@ -270,9 +295,11 @@ model Holding {
 
   holder   Entity    @relation("HolderEntity", fields: [holderEntityId], references: [id], onDelete: Cascade)
   security Entity    @relation("SecurityEntity", fields: [securityEntityId], references: [id], onDelete: Cascade)
+  securityProfile Security? @relation(fields: [securityId], references: [id], onDelete: SetNull)
   source   ExtSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([holderEntityId, securityEntityId, asOfDate])
+  @@index([securityId, asOfDate])
   @@index([securityEntityId, asOfDate])
   @@index([holderEntityId, asOfDate])
 }
@@ -294,4 +321,19 @@ model EntityRelation {
 
   @@index([srcEntityId, type])
   @@index([dstEntityId, type])
+}
+
+model CompanyNameMap {
+  id          String   @id @default(cuid())
+  keyType     String // 'ticker' | 'issuer'
+  key         String
+  nameZh      String?
+  ticker      String?
+  nameEnShort String?
+  source      String? // 'code-dictionary' | 'manual' | 'import'
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([keyType, key])
+  @@index([keyType, ticker])
 }

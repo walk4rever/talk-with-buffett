@@ -9,7 +9,7 @@ function logDbFallback(scope: string, err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
   // Keep DB fallback silent by default to avoid noisy runtime console errors in UI/dev overlay.
   if (process.env.DEBUG_DB_FALLBACK === "1") {
-    console.warn(`[person-data:${scope}] DB query failed, fallback to empty result: ${message}`);
+    console.warn(`[master-data:${scope}] DB query failed, fallback to empty result: ${message}`);
   }
 }
 
@@ -32,13 +32,27 @@ export async function getAvailableQuarters(tribeId: string): Promise<QuarterPoin
 
 export async function getHoldingsByQuarter(tribeId: string, year: number, quarter: number) {
   try {
-    return await db.holding.findMany({
+    const rows = await db.holding.findMany({
       where: {
         holder: { tribeId },
         source: { is: { periodYear: year, periodQuarter: quarter, kind: "13f" } },
       },
-      include: { security: true },
+      include: {
+        security: true,
+        securityProfile: {
+          include: {
+            entity: true,
+          },
+        },
+      },
       orderBy: { percentOfPortfolio: "desc" },
+    });
+    return rows.map((row) => {
+      const securityEntity = row.securityProfile?.entity ?? row.security;
+      return {
+        ...row,
+        security: securityEntity,
+      };
     });
   } catch (err) {
     logDbFallback("getHoldingsByQuarter", err);
@@ -192,14 +206,15 @@ export async function getLatestHoldingChangeSet(tribeId: string): Promise<Holdin
   const baseRows = base ? await getHoldingsByQuarter(tribeId, base.year, base.quarter) : [];
 
   const top = latestRows.slice(0, 10);
-  const baseById = new Map(baseRows.map((r) => [r.securityEntityId, r] as const));
-  const latestById = new Map(latestRows.map((r) => [r.securityEntityId, r] as const));
+  const keyOf = (r: HoldingRow) => r.securityId ?? r.securityEntityId;
+  const baseById = new Map(baseRows.map((r) => [keyOf(r), r] as const));
+  const latestById = new Map(latestRows.map((r) => [keyOf(r), r] as const));
 
   const adds: Array<{ row: HoldingRow; delta: number }> = [];
   const trims: Array<{ row: HoldingRow; delta: number }> = [];
   const newPositions: HoldingRow[] = [];
   for (const row of latestRows) {
-    const prev = baseById.get(row.securityEntityId);
+    const prev = baseById.get(keyOf(row));
     const nowPct = row.percentOfPortfolio ?? 0;
     const prevPct = prev?.percentOfPortfolio ?? 0;
     const delta = nowPct - prevPct;
@@ -213,7 +228,7 @@ export async function getLatestHoldingChangeSet(tribeId: string): Promise<Holdin
   }
 
   const exits = baseRows
-    .filter((r) => !latestById.has(r.securityEntityId))
+    .filter((r) => !latestById.has(keyOf(r)))
     .map((r) => ({
       securityEntityId: r.securityEntityId,
       ticker: r.security.ticker,

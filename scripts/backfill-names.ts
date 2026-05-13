@@ -1,10 +1,10 @@
 /**
  * backfill-names.ts
  *
- * Patches existing security entities in the DB:
- *   - Sets ticker from resolveTickerFromName when currently null
- *   - Overwrites stale/English nameZh with resolved Chinese name
- *   - Updates nameEnShort with current normalizeEnglishName output
+ * Patches existing company entities in the DB:
+ *   - Sets ticker from CompanyNameMap(issuer) when currently null
+ *   - Sets/overwrites nameZh from CompanyNameMap(ticker/issuer)
+ *   - Updates nameEnShort from normalizeEnglishName
  *
  * Usage:
  *   npx dotenv -e .env.local -- npx tsx scripts/backfill-names.ts
@@ -13,8 +13,7 @@
 import { PrismaClient } from "@prisma/client";
 import {
   normalizeEnglishName,
-  resolveZhFromName,
-  resolveTickerFromName,
+  issuerKey,
 } from "../src/lib/company-name-map";
 
 const db = new PrismaClient();
@@ -22,6 +21,21 @@ const dryRun = process.argv.includes("--dry-run");
 
 async function main() {
   console.log(`[backfill-names] mode=${dryRun ? "dry-run" : "live"}`);
+  const rows = await db.companyNameMap.findMany({
+    where: { keyType: { in: ["ticker", "issuer"] } },
+    select: { keyType: true, key: true, ticker: true, nameZh: true },
+  });
+  const zhByTicker = new Map<string, string>();
+  const zhByIssuer = new Map<string, string>();
+  const tickerByIssuer = new Map<string, string>();
+  for (const row of rows) {
+    if (row.keyType === "ticker") {
+      if (row.nameZh) zhByTicker.set(row.key.toUpperCase(), row.nameZh);
+      continue;
+    }
+    if (row.nameZh) zhByIssuer.set(row.key, row.nameZh);
+    if (row.ticker) tickerByIssuer.set(row.key, row.ticker.toUpperCase());
+  }
 
   const entities = await db.entity.findMany({
     where: { type: "company" },
@@ -36,9 +50,12 @@ async function main() {
   for (const entity of entities) {
     const meta = (entity.metadata as Record<string, unknown> | null) ?? {};
     const existingNameZh = typeof meta.nameZh === "string" ? meta.nameZh : null;
-
-    const resolvedZh = resolveZhFromName(entity.canonicalName);
-    const resolvedTicker = resolveTickerFromName(entity.canonicalName);
+    const key = issuerKey(entity.canonicalName);
+    const resolvedTicker = entity.ticker?.toUpperCase() ?? tickerByIssuer.get(key) ?? null;
+    const resolvedZh =
+      (resolvedTicker ? zhByTicker.get(resolvedTicker) : null) ??
+      zhByIssuer.get(key) ??
+      null;
     const resolvedEnShort = normalizeEnglishName(entity.canonicalName);
 
     // Determine what needs updating

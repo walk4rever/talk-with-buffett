@@ -44,7 +44,7 @@ Example: year=2023, type="shareholder" retrieves the 2023 Berkshire shareholder 
 
   server.tool(
     "graph",
-    `Query the knowledge graph for structured relationships around an entity (company, concept, or person).
+    `Query the knowledge graph for structured relationships around an entity (company, concept, or master).
 Relationships are extracted from Buffett's writings — e.g. holdings, acquisitions, mentions of investment principles.
 Use this to complement search results when you need structured, time-stamped relationship data.
 Returns: from → relation → to, with year and source quote where available.

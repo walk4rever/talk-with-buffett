@@ -7,7 +7,7 @@ import {
   formatValueUsd,
   getAvailableQuarters,
   getHoldingsByQuarter,
-} from "@/lib/person-data";
+} from "@/lib/master-data";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +54,8 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
   const prevHoldings = prevQuarter
     ? await getHoldingsByQuarter(id, prevQuarter.year, prevQuarter.quarter)
     : [];
-  const prevBySecurityId = new Map(prevHoldings.map((h) => [h.securityEntityId, h] as const));
+  const holdingKey = (h: (typeof prevHoldings)[number]) => h.securityId ?? h.securityEntityId;
+  const prevBySecurityId = new Map(prevHoldings.map((h) => [holdingKey(h), h] as const));
 
   const totalValue = holdings.reduce(
     (sum, h) => sum + (h.valueUsd ? Number(h.valueUsd) : 0),
@@ -135,7 +136,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
             </thead>
             <tbody>
               {holdings.map((h, i) => {
-                const prev = prevBySecurityId.get(h.securityEntityId);
+                const prev = prevBySecurityId.get(holdingKey(h));
                 const prevShares = prev?.shares ? Number(prev.shares) : null;
                 const nowShares = h.shares ? Number(h.shares) : null;
                 const shareDeltaPct =

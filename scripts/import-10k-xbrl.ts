@@ -11,40 +11,9 @@
  *   --years 5 (if --from/--to not provided)
  */
 import { PrismaClient } from "@prisma/client";
+import { normalizeEnglishName } from "../src/lib/company-name-map.ts";
 
 const db = new PrismaClient();
-
-function normalizeEnglishName(name: string): string {
-  return name
-    .replace(/\b(INC|CORP|CORPORATION|CO|COMPANY|HOLDINGS|HLDGS|GROUP|PLC|LTD|LLC|CL A|CL B|COM|SER [A-Z])\b\.?/gi, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-const ZH_BY_TICKER: Record<string, string> = {
-  AAPL: "苹果",
-  BAC: "美国银行",
-  AXP: "美国运通",
-  KO: "可口可乐",
-  OXY: "西方石油",
-  CVX: "雪佛龙",
-  AMZN: "亚马逊",
-  GOOGL: "谷歌",
-  GOOG: "谷歌",
-  MCO: "穆迪",
-  DVA: "达维塔",
-};
-
-function resolveCompanyNames(input: {
-  ticker?: string | null;
-  canonicalName: string;
-  existingNameZh?: string | null;
-}) {
-  const ticker = input.ticker?.toUpperCase() ?? null;
-  const en = normalizeEnglishName(input.canonicalName);
-  const zh = input.existingNameZh ?? (ticker ? ZH_BY_TICKER[ticker] : undefined) ?? en;
-  return { nameZh: zh, nameEnShort: en };
-}
 
 const EDGAR = "https://data.sec.gov";
 const SEC_WWW = "https://www.sec.gov";
@@ -58,6 +27,7 @@ type FilingMeta = {
   filedAt: string;
   reportDate: string;
   primaryDocument: string;
+  form: string;
 };
 
 type QuarterFact = {
@@ -71,25 +41,67 @@ type QuarterFact = {
 
 type LineItemConfig = {
   key: string;
-  tags: string[];
+  tagsUsGaap: string[];
+  tagsIfrs: string[];
   unitCandidates: string[];
 };
 
 const LINE_ITEMS: LineItemConfig[] = [
-  { key: "Revenue", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"], unitCandidates: ["USD"] },
-  { key: "GrossProfit", tags: ["GrossProfit"], unitCandidates: ["USD"] },
-  { key: "OperatingIncome", tags: ["OperatingIncomeLoss"], unitCandidates: ["USD"] },
-  { key: "NetIncome", tags: ["NetIncomeLoss"], unitCandidates: ["USD"] },
-  { key: "OperatingCashFlow", tags: ["NetCashProvidedByUsedInOperatingActivities"], unitCandidates: ["USD"] },
-  { key: "TotalAssets", tags: ["Assets"], unitCandidates: ["USD"] },
-  { key: "TotalLiabilities", tags: ["Liabilities"], unitCandidates: ["USD"] },
-  { key: "ShareholdersEquity", tags: ["StockholdersEquity"], unitCandidates: ["USD"] },
-  { key: "EPSBasic", tags: ["EarningsPerShareBasic"], unitCandidates: ["USD/shares", "USD-per-shares", "pure"] },
-  { key: "EPSDiluted", tags: ["EarningsPerShareDiluted"], unitCandidates: ["USD/shares", "USD-per-shares", "pure"] },
+  {
+    key: "Revenue",
+    tagsUsGaap: ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"],
+    tagsIfrs: ["Revenue"],
+    unitCandidates: ["USD"],
+  },
+  { key: "GrossProfit", tagsUsGaap: ["GrossProfit"], tagsIfrs: ["GrossProfit"], unitCandidates: ["USD"] },
+  {
+    key: "OperatingIncome",
+    tagsUsGaap: ["OperatingIncomeLoss"],
+    tagsIfrs: ["ProfitLossFromOperatingActivities"],
+    unitCandidates: ["USD"],
+  },
+  { key: "NetIncome", tagsUsGaap: ["NetIncomeLoss"], tagsIfrs: ["ProfitLoss"], unitCandidates: ["USD"] },
+  {
+    key: "OperatingCashFlow",
+    tagsUsGaap: ["NetCashProvidedByUsedInOperatingActivities"],
+    tagsIfrs: ["CashFlowsFromUsedInOperatingActivities"],
+    unitCandidates: ["USD"],
+  },
+  { key: "TotalAssets", tagsUsGaap: ["Assets"], tagsIfrs: ["Assets"], unitCandidates: ["USD"] },
+  { key: "TotalLiabilities", tagsUsGaap: ["Liabilities"], tagsIfrs: ["Liabilities"], unitCandidates: ["USD"] },
+  {
+    key: "ShareholdersEquity",
+    tagsUsGaap: ["StockholdersEquity"],
+    tagsIfrs: ["EquityAttributableToOwnersOfParent", "Equity"],
+    unitCandidates: ["USD"],
+  },
+  {
+    key: "EPSBasic",
+    tagsUsGaap: ["EarningsPerShareBasic"],
+    tagsIfrs: ["BasicEarningsLossPerShare"],
+    unitCandidates: ["USD/shares", "USD-per-shares", "pure"],
+  },
+  {
+    key: "EPSDiluted",
+    tagsUsGaap: ["EarningsPerShareDiluted"],
+    tagsIfrs: ["DilutedEarningsLossPerShare"],
+    unitCandidates: ["USD/shares", "USD-per-shares", "pure"],
+  },
 ];
 
+const TICKER_ALIASES: Record<string, string> = {
+  "BRK.B": "BRK-B",
+  "BRK.A": "BRK-A",
+  LLIVE: "LLYVK",
+  YY: "JOYY",
+};
+
+const ANNUAL_FORMS = new Set(["10-K", "10-K/A", "20-F", "20-F/A"]);
+const zhByTickerDb = new Map<string, string>();
+
 function normalizeTicker(ticker: string): string {
-  return ticker.trim().toUpperCase();
+  const raw = ticker.trim().toUpperCase();
+  return TICKER_ALIASES[raw] ?? raw;
 }
 
 function parseArgs(args: string[]) {
@@ -139,7 +151,7 @@ async function getTickerCikMap() {
   return map;
 }
 
-async function getRecent10kFilings(cik: string): Promise<FilingMeta[]> {
+async function getRecentAnnualFilings(cik: string): Promise<FilingMeta[]> {
   const padded = cik.padStart(10, "0");
   const res = await fetch(`${EDGAR}/submissions/CIK${padded}.json`, { headers: HEADERS });
   if (!res.ok) throw new Error(`Submissions fetch failed for CIK ${cik}`);
@@ -158,12 +170,14 @@ async function getRecent10kFilings(cik: string): Promise<FilingMeta[]> {
   const recent = data.filings.recent;
   const filings: FilingMeta[] = [];
   for (let i = 0; i < recent.form.length; i++) {
-    if (recent.form[i] !== "10-K" && recent.form[i] !== "10-K/A") continue;
+    const form = recent.form[i];
+    if (!ANNUAL_FORMS.has(form)) continue;
     filings.push({
       accession: recent.accessionNumber[i],
       filedAt: recent.filingDate[i],
       reportDate: recent.reportDate[i],
       primaryDocument: recent.primaryDocument[i],
+      form,
     });
   }
   return filings;
@@ -176,36 +190,52 @@ async function getCompanyFacts(cik: string) {
   return res.json() as Promise<{
     facts?: {
       "us-gaap"?: Record<string, { units?: Record<string, QuarterFact[]> }>;
+      "ifrs-full"?: Record<string, { units?: Record<string, QuarterFact[]> }>;
     };
   }>;
 }
 
 function findBestFactValue(
   facts: Awaited<ReturnType<typeof getCompanyFacts>>,
-  tags: string[],
+  tagsUsGaap: string[],
+  tagsIfrs: string[],
   unitCandidates: string[],
   reportDate: string,
 ) {
   const gaap = facts.facts?.["us-gaap"] ?? {};
+  const ifrs = facts.facts?.["ifrs-full"] ?? {};
   const candidates: Array<{ filed: string; val: number }> = [];
 
-  for (const tag of tags) {
-    const concept = gaap[tag];
-    if (!concept?.units) continue;
+  const conceptSets = [
+    { concepts: gaap, tags: tagsUsGaap },
+    { concepts: ifrs, tags: tagsIfrs },
+  ];
 
-    for (const unit of unitCandidates) {
-      const rows = concept.units[unit];
-      if (!rows) continue;
-      for (const row of rows) {
+  for (const set of conceptSets) {
+    for (const tag of set.tags) {
+      const concept = set.concepts[tag];
+      if (!concept?.units) continue;
+
+      const preferredUnitRows = unitCandidates.flatMap((unit) => {
+        const rows = concept.units?.[unit];
+        return rows ?? [];
+      });
+      const rowsToCheck =
+        preferredUnitRows.length > 0
+          ? preferredUnitRows
+          : Object.values(concept.units).flat();
+
+      for (const row of rowsToCheck) {
         if (!row || row.end !== reportDate || typeof row.val !== "number") continue;
-        if (row.form !== "10-K" && row.form !== "10-K/A") continue;
+        if (!ANNUAL_FORMS.has(row.form ?? "")) continue;
         candidates.push({
           filed: row.filed ?? "0000-00-00",
           val: row.val,
         });
       }
-    }
 
+      if (candidates.length) break;
+    }
     if (candidates.length) break;
   }
 
@@ -220,56 +250,78 @@ function decimalFromNumber(value: number) {
 }
 
 async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
-  const byCik = await db.entity.findUnique({
+  const byCik = await db.entity.findFirst({
     where: { cik },
-    select: { id: true, metadata: true },
+    select: { id: true, metadata: true, type: true, cik: true },
   });
+  const cikOwnedByCompany = byCik?.type === "company";
   const byTicker = byCik
-    ? null
+    ? byCik.type === "company"
+      ? null
+      : await db.entity.findFirst({
+        where: {
+          type: "company",
+          ticker: { equals: ticker, mode: "insensitive" },
+        },
+        select: { id: true, metadata: true, cik: true },
+      })
     : await db.entity.findFirst({
       where: {
         type: "company",
         ticker: { equals: ticker, mode: "insensitive" },
       },
-      select: { id: true, metadata: true },
+      select: { id: true, metadata: true, cik: true },
     });
 
-  const target = byCik ?? byTicker;
+  const target = cikOwnedByCompany ? byCik : byTicker;
   const existingMeta = (target?.metadata as Record<string, unknown> | null) ?? {};
-  const existingZh = typeof existingMeta.nameZh === "string" ? existingMeta.nameZh : null;
-  const names = resolveCompanyNames({
-    ticker,
-    canonicalName: title,
-    existingNameZh: existingZh,
+  const dbNameMap = await db.companyNameMap.findUnique({
+    where: { keyType_key: { keyType: "ticker", key: ticker.toUpperCase() } },
+    select: { nameZh: true },
   });
+  const existingZh =
+    dbNameMap?.nameZh ??
+    (typeof existingMeta.nameZh === "string" ? existingMeta.nameZh : null);
+  const nameEnShort = normalizeEnglishName(title);
+  const nameZh = zhByTickerDb.get(ticker.toUpperCase()) ?? existingZh ?? nameEnShort;
 
   const nextMeta = {
     ...existingMeta,
     source: "sec-edgar",
     importedBy: "import-10k-xbrl",
-    nameZh: names.nameZh,
-    nameEnShort: names.nameEnShort,
+    nameZh,
+    nameEnShort,
   };
 
   if (target) {
+    const canSetCik = byCik == null || (byCik.type === "company" && byCik.id === target.id);
     return db.entity.update({
       where: { id: target.id },
       data: {
         canonicalName: title,
-        cik,
+        cik: canSetCik ? cik : target.cik,
         ticker,
-        metadata: nextMeta,
+        metadata: {
+          ...nextMeta,
+          ...(canSetCik ? {} : { secCik: cik }),
+        },
       },
     });
   }
 
+  // CIK may already be occupied by a non-company entity (e.g. master/filer).
+  // Keep SEC CIK in metadata to avoid unique-key collision on Entity.cik.
+  const createCik = byCik == null ? cik : null;
   return db.entity.create({
     data: {
       type: "company",
       canonicalName: title,
-      cik,
+      cik: createCik,
       ticker,
-      metadata: nextMeta,
+      metadata: {
+        ...nextMeta,
+        ...(createCik ? {} : { secCik: cik }),
+      },
     },
   });
 }
@@ -285,7 +337,7 @@ async function upsertExtSource(
 
   const existing = await db.extSource.findFirst({
     where: {
-      kind: "10k",
+      kind: filing.form.startsWith("20-F") ? "20f" : "10k",
       filerEntityId: entityId,
       periodYear: year,
       periodQuarter: quarter,
@@ -306,13 +358,23 @@ async function upsertExtSource(
       metadata: {
         accession: filing.accession,
         primaryDocument: filing.primaryDocument,
-        form: "10-K",
+        form: filing.form,
       },
     },
   });
 }
 
 async function import10kForTicker(ticker: string, fromYear: number, toYear: number) {
+  if (!zhByTickerDb.size) {
+    const maps = await db.companyNameMap.findMany({
+      where: { keyType: "ticker" },
+      select: { key: true, nameZh: true },
+    });
+    for (const row of maps) {
+      if (row.nameZh) zhByTickerDb.set(row.key.toUpperCase(), row.nameZh);
+    }
+  }
+
   const tickerMap = await getTickerCikMap();
   const resolved = tickerMap.get(ticker);
   if (!resolved) throw new Error(`Ticker not found in SEC ticker map: ${ticker}`);
@@ -322,7 +384,7 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
 
   const companyEntity = await upsertCompanyEntity(cik, ticker, title);
   const [filings, facts] = await Promise.all([
-    getRecent10kFilings(cik),
+    getRecentAnnualFilings(cik),
     getCompanyFacts(cik),
   ]);
 
@@ -333,7 +395,7 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
     })
     .sort((a, b) => (a.reportDate < b.reportDate ? 1 : -1));
 
-  console.log(`Found ${targetFilings.length} 10-K filings in ${fromYear}-${toYear}`);
+  console.log(`Found ${targetFilings.length} annual filings (10-K/20-F) in ${fromYear}-${toYear}`);
   if (!targetFilings.length) return;
 
   for (const filing of targetFilings) {
@@ -342,7 +404,13 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
     let missing = 0;
 
     for (const item of LINE_ITEMS) {
-      const value = findBestFactValue(facts, item.tags, item.unitCandidates, filing.reportDate);
+      const value = findBestFactValue(
+        facts,
+        item.tagsUsGaap,
+        item.tagsIfrs,
+        item.unitCandidates,
+        filing.reportDate,
+      );
       if (value == null) {
         missing++;
         continue;

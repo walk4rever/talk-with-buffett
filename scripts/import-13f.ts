@@ -14,19 +14,30 @@
 import { PrismaClient } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
 import {
-  normalizeEnglishName,
-  resolveZhFromName,
-  resolveTickerFromName,
+  resolveCompanyNamesFromMaps,
 } from "../src/lib/company-name-map";
 
 const db = new PrismaClient();
 
-function resolveNames(canonicalName: string, existingNameZh?: string | null) {
-  const nameEnShort = normalizeEnglishName(canonicalName);
-  // Mapping beats stale stored data; existingNameZh is last resort.
-  const nameZh = resolveZhFromName(canonicalName) ?? existingNameZh ?? nameEnShort;
-  const ticker = resolveTickerFromName(canonicalName);
-  return { nameZh, nameEnShort, ticker };
+const zhByTickerDb = new Map<string, string>();
+const zhByIssuerDb = new Map<string, string>();
+const tickerByIssuerDb = new Map<string, string>();
+
+function resolveNamesDbFirst(canonicalName: string, existingNameZh?: string | null) {
+  const resolved = resolveCompanyNamesFromMaps({
+    canonicalName,
+    existingNameZh,
+    maps: {
+      zhByTicker: zhByTickerDb,
+      zhByIssuer: zhByIssuerDb,
+      tickerByIssuer: tickerByIssuerDb,
+    },
+  });
+  return {
+    nameZh: resolved.nameZh,
+    nameEnShort: resolved.nameEnShort,
+    ticker: resolved.ticker,
+  };
 }
 
 // ─── Filer definitions ──────────────────────────────────────────────────────
@@ -233,35 +244,64 @@ function parseReportDate(reportDate: string): { year: number; quarter: number; d
 // In-memory cache: cusip → entity id, seeded from DB at startup
 const entityCache = new Map<string, string>(); // cusip → entity.id
 const backfilledCusips = new Set<string>();
+const companyByTickerCache = new Map<string, string>(); // ticker → company entity.id
 
 async function seedEntityCache() {
-  const companies = await db.entity.findMany({
-    where: { type: "company" },
+  const entities = await db.entity.findMany({
+    where: {
+      type: "security",
+    },
     select: { id: true, metadata: true },
   });
-  for (const e of companies) {
+  for (const e of entities) {
     const meta = e.metadata as Record<string, unknown> | null;
     if (meta?.cusip && typeof meta.cusip === "string") {
       entityCache.set(meta.cusip, e.id);
     }
   }
-  console.log(`  Entity cache seeded: ${entityCache.size} companies`);
+
+  const companies = await db.entity.findMany({
+    where: { type: "company", ticker: { not: null } },
+    select: { id: true, ticker: true },
+  });
+  for (const c of companies) {
+    if (c.ticker) companyByTickerCache.set(c.ticker.toUpperCase(), c.id);
+  }
+  console.log(`  Entity cache seeded: ${entityCache.size} security entities by cusip`);
+
+  const dbMaps = await db.companyNameMap.findMany({
+    where: { keyType: { in: ["ticker", "issuer"] } },
+    select: { keyType: true, key: true, nameZh: true, ticker: true },
+  });
+  for (const row of dbMaps) {
+    if (row.keyType === "ticker") {
+      if (row.nameZh) zhByTickerDb.set(row.key.toUpperCase(), row.nameZh);
+    } else if (row.keyType === "issuer") {
+      if (row.nameZh) zhByIssuerDb.set(row.key, row.nameZh);
+      if (row.ticker) tickerByIssuerDb.set(row.key, row.ticker.toUpperCase());
+    }
+  }
+  console.log(`  Name map cache seeded: ${dbMaps.length} rows`);
 }
 
 async function upsertFilerEntity(filer: (typeof FILERS)[number]) {
   return db.entity.upsert({
     where: { cik: filer.cik },
     create: {
-      type: "person",
+      type: "master",
       canonicalName: filer.name,
       cik: filer.cik,
       tribeId: filer.tribeId,
     },
-    update: { tribeId: filer.tribeId, canonicalName: filer.name },
+    update: { type: "master", tribeId: filer.tribeId, canonicalName: filer.name },
   });
 }
 
 async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
+  const namesFromEntry = resolveNamesDbFirst(entry.nameOfIssuer);
+  const maybeCompanyId =
+    (namesFromEntry.ticker ? companyByTickerCache.get(namesFromEntry.ticker.toUpperCase()) : undefined) ?? null;
+
   const cached = entityCache.get(entry.cusip);
   if (cached) {
     if (!backfilledCusips.has(entry.cusip)) {
@@ -271,7 +311,7 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
       });
       if (row) {
         const meta = (row.metadata as Record<string, unknown> | null) ?? {};
-        const names = resolveNames(
+        const names = resolveNamesDbFirst(
           row.canonicalName || entry.nameOfIssuer,
           typeof meta.nameZh === "string" ? meta.nameZh : null,
         );
@@ -286,6 +326,8 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
               titleOfClass: entry.titleOfClass,
               nameZh: names.nameZh,
               nameEnShort: names.nameEnShort,
+              companyEntityId:
+                typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
             },
           },
         });
@@ -296,12 +338,12 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
   }
 
   const existing = await db.entity.findFirst({
-    where: { metadata: { path: ["cusip"], equals: entry.cusip } },
+    where: { type: "security", metadata: { path: ["cusip"], equals: entry.cusip } },
     select: { id: true, metadata: true, canonicalName: true },
   });
   if (existing) {
     const meta = (existing.metadata as Record<string, unknown> | null) ?? {};
-    const names = resolveNames(
+    const names = resolveNamesDbFirst(
       existing.canonicalName || entry.nameOfIssuer,
       typeof meta.nameZh === "string" ? meta.nameZh : null,
     );
@@ -311,6 +353,8 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
       titleOfClass: entry.titleOfClass,
       nameZh: names.nameZh,
       nameEnShort: names.nameEnShort,
+      companyEntityId:
+        typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
     };
     await db.entity.update({
       where: { id: existing.id },
@@ -326,17 +370,17 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
   }
 
   // Not in cache — create and cache
-  const names = resolveNames(entry.nameOfIssuer);
   const created = await db.entity.create({
     data: {
-      type: "company",
+      type: "security",
       canonicalName: entry.nameOfIssuer,
-      ticker: names.ticker,
+      ticker: namesFromEntry.ticker,
       metadata: {
         cusip: entry.cusip,
         titleOfClass: entry.titleOfClass,
-        nameZh: names.nameZh,
-        nameEnShort: names.nameEnShort,
+        nameZh: namesFromEntry.nameZh,
+        nameEnShort: namesFromEntry.nameEnShort,
+        companyEntityId: maybeCompanyId,
       },
     },
   }).catch(async () => {
@@ -351,6 +395,39 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<string> {
   entityCache.set(entry.cusip, created.id);
   backfilledCusips.add(entry.cusip);
   return created.id;
+}
+
+async function ensureSecurityProfile(entityId: string) {
+  const e = await db.entity.findUnique({
+    where: { id: entityId },
+    select: { id: true, ticker: true, metadata: true },
+  });
+  if (!e) return null;
+  const meta = (e.metadata as Record<string, unknown> | null) ?? {};
+  const companyEntityId = typeof meta.companyEntityId === "string" ? meta.companyEntityId : null;
+  const cusip = typeof meta.cusip === "string" ? meta.cusip : null;
+  const titleOfClass = typeof meta.titleOfClass === "string" ? meta.titleOfClass : null;
+
+  const security = await db.security.upsert({
+    where: { entityId: e.id },
+    create: {
+      entityId: e.id,
+      companyEntityId,
+      ticker: e.ticker,
+      cusip,
+      titleOfClass,
+      metadata: meta,
+    },
+    update: {
+      companyEntityId,
+      ticker: e.ticker,
+      cusip,
+      titleOfClass,
+      metadata: meta,
+    },
+    select: { id: true },
+  });
+  return security.id;
 }
 
 async function importFiling(
@@ -388,6 +465,7 @@ async function importFiling(
   let imported = 0;
   for (const entry of entries) {
     const securityEntityId = await upsertSecurityEntity(entry);
+    const securityId = await ensureSecurityProfile(securityEntityId);
     const percentOfPortfolio =
       totalValue > BigInt(0)
         ? Number((entry.value * BigInt(10000)) / totalValue) / 100
@@ -405,6 +483,7 @@ async function importFiling(
         holderEntityId: filerEntityId,
         securityEntityId: securityEntityId,
         sourceId: extSource.id,
+        securityId,
         asOfDate,
         shares: entry.shares,
         valueUsd: entry.value,
@@ -412,6 +491,7 @@ async function importFiling(
       },
       update: {
         sourceId: extSource.id,
+        securityId,
         shares: entry.shares,
         valueUsd: entry.value,
         percentOfPortfolio,

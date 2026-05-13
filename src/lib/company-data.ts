@@ -71,6 +71,47 @@ async function getEntityFamilyIds(entityId: string) {
   return siblings.map((s) => s.id);
 }
 
+async function getSecurityIdsForCompany(entityId: string) {
+  const base = await db.entity.findUnique({
+    where: { id: entityId },
+    select: { id: true, ticker: true, canonicalName: true },
+  });
+  if (!base) return [entityId];
+
+  const familyCompanyIds = await getEntityFamilyIds(entityId);
+  const ticker = base.ticker?.toUpperCase() ?? null;
+
+  const securityProfiles = await db.security.findMany({
+    where: {
+      OR: [
+        { companyEntityId: entityId },
+        ...(familyCompanyIds.length > 1
+          ? familyCompanyIds.map((id) => ({ companyEntityId: id }))
+          : []),
+        ...(ticker
+          ? [
+            {
+              ticker: { equals: ticker, mode: "insensitive" },
+            },
+          ]
+          : []),
+      ],
+    },
+    select: { id: true, entityId: true },
+  });
+
+  const profileIds = new Set<string>();
+  const legacyEntityIds = new Set<string>(familyCompanyIds);
+  for (const s of securityProfiles) {
+    profileIds.add(s.id);
+    legacyEntityIds.add(s.entityId);
+  }
+  return {
+    profileIds: [...profileIds],
+    legacyEntityIds: [...legacyEntityIds],
+  };
+}
+
 export async function getCompanyFinancials(entityId: string, limit = 8) {
   const familyIds = await getEntityFamilyIds(entityId);
   const rows = await db.financial.findMany({
@@ -103,9 +144,14 @@ export async function getCompanyFinancials(entityId: string, limit = 8) {
 }
 
 export async function getRecentHolders(entityId: string, limit = 20) {
-  const familyIds = await getEntityFamilyIds(entityId);
+  const securityScope = await getSecurityIdsForCompany(entityId);
   const latest = await db.holding.findFirst({
-    where: { securityEntityId: { in: familyIds } },
+    where: {
+      OR: [
+        { securityId: { in: securityScope.profileIds } },
+        { securityEntityId: { in: securityScope.legacyEntityIds } },
+      ],
+    },
     orderBy: { asOfDate: "desc" },
     select: { asOfDate: true },
   });
@@ -113,7 +159,10 @@ export async function getRecentHolders(entityId: string, limit = 20) {
 
   const rows = await db.holding.findMany({
     where: {
-      securityEntityId: { in: familyIds },
+      OR: [
+        { securityId: { in: securityScope.profileIds } },
+        { securityEntityId: { in: securityScope.legacyEntityIds } },
+      ],
       asOfDate: latest.asOfDate,
     },
     orderBy: { valueUsd: "desc" },

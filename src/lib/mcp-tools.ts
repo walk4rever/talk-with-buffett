@@ -98,7 +98,7 @@ export async function toolGetDocument(params: z.infer<typeof getDocumentParams>)
 // ── graph ─────────────────────────────────────────────────────────────────────
 
 export const graphParams = z.object({
-  entity: z.string().describe("Entity name to look up (company, concept, person)"),
+  entity: z.string().describe("Entity name to look up (company, concept, master)"),
   yearFrom: z.number().int().optional().describe("Earliest year (inclusive)"),
   yearTo: z.number().int().optional().describe("Latest year (inclusive)"),
   limit: z.number().int().min(1).max(20).optional().default(12).describe("Max relationships to return"),
