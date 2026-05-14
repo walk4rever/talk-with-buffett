@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { TRIBE_MEMBERS, type TribeMember } from "@/lib/tribe";
 
 const EXAMPLE_QUESTIONS = [
   "巴菲特为什么持有BAC这么久？",
@@ -14,12 +13,14 @@ const EXAMPLE_QUESTIONS = [
 export function HeroSearch() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [selectedId, setSelectedId] = useState("buffett");
   const [query, setQuery] = useState("");
 
   function submit() {
-    const params = new URLSearchParams({ person: selectedId });
-    router.push(`/idea?${params.toString()}`);
+    if (query.trim()) {
+      router.push(`/idea?ask=${encodeURIComponent(query.trim())}`);
+    } else {
+      router.push("/idea");
+    }
   }
 
   function fillExample(text: string) {
@@ -29,27 +30,15 @@ export function HeroSearch() {
 
   return (
     <div className="hero-search">
-      {/* Person selector */}
-      <div className="hero-persons">
-        {TRIBE_MEMBERS.map((m) => (
-          <PersonChip
-            key={m.id}
-            member={m}
-            selected={selectedId === m.id}
-            onClick={() => setSelectedId(m.id)}
-          />
-        ))}
-      </div>
-
       {/* Search input */}
       <div className="hero-input-wrap">
         <input
           ref={inputRef}
           className="hero-input"
           type="text"
-          placeholder="点击进入 Text Room 对话"
+          placeholder="研究一家公司，或向大师提问"
           value={query}
-          readOnly
+          onChange={(e) => setQuery(e.target.value)}
           onClick={submit}
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
@@ -67,24 +56,5 @@ export function HeroSearch() {
         ))}
       </div>
     </div>
-  );
-}
-
-function PersonChip({ member, selected, onClick }: {
-  member: TribeMember;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`person-chip${selected ? " person-chip--selected" : ""}`}
-      style={{ "--person-color": member.color } as React.CSSProperties}
-      onClick={onClick}
-    >
-      <span className="person-chip-avatar" style={{ background: member.color }}>
-        <span className="person-chip-initials">{member.initials}</span>
-      </span>
-      <span className="person-chip-name">{member.nameZh}</span>
-    </button>
   );
 }
