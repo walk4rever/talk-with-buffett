@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { TextRoomWorkspace } from "@/components/TextRoomWorkspace";
+import { IdeaWorkspace } from "@/components/IdeaWorkspace";
 import { SiteNav } from "@/components/SiteNav";
 
 export const metadata = {
@@ -12,7 +12,7 @@ export default function IdeaPage() {
     <>
       <SiteNav />
       <Suspense>
-        <TextRoomWorkspace />
+        <IdeaWorkspace />
       </Suspense>
     </>
   );

@@ -3,19 +3,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type RoomHeaderProps = {
+type IdeaHeaderProps = {
   title: ReactNode;
   onOpenSide: () => void;
   sideLabel?: string;
   rightSlot?: ReactNode;
 };
 
-export function RoomHeader({
+export function IdeaHeader({
   title,
   onOpenSide,
   sideLabel = "原文",
   rightSlot,
-}: RoomHeaderProps) {
+}: IdeaHeaderProps) {
   return (
     <div className="workspace-chat-header">
       <Link href="/" className="chat-back">

@@ -19,7 +19,7 @@ import rehypeRaw from "rehype-raw";
 import { usePostHog } from "posthog-js/react";
 import { WaitlistModal } from "@/components/WaitlistModal";
 import { ShareModal } from "@/components/ShareModal";
-import { RoomHeader } from "@/components/RoomHeader";
+import { IdeaHeader } from "@/components/IdeaHeader";
 import {
   type ChatMessage,
   type ChatSource,
@@ -348,7 +348,7 @@ function filterByLanguage(md: string, mode: ReadingMode): string {
   return filtered;
 }
 
-export function TextRoomWorkspace() {
+export function IdeaWorkspace() {
   const params = useSearchParams();
   const router = useRouter();
   const posthog = usePostHog();
@@ -657,7 +657,7 @@ export function TextRoomWorkspace() {
     <>
     <div className="workspace workspace--split">
       <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
-        <RoomHeader title="巴菲特部落" onOpenSide={() => setMobilePanel("canvas")} />
+        <IdeaHeader title="巴菲特部落" onOpenSide={() => setMobilePanel("canvas")} />
 
         <div className="workspace-chat-body">
           {historyLoading ? (
