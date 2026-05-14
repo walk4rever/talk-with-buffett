@@ -19,7 +19,7 @@ export function HeroSearch() {
 
   function submit() {
     const params = new URLSearchParams({ person: selectedId });
-    router.push(`/text/room?${params.toString()}`);
+    router.push(`/idea?${params.toString()}`);
   }
 
   function fillExample(text: string) {

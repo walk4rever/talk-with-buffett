@@ -298,7 +298,7 @@ export function LetterReadingArea({ year, contentMd, sourceType = "shareholder",
       {/* FAB → navigate to workspace with this source open */}
       <button
         className="chat-fab"
-        onClick={() => router.push(`/text/room?source=${sourceType}&year=${year}`)}
+        onClick={() => router.push(`/idea?source=${sourceType}&year=${year}`)}
         aria-label="进入 Text Room"
         title="进入 Text Room"
       >

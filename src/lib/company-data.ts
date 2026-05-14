@@ -1,4 +1,5 @@
 import db from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function getCompanyByTicker(ticker: string) {
   const rows = await db.entity.findMany({
@@ -76,7 +77,7 @@ async function getSecurityIdsForCompany(entityId: string) {
     where: { id: entityId },
     select: { id: true, ticker: true, canonicalName: true },
   });
-  if (!base) return [entityId];
+  if (!base) return { profileIds: [] as string[], legacyEntityIds: [entityId] };
 
   const familyCompanyIds = await getEntityFamilyIds(entityId);
   const ticker = base.ticker?.toUpperCase() ?? null;
@@ -91,7 +92,7 @@ async function getSecurityIdsForCompany(entityId: string) {
         ...(ticker
           ? [
             {
-              ticker: { equals: ticker, mode: "insensitive" },
+              ticker: { equals: ticker, mode: Prisma.QueryMode.insensitive },
             },
           ]
           : []),

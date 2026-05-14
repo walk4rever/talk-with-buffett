@@ -27,6 +27,10 @@ import {
   getSourceTypeLabel,
 } from "@/lib/chat";
 import { getTribeMember } from "@/lib/tribe";
+import { CompanyCanvas } from "@/components/CompanyCanvas";
+import { POPART_MOCK, makeSkeletonCanvas } from "@/lib/canvas-mock";
+import type { CanvasState } from "@/types/canvas";
+import type { CompanyOverviewCard } from "@/types/canvas";
 
 const STARTERS = [
   "护城河这个概念，你怎么理解？",
@@ -77,13 +81,6 @@ let cachedTransfer:
 
 function canvasKey(type: string, year: number) {
   return `${type}:${year}`;
-}
-
-function latestSourcesFromMessages(restored: ChatMessage[]): ChatSource[] {
-  const last = [...restored].reverse().find(
-    (msg) => msg.role === "assistant" && msg.sources && msg.sources.length > 0,
-  );
-  return last?.sources ?? [];
 }
 
 function readAnonSessionFromStorage(): ChatMessage[] {
@@ -364,8 +361,8 @@ export function TextRoomWorkspace() {
   const canvasTitle = params.get("t") ?? "";
   const hasReader = !!canvasType && canvasYear > 0;
   const initialQuestion = params.get("ask") ?? "";
-  const personId = params.get("person") ?? "buffett";
-  const person = getTribeMember(personId) ?? getTribeMember("buffett");
+  const personId = "buffett";
+  const person = getTribeMember("buffett");
   if (!person) {
     throw new Error("Missing default tribe member: buffett");
   }
@@ -374,11 +371,6 @@ export function TextRoomWorkspace() {
     const transfer = readTransferFromSessionStorage();
     if (transfer?.messages.length) return transfer.messages;
     return readAnonSessionFromStorage();
-  });
-  const [activeSources, setActiveSources] = useState<ChatSource[]>(() => {
-    const transfer = readTransferFromSessionStorage();
-    const msgs = transfer?.messages.length ? transfer.messages : readAnonSessionFromStorage();
-    return latestSourcesFromMessages(msgs);
   });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -394,6 +386,9 @@ export function TextRoomWorkspace() {
     hasReader ? "canvas" : "chat",
   );
   const [shareData, setShareData] = useState<{ question: string; answer: string } | null>(null);
+  const [canvasState, setCanvasState] = useState<CanvasState>(() =>
+    makeSkeletonCanvas("Apple", "AAPL", "us"),
+  );
 
   // Canvas reader font / line-height controls (shared localStorage keys with LetterReadingArea)
   const CANVAS_FONT_SIZES = [14, 15, 16, 17, 18, 20];
@@ -438,8 +433,16 @@ export function TextRoomWorkspace() {
     hasReader &&
     (!canvasContent || canvasContent.type !== canvasType || canvasContent.year !== canvasYear);
 
+  const canvasCompanyName = useMemo(() => {
+    const overview = canvasState.cards.find((c) => c.type === "company_overview") as
+      | CompanyOverviewCard | undefined;
+    return overview?.name ?? null;
+  }, [canvasState]);
+
   useEffect(() => {
     sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
   }, []);
 
   // Load chat history for authenticated users on mount.
@@ -462,7 +465,6 @@ export function TextRoomWorkspace() {
       .then((data: { messages: ChatMessage[] } | null) => {
         if (data?.messages?.length) {
           setMessages(data.messages);
-          setActiveSources(latestSourcesFromMessages(data.messages));
         }
       })
       .catch((err) => console.error("[history] failed to load:", err))
@@ -548,24 +550,11 @@ export function TextRoomWorkspace() {
     scrollToChunk(canvasScrollRef.current, canvasTitle || null, canvasExcerpt, canvasExcerptZh);
   }, [canvasContent, canvasTitle, canvasExcerpt, canvasExcerptZh]);
 
-  const openReader = useCallback(
-    (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => {
-      posthog?.capture("reader_opened", { source_type: type, year });
-      const q = excerpt ? `&q=${encodeURIComponent(excerpt.slice(0, 100))}` : "";
-      const qzh = excerptZh ? `&qzh=${encodeURIComponent(excerptZh.slice(0, 100))}` : "";
-      const t = title ? `&t=${encodeURIComponent(title)}` : "";
-      const c = chunkId ? `&c=${encodeURIComponent(chunkId)}` : "";
-      router.push(`/text/room?source=${type}&year=${year}${q}${qzh}${t}${c}`, { scroll: false });
-      setMobilePanel("canvas");
-    },
-    [router, posthog],
-  );
-
   const closeReader = useCallback(() => {
     if (hasReader && canvasScrollRef.current) {
       scrollPositions.set(canvasKey(canvasType, canvasYear), canvasScrollRef.current.scrollTop);
     }
-    router.push("/text/room", { scroll: false });
+    router.push("/idea", { scroll: false });
     setMobilePanel("canvas");
   }, [router, hasReader, canvasType, canvasYear]);
 
@@ -581,6 +570,7 @@ export function TextRoomWorkspace() {
       });
 
       const userMsg: ChatMessage = { role: "user", content: trimmed };
+      detectAndInitCanvas(trimmed, setCanvasState);
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
@@ -618,8 +608,6 @@ export function TextRoomWorkspace() {
             };
             return updated;
           });
-          setActiveSources(sources);
-
           // Flush any pending streaming text before marking done
           if (rafId) { cancelAnimationFrame(rafId); flushStreamingText(); }
           setLoading(false);
@@ -635,7 +623,6 @@ export function TextRoomWorkspace() {
             };
             return updated;
           });
-          setActiveSources([]);
           setLoading(false);
         },
         personId,
@@ -670,7 +657,7 @@ export function TextRoomWorkspace() {
     <>
     <div className="workspace workspace--split">
       <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
-        <RoomHeader title="巴菲特" onOpenSide={() => setMobilePanel("canvas")} />
+        <RoomHeader title="巴菲特部落" onOpenSide={() => setMobilePanel("canvas")} />
 
         <div className="workspace-chat-body">
           {historyLoading ? (
@@ -685,7 +672,7 @@ export function TextRoomWorkspace() {
               <h2 className="empty-chat-title">{person.nameZh}</h2>
               <p className="empty-chat-sub">
                 {person.hasData
-                  ? "基于 1958–2025 年全部合伙人/股东信 · 相关原文会自动出现在右侧"
+                  ? "基于 1958–2025 年全部合伙人/股东信 · 提到公司名研究画布会自动更新"
                   : `${person.nameZh}的资料正在整理中，敬请期待`}
               </p>
               <div className="starter-grid">
@@ -702,10 +689,7 @@ export function TextRoomWorkspace() {
                 <WorkspaceMessage
                   key={i}
                   msg={msg}
-                  onOpenSources={(sources) => {
-                    setActiveSources(sources);
-                    setMobilePanel("canvas");
-                  }}
+                  onOpenSources={() => setMobilePanel("canvas")}
                   onRate={handleRate}
                   onShare={(question, answer) => setShareData({ question, answer })}
                   isAuthenticated={sessionStatus === "authenticated"}
@@ -738,9 +722,6 @@ export function TextRoomWorkspace() {
               </svg>
             </button>
           </form>
-          <p className="chat-disclaimer">
-            回答基于巴菲特公开的信件、文章与演讲，仅供学习参考。
-          </p>
         </div>
       </div>
 
@@ -757,9 +738,8 @@ export function TextRoomWorkspace() {
               ? (canvasContent
                 ? `${canvasContent.year} ${getSourceTypeLabel(canvasContent.type)}`
                 : "加载中…")
-              : "相关原文"}
+              : (canvasCompanyName ?? "研究画布")}
           </span>
-          {null}
           {hasReader ? (
             <button className="workspace-canvas-close" onClick={closeReader} aria-label="关闭">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -767,7 +747,7 @@ export function TextRoomWorkspace() {
               </svg>
             </button>
           ) : (
-            <span className="workspace-canvas-count">{activeSources.length} 条</span>
+            <span style={{ width: 40 }} />
           )}
         </div>
 
@@ -832,8 +812,9 @@ export function TextRoomWorkspace() {
               <div className="workspace-canvas-loading">未找到内容</div>
             )
           ) : (
-            <ReferenceList items={activeSources} onOpen={openReader} />
+            <CompanyCanvas state={canvasState} />
           )}
+
         </div>
       </div>
     </div>
@@ -856,12 +837,12 @@ function WorkspaceMessage({
   isAuthenticated,
 }: {
   msg: ChatMessage;
-  onOpenSources: (sources: ChatSource[]) => void;
+  onOpenSources: () => void;
   onRate: (chatMessageId: string, rating: 1 | -1) => void;
   onShare: (question: string, answer: string) => void;
   isAuthenticated: boolean;
 }) {
-  const openSources = () => onOpenSources(msg.sources ?? []);
+  const openSources = () => onOpenSources();
 
   if (msg.role === "user") {
     return (
@@ -975,64 +956,29 @@ function WorkspaceMessage({
   );
 }
 
-function ReferenceList({
-  items,
-  onOpen,
-}: {
-  items: ChatSource[];
-  onOpen: (type: string, year: number, excerpt?: string, title?: string | null, chunkId?: string, excerptZh?: string) => void;
-}) {
-  const posthog = usePostHog();
-  if (items.length === 0) {
-    return (
-      <div className="workspace-reference-empty">
-        <p>右侧默认展示最近一条回复的原文索引。</p>
-      </div>
-    );
+
+const COMPANY_PATTERNS: Array<{ regex: RegExp; name: string; ticker: string; market: 'us' | 'hk' | 'a' }> = [
+  { regex: /泡泡玛特|pop\s*mart/i,  name: '泡泡玛特', ticker: '09992.HK', market: 'hk' },
+  { regex: /比亚迪|byd/i,            name: '比亚迪',   ticker: '002594',  market: 'a'  },
+  { regex: /苹果|apple|aapl/i,       name: 'Apple',    ticker: 'AAPL',    market: 'us' },
+  { regex: /腾讯|tencent/i,          name: '腾讯',     ticker: '00700.HK', market: 'hk' },
+  { regex: /茅台|kweichow/i,         name: '贵州茅台', ticker: '600519',  market: 'a'  },
+]
+
+function detectAndInitCanvas(
+  text: string,
+  setCanvasState: (s: CanvasState) => void,
+): void {
+  for (const pattern of COMPANY_PATTERNS) {
+    if (pattern.regex.test(text)) {
+      if (pattern.name === '泡泡玛特') {
+        setCanvasState(POPART_MOCK);
+      } else {
+        setCanvasState(makeSkeletonCanvas(pattern.name, pattern.ticker, pattern.market));
+      }
+      return;
+    }
   }
-
-  const sorted = [...items].sort((a, b) => a.year - b.year);
-
-  const RETRIEVAL_LABELS: Record<string, string> = {
-    keyword: "关键词",
-    semantic: "语义",
-    both: "关键词+语义",
-  };
-
-  return (
-      <div className="workspace-reference-list">
-      {sorted.map((item) => {
-        const retrievalLabel = item.retrieval ? RETRIEVAL_LABELS[item.retrieval] : null;
-        const scoreLabel =
-          item.retrieval === "both"
-            ? ""
-            : item.retrieval === "semantic" && item.semanticScore != null
-            ? ` ${Math.round(item.semanticScore * 100)}%`
-            : item.retrieval === "keyword" && item.keywordScore != null
-            ? ` ${item.keywordScore.toFixed(2)}`
-            : "";
-        return (
-        <button
-          key={item.chunkId ?? `${item.sourceType}-${item.year}-${item.title ?? ""}-${item.excerpt.slice(0, 40)}`}
-          className="workspace-reference-item"
-          onClick={() => {
-            posthog?.capture("source_clicked", { source_type: item.sourceType, year: item.year, retrieval: item.retrieval });
-            onOpen(item.sourceType, item.year, item.excerpt, item.title, item.chunkId, item.excerptZh);
-          }}
-        >
-          <div className="workspace-reference-meta">
-            <span>{item.year} 年{getSourceTypeLabel(item.sourceType)}</span>
-            {retrievalLabel && (
-              <span className="source-retrieval-tag">{retrievalLabel}{scoreLabel}</span>
-            )}
-          </div>
-          {item.title ? <h4 className="workspace-reference-title">{item.title}</h4> : null}
-          <p className="workspace-reference-excerpt">{item.excerptZh || item.excerpt}</p>
-        </button>
-        );
-      })}
-    </div>
-  );
 }
 
 function CanvasLineHeightIcon({ tight }: { tight?: boolean }) {

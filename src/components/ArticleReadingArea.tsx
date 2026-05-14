@@ -210,7 +210,7 @@ export function ArticleReadingArea({ source, backHref = "/" }: ArticleReadingAre
       {/* FAB → Text Room */}
       <button
         className="chat-fab"
-        onClick={() => router.push(`/text/room?source=${source.type}&year=${source.year}`)}
+        onClick={() => router.push(`/idea?source=${source.type}&year=${source.year}`)}
         aria-label="进入 Text Room"
         title="进入 Text Room"
       >

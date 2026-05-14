@@ -21,6 +21,11 @@ export default function RootLayout({
             <main>
               {children}
             </main>
+            <footer className="site-footer">
+              <p className="site-footer-text">
+                买股票就是买公司。巴菲特部落用价值投资大师的框架帮你理解一家公司，不构成任何投资建议。数据来源：SEC EDGAR 13F-HR。
+              </p>
+            </footer>
           </ErrorBoundary>
         </Providers>
       </body>

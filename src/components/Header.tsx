@@ -13,7 +13,7 @@ export function Header() {
 
   const hideOnImmersivePages =
     pathname === "/" ||
-    pathname.startsWith("/text/room") ||
+    pathname.startsWith("/idea") ||
     pathname.startsWith("/letters/");
 
   useEffect(() => {

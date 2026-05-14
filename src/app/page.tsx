@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { BtLogoMark } from "@/components/BtLogoMark";
 import { SiteNav } from "@/components/SiteNav";
 import { HeroSearch } from "@/components/HeroSearch";
 import { TRIBE_MEMBERS } from "@/lib/tribe";
@@ -126,17 +125,6 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="home-footer-v2">
-        <div className="home-footer-v2-in">
-          <span className="home-footer-logo">
-            <BtLogoMark />
-            Buffett Tribe
-          </span>
-          <p className="home-footer-note">
-            数据来源：SEC EDGAR 13F-HR · 本站为研究工具，不构成投资建议
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

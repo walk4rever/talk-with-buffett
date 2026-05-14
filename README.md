@@ -1,127 +1,45 @@
 # 巴菲特部落 · Buffett Tribe
 
-> 价值投资大师的思想图谱 — 阅读、对话、研究，一站式投资人知识库。
+> 买股票就是买公司。用价值投资大师的框架理解一家公司。
 
 ---
 
-## 产品定位
+## 是什么
 
-**Buffett Tribe** 是一个面向价值投资者的知识平台，把伟大投资人的公开著作、信件、演讲与访谈，结构化整理为可深度阅读和 AI 对话的知识图谱。
+巴菲特部落不是一个读巴菲特的工具，而是一个**用巴菲特方式分析公司**的工具。
 
-以巴菲特为起点，向李录、段永平、芒格等价值投资先驱扩展。核心价值：**精心整理的原始资料 + AI 辅助研读**，不是泛化问答，而是有来源可溯、有原文可查的深度研究工具。
+你有一个投资想法——"泡泡玛特值得买吗？"——平台把这个问题放进价值投资框架里：护城河在哪里？管理层可信吗？现在的价格有安全边际吗？大师们怎么看这类生意？
 
----
-
-## 主要功能
-
-### 资料库 · Library
-
-按人物组织的四分类资料库，每类有独立的阅读体验：
-
-| 分类 | 内容 | 巴菲特现状 |
-|------|------|-----------|
-| **信件** | 年度信件（整篇通读，字体/行距可调） | 致股东信 1965–2025 · 合伙人信 1958–1970 |
-| **文章** | 公开文章、采访稿、雪球发言 | 建设中 |
-| **书籍** | 专著、演讲集 | 建设中 |
-| **视频** | 股东大会、采访视频 + 文字整理 | 建设中 |
-
-访问路径：`/master/buffett/library`
-
-### 对话 · Chat
-
-基于原始文献的 AI 对话，每条回答引用可溯源至具体年份与段落。
-
-- 混合检索（关键词 + 语义向量）
-- 引用点击直接跳转对应原文段落
-- 支持多轮追问
-
-访问路径：`/chat`
-
-### 工作区 · Text Room
-
-Chat + 原文阅读的分屏工作区，阅读时触发对话，对话时引用原文，双向联动。
-
-访问路径：`/text/room`
-
-### 投资人持仓 · Holdings
-
-Berkshire 13F 持仓分析，季度环比变化、新进/退出标的追踪。
-
-访问路径：`/master/buffett/holdings`
-
-### 标的纵向叙事 · Company
-
-单只标的的三层叠加视图：Buffett 信件提及 + 公司基本面（EDGAR XBRL）+ 价值投资人持仓（13F）。
-
-访问路径：`/company/[ticker]`
+大师原文、13F 持仓、财务数据是燃料。分析你关心的那家公司，才是存在理由。
 
 ---
 
-## 技术接口
+## 三个核心页面
 
-### MCP Server
-
-任何支持 MCP 的 AI 客户端（Claude Desktop、Cursor、Claude Code 等）一行配置接入：
-
-```json
-{
-  "mcpServers": {
-    "buffett-tribe": {
-      "type": "http",
-      "url": "https://buffett.air7.fun/api/mcp"
-    }
-  }
-}
-```
-
-#### MCP 工具
-
-| 工具 | 说明 |
+| 路由 | 功能 |
 |------|------|
-| `search` | 混合检索（关键词 + 语义），覆盖 1958–2025 全部文献，支持年份过滤 |
-| `get_document` | 按 sourceId 或年份+类型获取完整文档，分页返回 |
-| `graph` | 查询知识图谱中的实体关系（公司、概念、人名） |
+| `/master` | 巴菲特、李录、段永平的信件、演讲、持仓 |
+| `/company` | 任意公司的结构化研究画布 |
+| `/idea` | 与大师思想对话，右侧实时生成公司 Canvas |
 
-### REST API
+### /idea — 对话研究室
 
-```bash
-# 混合检索
-GET /api/tools/search?q=QUERY&yearFrom=YYYY&yearTo=YYYY&limit=N
+全站核心体验。左侧对话，右侧公司研究画布联动：
 
-# 读取完整文档（分页，10 chunks/页）
-GET /api/tools/document?year=YYYY&type=shareholder|partnership&page=N
-GET /api/tools/document?sourceId=ID&page=N
+- 对话中提到公司名 → Canvas 自动切换到该公司
+- Canvas 六个维度：**概览 · 财务 · 好生意 · 好管理 · 好价格 · 研判**
+- 每个分析维度有结论 + 支持/反方证据 + 置信度
+- 研判 Tab 汇总：当前投资决策状态 + 参考来源 + 待验证问题
 
-# 实体关系图谱
-GET /api/tools/graph?entity=ENTITY&yearFrom=YYYY&yearTo=YYYY&limit=N
+### /company — 公司画布
 
-# 原始 Source 列表
-GET /api/source?type=shareholder&year=2024
-```
+独立公司页面，展示同一个 Canvas，数据来自两层：
+1. **Fact 层**：财务数据（EDGAR XBRL + 市场 API）
+2. **Brain 层**：用户对话沉淀的分析 Claim，随使用次数自动丰富
 
-无需认证，Base URL：`https://buffett.air7.fun`
+### /master — 大师
 
----
-
-## 数据覆盖
-
-### 巴菲特（已有）
-
-| 内容 | 数量 | 状态 |
-|------|------|------|
-| 伯克希尔股东信 | 61 篇（1965–2025） | ✅ |
-| 合伙人信件 | 33 篇（1958–1970） | ✅ |
-| 股东大会记录 | 34 篇（1985–2024） | 🔲 导入中 |
-| 13F 持仓数据 | 季度更新 | ✅ |
-
-### 路线图
-
-| 投资人 | 主要内容 | 状态 |
-|--------|---------|------|
-| 巴菲特 | 信件 + 大会 + 持仓 | ✅ 已有 |
-| 李录 | 演讲、书籍《文明、现代化、价值投资与中国》 | 🔲 建设中 |
-| 段永平 | 雪球公开发言、访谈 | 🔲 建设中 |
-| 芒格 | Poor Charlie's Almanack、演讲 | 🔲 规划中 |
+每位大师的独立主页：原文材料（可全文阅读）、13F 持仓快照、可跳转到 /idea 追问。
 
 ---
 
@@ -129,26 +47,47 @@ GET /api/source?type=shareholder&year=2024
 
 ```bash
 npm install
-cp .env.example .env.local
-# 配置 DATABASE_URL / VOLCENGINE_API_KEY 等
+cp .env.example .env.local   # 填入 DATABASE_URL、ANTHROPIC_API_KEY、NEXTAUTH_SECRET
+npx prisma generate
 npm run dev
 ```
+
+访问 `http://localhost:3000`
 
 ---
 
 ## 技术栈
 
-| 层 | 技术 | 用途 |
-|----|------|------|
-| 应用框架 | Next.js 16 + TypeScript | Web + API Routes |
-| 数据库 | PostgreSQL (Supabase) | 原始文本、用户数据、向量检索 |
-| 语义检索 | pgvector (doubao text-embedding-v3 1024d) | 向量相似度搜索 |
-| 全文检索 | tsvector + GIN | 关键词精确匹配 |
-| AI 对话 | 火山引擎 / OpenAI 兼容 | 问答生成 |
-| 协议 | MCP (Streamable HTTP) | AI Agent 接入 |
-| 部署 | Vercel（新加坡） | 中国可达 |
-| 数据库托管 | Supabase（新加坡） | PostgreSQL + pgvector |
+- **框架**：Next.js 15 App Router + TypeScript
+- **样式**：手写 CSS，Apple HIG 精简风格
+- **数据库**：PostgreSQL · Prisma · Supabase
+- **AI**：Claude API（对话 + 分析生成）
+- **持仓数据**：SEC EDGAR 13F-HR
+- **认证**：NextAuth.js
+- **部署**：Vercel
 
 ---
 
-*本项目与任何投资人本人及其所属机构无任何关联。所有内容基于公开资料，仅供学习研究使用。不构成任何投资建议。*
+## 项目结构
+
+```
+src/
+  app/
+    idea/          # 对话研究室（主入口）
+    master/[id]/   # 大师主页
+    company/[ticker]/ # 公司画布页
+    page.tsx       # 首页
+  components/
+    TextRoomWorkspace.tsx  # /idea 核心组件
+    CompanyCanvas.tsx      # 六 Tab 研究画布
+  types/
+    canvas.ts      # Canvas 数据类型
+  lib/
+    canvas-mock.ts # 开发用 Mock 数据
+```
+
+---
+
+## 当前状态
+
+Canvas UI、对话、大师原文阅读已实现。Company Brain 写回、Fact Fetch Pipeline、`/company` 页面为下一阶段开发目标。

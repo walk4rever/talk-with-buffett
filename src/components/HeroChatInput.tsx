@@ -17,7 +17,7 @@ export function HeroChatInput() {
     e.preventDefault();
     const q = query.trim();
     if (!q) return;
-    router.push(`/text/room?ask=${encodeURIComponent(q)}`);
+    router.push(`/idea?ask=${encodeURIComponent(q)}`);
   }
 
   function handleExample(text: string) {
