@@ -1,361 +1,115 @@
 "use client";
 
 import { useState } from "react";
-import type {
-  CanvasState,
-  AnalysisCard,
-  CompanyOverviewCard,
-  FinancialFactsCard,
-  MasterMentionsCard,
-  DecisionStatus,
-  CanvasReference,
-} from "@/types/canvas";
+import { AnimatePresence, motion } from "framer-motion";
+import type { CanvasState, ValueFrameworkCard } from "@/types/canvas";
 
-const TABS = [
-  { key: "company_overview", label: "概览" },
-  { key: "financial_facts",  label: "财务" },
-  { key: "right_business",   label: "好生意" },
-  { key: "right_people",     label: "好管理" },
-  { key: "right_price",      label: "好价格" },
-  { key: "judgment",         label: "研判" },
+const LENS_META: Record<string, { subtitle: string; accent: string; accentBg: string }> = {
+  "Right Business": { subtitle: "对的生意 · 好生意", accent: "#b86a20", accentBg: "#fff7ee" },
+  "Right People":   { subtitle: "对的人 · 好文化",   accent: "#2b6cb0", accentBg: "#eff6ff" },
+  "Right Price":    { subtitle: "对的价格 · 好估值",  accent: "#276749", accentBg: "#f0faf4" },
+};
+
+const THINKER_META = [
+  { key: "buffett",     name: "Warren Buffett", initial: "W", bg: "#fef3e0", color: "#92400e" },
+  { key: "lilu",        name: "李录",           initial: "录", bg: "#dbeafe", color: "#1e40af" },
+  { key: "duanYongping",name: "段永平",          initial: "平", bg: "#d1fae5", color: "#065f46" },
 ] as const;
 
-type TabKey = typeof TABS[number]["key"];
+function FrameworkCard({ card }: { card: ValueFrameworkCard }) {
+  const [activeDim, setActiveDim] = useState(0);
 
-const ANALYSIS_SUBTITLE: Record<string, string> = {
-  right_business: "护城河 · 可理解性 · 持久性",
-  right_people:   "资本分配 · 诚信 · 股东利益一致",
-  right_price:    "内在价值 · 安全边际 · 赔率",
-};
-
-const DECISION_LABEL: Record<DecisionStatus, string> = {
-  watch:    "观察",
-  research: "研究中",
-  buy:      "可建仓",
-  hold:     "持有",
-  pass:     "暂缓",
-};
-
-const MARKET_LABEL: Record<string, string> = {
-  us: "美股",
-  hk: "港股",
-  a:  "A股",
-};
-
-const TREND_ARROW: Record<string, string> = {
-  up:   "↑",
-  down: "↓",
-  flat: "→",
-};
-
-function confidenceColor(v: number): string {
-  if (v >= 0.7) return "var(--up)";
-  if (v >= 0.4) return "#f59e0b";
-  return "var(--dn)";
-}
-
-function OverviewTab({ card }: { card: CompanyOverviewCard }) {
-  if (card.status === "pending") {
+  if (card.status !== "done") {
     return (
-      <div className="cc-tab-body">
-        <div className="cc-overview--pending">
-          <div className="cc-skeleton cc-skeleton--title" />
-          <div className="cc-skeleton cc-skeleton--meta" />
-          <div className="cc-skeleton cc-skeleton--body" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="cc-tab-body">
-      <div className="cc-overview-top">
-        <span className="cc-overview-name">{card.name}</span>
-        <div className="cc-overview-badges">
-          <span className="cc-badge">{card.ticker}</span>
-          {card.market && (
-            <span className="cc-badge cc-badge--muted">{MARKET_LABEL[card.market]}</span>
-          )}
-          {card.sector && (
-            <span className="cc-badge cc-badge--muted">{card.sector}</span>
-          )}
-        </div>
-      </div>
-      {card.businessModel && (
-        <p className="cc-overview-model">{card.businessModel}</p>
-      )}
-    </div>
-  );
-}
-
-function FinancialTab({ card }: { card: FinancialFactsCard }) {
-  if (card.status === "pending" || card.metrics.length === 0) {
-    return (
-      <div className="cc-tab-body cc-tab-body--scroll">
-        <div className="cc-metrics-grid cc-metrics-grid--skeleton">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="cc-metric-item">
-              <div className="cc-skeleton cc-skeleton--metric-label" />
-              <div className="cc-skeleton cc-skeleton--metric-value" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="cc-tab-body cc-tab-body--scroll">
-      {card.period && <p className="cc-period-label">{card.period}</p>}
-      <div className="cc-metrics-grid">
-        {card.metrics.map((m, i) => (
-          <div key={i} className="cc-metric-item">
-            <span className="cc-metric-label">{m.label}</span>
-            <span className="cc-metric-value">
-              {m.value}
-              {m.trend && (
-                <span className={`cc-metric-trend cc-metric-trend--${m.trend}`}>
-                  {TREND_ARROW[m.trend]}
-                </span>
-              )}
-            </span>
-            {m.note && <span className="cc-metric-note">{m.note}</span>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AnalysisTab({
-  card,
-  mentions,
-}: {
-  card: AnalysisCard;
-  mentions?: MasterMentionsCard;
-}) {
-  const subtitle = ANALYSIS_SUBTITLE[card.type];
-
-  if (card.status === "pending") {
-    return (
-      <div className="cc-tab-body">
-        {subtitle && <p className="cc-tab-subtitle">{subtitle}</p>}
-        <div className="cc-skeleton cc-skeleton--line" style={{ marginBottom: 6 }} />
+      <div className="cc-fw-skeleton">
+        <div className="cc-skeleton cc-skeleton--line" style={{ marginBottom: 10 }} />
         <div className="cc-skeleton cc-skeleton--line cc-skeleton--short" />
       </div>
     );
   }
 
-  if (card.status === "streaming") {
-    return (
-      <div className="cc-tab-body">
-        {subtitle && <p className="cc-tab-subtitle">{subtitle}</p>}
-        <div className="cc-streaming-dots">
-          <span /><span /><span />
-        </div>
-      </div>
-    );
-  }
+  const lens = card.lenses[activeDim];
+  const meta = LENS_META[lens.title] ?? { subtitle: "", accent: "#c7a66a", accentBg: "#fffbf0" };
+  const views = [lens.buffett, lens.liLu, lens.duanYongping] as const;
 
   return (
-    <div className="cc-tab-body cc-tab-body--scroll">
-      {subtitle && <p className="cc-tab-subtitle">{subtitle}</p>}
+    <div className="cc-fw">
+      {/* Dimension tabs */}
+      <div className="cc-fw-tabs">
+        {card.lenses.map((l, i) => (
+          <button
+            key={l.title}
+            className={`cc-fw-tab${i === activeDim ? " cc-fw-tab--active" : ""}`}
+            onClick={() => setActiveDim(i)}
+          >
+            {l.title.split(" ").slice(1).join(" ")}
+          </button>
+        ))}
+      </div>
 
-      <div className="cc-confidence cc-confidence--top">
-        <div
-          className="cc-confidence-bar"
-          style={{
-            width: `${Math.round(card.confidence * 100)}%`,
-            background: confidenceColor(card.confidence),
-          }}
-        />
-        <span
-          className="cc-confidence-label"
-          style={{ color: confidenceColor(card.confidence) }}
+      {/* Content */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeDim}
+          className="cc-fw-body"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.16 }}
         >
-          {Math.round(card.confidence * 100)}%
-        </span>
-      </div>
+          {/* Dimension heading */}
+          <div className="cc-fw-dim-head" style={{ background: meta.accentBg }}>
+            <span className="cc-fw-dim-en" style={{ color: meta.accent }}>{lens.title}</span>
+            <span className="cc-fw-dim-sep">·</span>
+            <span className="cc-fw-dim-zh">{meta.subtitle}</span>
+          </div>
 
-      <p className="cc-conclusion">{card.conclusion}</p>
+          {/* Consensus callout */}
+          <div className="cc-fw-consensus" style={{ borderLeftColor: meta.accent }}>
+            <span className="cc-fw-consensus-label">三者共识</span>
+            <p className="cc-fw-consensus-text">{lens.consensus}</p>
+          </div>
 
-      {card.supporting.length > 0 && (
-        <div className="cc-evidence">
-          <span className="cc-evidence-label">支持</span>
-          <ul className="cc-evidence-list">
-            {card.supporting.map((item, i) => (
-              <li key={i} className="cc-evidence-item cc-evidence-item--supporting">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {card.counter.length > 0 && (
-        <div className="cc-evidence">
-          <span className="cc-evidence-label cc-evidence-label--counter">反方</span>
-          <ul className="cc-evidence-list">
-            {card.counter.map((item, i) => (
-              <li key={i} className="cc-evidence-item cc-evidence-item--counter">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {mentions && mentions.mentions.length > 0 && (
-        <div className="cc-mentions-inline">
-          <span className="cc-evidence-label">大师原文</span>
-          {mentions.mentions.map((m, i) => (
-            <div key={i} className="cc-mention">
-              <div className="cc-mention-meta">
-                <span className="cc-mention-master">{m.master}</span>
-                <span className="cc-mention-year">{m.year}</span>
-              </div>
-              <p className="cc-mention-excerpt">&ldquo;{m.excerpt}&rdquo;</p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const SOURCE_LABEL: Record<string, string> = {
-  shareholder: "股东信",
-  partnership:  "合伙人信",
-  post:         "问答 / 帖子",
-  speech:       "演讲",
-};
-
-function EvidencePanel({
-  decision,
-  references,
-  questions,
-}: {
-  decision: DecisionStatus;
-  references?: CanvasReference[];
-  questions: string[];
-}) {
-  return (
-    <div className="cc-tab-body cc-tab-body--scroll cc-judgment-tab">
-      {/* Compact decision status */}
-      <div className="cc-evidence-status">
-        <span className="cc-label">研判</span>
-        <span className={`cc-decision-chip cc-decision-chip--${decision} cc-decision-chip--active`}>
-          {DECISION_LABEL[decision]}
-        </span>
-      </div>
-
-      {/* Reference links */}
-      {references && references.length > 0 && (
-        <div className="cc-evidence-refs">
-          <span className="cc-label">参考来源</span>
-          <div className="cc-ref-list">
-            {references.map((ref, i) => (
-              <div key={i} className="cc-ref-item">
-                <div className="cc-ref-meta">
-                  <span className="cc-ref-master">{ref.master}</span>
-                  <span className="cc-ref-source">{SOURCE_LABEL[ref.sourceType] ?? ref.sourceType}</span>
-                  <span className="cc-ref-year">{ref.year}</span>
+          {/* Thinker views */}
+          <div className="cc-fw-thinkers">
+            {THINKER_META.map((t, idx) => (
+              <div key={t.key} className="cc-fw-thinker">
+                <div className="cc-fw-thinker-head">
+                  <span className="cc-fw-avatar" style={{ background: t.bg, color: t.color }}>
+                    {t.initial}
+                  </span>
+                  <span className="cc-fw-thinker-name">{t.name}</span>
                 </div>
-                {ref.excerpt && (
-                  <p className="cc-ref-excerpt">&ldquo;{ref.excerpt}&rdquo;</p>
-                )}
+                <p className="cc-fw-thinker-text">{views[idx]}</p>
               </div>
             ))}
           </div>
-        </div>
-      )}
 
-      {/* Open questions */}
-      {questions.length > 0 && (
-        <div className="cc-questions">
-          <span className="cc-label">待验证</span>
-          <ul className="cc-questions-list">
-            {questions.map((q, i) => (
-              <li key={i} className="cc-question-item">{q}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+          {/* Key questions */}
+          <div className="cc-fw-questions">
+            <p className="cc-fw-questions-label">核心检验</p>
+            <ul className="cc-fw-q-list">
+              {lens.keyQuestions.map((q, i) => (
+                <li key={i} className="cc-fw-q-item">{q}</li>
+              ))}
+            </ul>
+          </div>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
 
+
 export function CompanyCanvas({ state }: { state: CanvasState }) {
-  const [activeTab, setActiveTab] = useState<TabKey>("company_overview");
-
-  const overview = state.cards.find((c) => c.type === "company_overview") as
-    | CompanyOverviewCard | undefined;
-
-  const financialFacts = state.cards.find((c) => c.type === "financial_facts") as
-    | FinancialFactsCard | undefined;
-
-  const rightBusiness = state.cards.find((c) => c.type === "right_business") as
-    | AnalysisCard | undefined;
-
-  const rightPeople = state.cards.find((c) => c.type === "right_people") as
-    | AnalysisCard | undefined;
-
-  const rightPrice = state.cards.find((c) => c.type === "right_price") as
-    | AnalysisCard | undefined;
-
-  const mentions = state.cards.find((c) => c.type === "master_mentions") as
-    | MasterMentionsCard | undefined;
-
-  function cardStatus(key: TabKey): string {
-    if (key === "judgment") return "done";
-    const card = state.cards.find((c) => c.type === key);
-    return card?.status ?? "pending";
-  }
+  const framework = state.cards.find((c) => c.type === "value_framework") as
+    | ValueFrameworkCard
+    | undefined;
 
   return (
     <div className="company-canvas">
-      {/* Tab bar */}
-      <div className="cc-tabbar">
-        {TABS.map((tab) => {
-          const status = cardStatus(tab.key);
-          return (
-            <button
-              key={tab.key}
-              className={`cc-tab-btn${activeTab === tab.key ? " cc-tab-btn--active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-              {status === "streaming" && <span className="cc-tab-dot cc-tab-dot--stream" />}
-              {status === "pending"   && <span className="cc-tab-dot cc-tab-dot--pending" />}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tab content */}
       <div className="cc-tab-content">
-        {activeTab === "company_overview" && overview && (
-          <OverviewTab card={overview} />
-        )}
-        {activeTab === "financial_facts" && financialFacts && (
-          <FinancialTab card={financialFacts} />
-        )}
-        {activeTab === "right_business" && rightBusiness && (
-          <AnalysisTab card={rightBusiness} mentions={mentions} />
-        )}
-        {activeTab === "right_people" && rightPeople && (
-          <AnalysisTab card={rightPeople} />
-        )}
-        {activeTab === "right_price" && rightPrice && (
-          <AnalysisTab card={rightPrice} />
-        )}
-        {activeTab === "judgment" && (
-          <EvidencePanel
-            decision={state.decision}
-            references={state.references}
-            questions={state.openQuestions}
-          />
-        )}
+        {framework ? <FrameworkCard card={framework} /> : null}
       </div>
     </div>
   );

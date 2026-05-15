@@ -1,6 +1,6 @@
 {
   "name": "buffett-tribe",
-  "version": "0.34.6",
+  "version": "0.34.8",
   "private": true,
   "type": "module",
   "scripts": {
@@ -53,6 +53,7 @@
     "@upstash/redis": "^1.37.0",
     "bcryptjs": "^3.0.3",
     "fast-xml-parser": "^5.7.3",
+    "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
     "langfuse": "^3.38.20",
     "neo4j-driver": "^6.0.1",

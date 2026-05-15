@@ -28,9 +28,8 @@ import {
 } from "@/lib/chat";
 import { getTribeMember } from "@/lib/tribe";
 import { CompanyCanvas } from "@/components/CompanyCanvas";
-import { POPART_MOCK, makeSkeletonCanvas } from "@/lib/canvas-mock";
+import { POPART_MOCK, makeFrameworkDefaultCanvas, makeSkeletonCanvas } from "@/lib/canvas-mock";
 import type { CanvasState } from "@/types/canvas";
-import type { CompanyOverviewCard } from "@/types/canvas";
 
 const STARTERS = [
   "护城河这个概念，你怎么理解？",
@@ -380,12 +379,14 @@ export function IdeaWorkspace() {
   const canvasScrollRef = useRef<HTMLDivElement>(null);
   const prevReaderKeyRef = useRef<string>("");
 
+  const loadedTickerRef = useRef<string>("");
+
   const [mobilePanel, setMobilePanel] = useState<"chat" | "canvas">(
     hasReader ? "canvas" : "chat",
   );
   const [shareData, setShareData] = useState<{ question: string; answer: string } | null>(null);
   const [canvasState, setCanvasState] = useState<CanvasState>(() =>
-    makeSkeletonCanvas("Apple", "AAPL", "us"),
+    makeFrameworkDefaultCanvas(),
   );
 
   // Canvas reader font / line-height controls (shared localStorage keys with LetterReadingArea)
@@ -431,11 +432,6 @@ export function IdeaWorkspace() {
     hasReader &&
     (!canvasContent || canvasContent.type !== canvasType || canvasContent.year !== canvasYear);
 
-  const canvasCompanyName = useMemo(() => {
-    const overview = canvasState.cards.find((c) => c.type === "company_overview") as
-      | CompanyOverviewCard | undefined;
-    return overview?.name ?? null;
-  }, [canvasState]);
 
   useEffect(() => {
     sessionStorage.removeItem(WORKSPACE_CHAT_TRANSFER_KEY);
@@ -482,8 +478,7 @@ export function IdeaWorkspace() {
       })
       .catch((err) => console.error("[history] failed to load:", err))
       .finally(() => setHistoryLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStatus, session?.user?.id, storageRestored, messages.length]);
+  }, [sessionStatus, session?.user?.id, storageRestored, messages.length]); // intentionally omits full deps to run only on session/storage changes
 
   // Persist messages to sessionStorage for anonymous users so navigation
   // away and back within the same tab restores the conversation.
@@ -590,6 +585,22 @@ export function IdeaWorkspace() {
     [],
   );
 
+  useEffect(() => {
+    if (!storageRestored) return;
+    if (messages.length === 0) return;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role !== "user") continue;
+      const detected = matchCompany(m.content);
+      if (!detected) break;
+      if (detected.ticker === loadedTickerRef.current) break;
+      loadedTickerRef.current = detected.ticker;
+      setCanvasState(makeSkeletonCanvas(detected.name, detected.ticker, detected.market));
+      loadCanvasForCompany(detected.ticker, detected.name, detected.market);
+      break;
+    }
+  }, [messages, storageRestored, loadCanvasForCompany]);
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -603,6 +614,7 @@ export function IdeaWorkspace() {
       const userMsg: ChatMessage = { role: "user", content: trimmed };
       const detected = detectAndInitCanvas(trimmed, setCanvasState);
       if (detected) {
+        loadedTickerRef.current = detected.ticker;
         loadCanvasForCompany(detected.ticker, detected.name, detected.market);
       }
       setMessages((prev) => [...prev, userMsg]);
@@ -715,7 +727,7 @@ export function IdeaWorkspace() {
               <h2 className="empty-chat-title">{person.nameZh}</h2>
               <p className="empty-chat-sub">
                 {person.hasData
-                  ? "基于 1958–2025 年全部合伙人/股东信 · 提到公司名研究画布会自动更新"
+                  ? "基于 1958–2025 年全部合伙人/股东信 · 提到公司名投资理念会自动更新"
                   : `${person.nameZh}的资料正在整理中，敬请期待`}
               </p>
               <div className="starter-grid">
@@ -781,7 +793,7 @@ export function IdeaWorkspace() {
               ? (canvasContent
                 ? `${canvasContent.year} ${getSourceTypeLabel(canvasContent.type)}`
                 : "加载中…")
-              : (canvasCompanyName ?? "研究画布")}
+              : "投资理念"}
           </span>
           {hasReader ? (
             <button className="workspace-canvas-close" onClick={closeReader} aria-label="关闭">
@@ -1011,7 +1023,18 @@ const COMPANY_PATTERNS: CompanyPattern[] = [
   { regex: /亚马逊|amazon|amzn/i,          name: 'Amazon',   ticker: 'AMZN',    market: 'us' },
   { regex: /谷歌|google|alphabet|googl/i,  name: 'Alphabet', ticker: 'GOOGL',   market: 'us' },
   { regex: /微软|microsoft|msft/i,         name: 'Microsoft',ticker: 'MSFT',    market: 'us' },
+  { regex: /美国银行|美银|bank\s*of\s*america|bac/i, name: 'Bank of America', ticker: 'BAC', market: 'us' },
 ]
+
+function matchCompany(text: string): { ticker: string; name: string; market: 'us' | 'hk' | 'a' } | null {
+  for (const pattern of COMPANY_PATTERNS) {
+    if (pattern.regex.test(text)) {
+      if (pattern.name === '泡泡玛特') return null;
+      return { ticker: pattern.ticker, name: pattern.name, market: pattern.market };
+    }
+  }
+  return null;
+}
 
 // Returns the matched company or null (POP MART uses mock data and skips fetch).
 function detectAndInitCanvas(
@@ -1019,14 +1042,13 @@ function detectAndInitCanvas(
   setCanvasState: (s: CanvasState) => void,
 ): { ticker: string; name: string; market: 'us' | 'hk' | 'a' } | null {
   for (const pattern of COMPANY_PATTERNS) {
-    if (pattern.regex.test(text)) {
-      if (pattern.name === '泡泡玛特') {
-        setCanvasState(POPART_MOCK);
-        return null;
-      }
-      setCanvasState(makeSkeletonCanvas(pattern.name, pattern.ticker, pattern.market));
-      return { ticker: pattern.ticker, name: pattern.name, market: pattern.market };
+    if (!pattern.regex.test(text)) continue;
+    if (pattern.name === '泡泡玛特') {
+      setCanvasState(POPART_MOCK);
+      return null;
     }
+    setCanvasState(makeSkeletonCanvas(pattern.name, pattern.ticker, pattern.market));
+    return { ticker: pattern.ticker, name: pattern.name, market: pattern.market };
   }
   return null;
 }

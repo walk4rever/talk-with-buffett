@@ -2,6 +2,7 @@ export type CardStatus = 'pending' | 'streaming' | 'done'
 export type DecisionStatus = 'watch' | 'research' | 'buy' | 'hold' | 'pass'
 export type Market = 'us' | 'hk' | 'a'
 export type MetricTrend = 'up' | 'down' | 'flat'
+export type FrameworkLevel = 'strong' | 'medium' | 'weak'
 
 export interface CompanyOverviewCard {
   type: 'company_overview'
@@ -49,11 +50,77 @@ export interface MasterMentionsCard {
   mentions: MasterMentionItem[]
 }
 
+export interface FrameworkDimension {
+  key: 'moat' | 'management' | 'capital_allocation' | 'circle_of_competence' | 'valuation'
+  label: string
+  level: FrameworkLevel
+  note: string
+}
+
+export interface MasterFrameworkCard {
+  type: 'master_framework'
+  status: CardStatus
+  summary: string
+  dimensions: FrameworkDimension[]
+}
+
+export interface RightLens {
+  title: 'Right Business' | 'Right People' | 'Right Price'
+  buffett: string
+  liLu: string
+  duanYongping: string
+  consensus: string
+  keyQuestions: string[]
+}
+
+export interface ValueFrameworkCard {
+  type: 'value_framework'
+  status: CardStatus
+  summary: string
+  lenses: RightLens[]
+}
+
+export interface HoldingBehaviorCard {
+  type: 'holding_behavior'
+  status: CardStatus
+  asOf?: string
+  signal: string
+  facts: string[]
+}
+
+export interface BusinessQualityCard {
+  type: 'business_quality'
+  status: CardStatus
+  headline: string
+  bullets: string[]
+  metrics: FinancialMetric[]
+}
+
+export interface TrendPoint {
+  t: string
+  v: number
+}
+
+export interface CompanySnapshotCard {
+  type: 'company_snapshot'
+  status: CardStatus
+  basicInfo: Array<{ label: string; value: string }>
+  financialMetrics: FinancialMetric[]
+  businessModel: string[]
+  culture: string[]
+  priceTrend: TrendPoint[]
+}
+
 export type CanvasCard =
   | CompanyOverviewCard
   | FinancialFactsCard
   | AnalysisCard
   | MasterMentionsCard
+  | MasterFrameworkCard
+  | ValueFrameworkCard
+  | HoldingBehaviorCard
+  | BusinessQualityCard
+  | CompanySnapshotCard
 
 export interface CanvasReference {
   sourceType: string

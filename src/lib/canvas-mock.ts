@@ -1,30 +1,103 @@
-import type { CanvasState } from '@/types/canvas'
+import type { CanvasState, RightLens } from '@/types/canvas'
+
+export const VALUE_FRAMEWORK_LENSES: RightLens[] = [
+  {
+    title: 'Right Business',
+    buffett: '寻找"wonderful company"，具有持久竞争优势（护城河）、可预测的长期现金流、高ROE、简单易懂的商业模式。强调"长长的坡，厚厚的雪"——好生意比好价格更重要。',
+    liLu: '好的生意模式就是能长期产生很多净现金流的模式。Right Business 最重要，因为它能让 Right People 充分体现价值，重点看企业长期生命力与竞争优势。',
+    duanYongping: 'Right Business 就是生意模式（赚钱的方式）。喜欢强大的商业模式：能持续产生现金、消费者导向、本分。不喜欢生意模式就不会继续看下去。',
+    consensus: '好生意的本质：用最少的再投资，持续产生大量自由现金流。护城河是这种能力的结构性保障，也是三人最核心的共同判断标准。',
+    keyQuestions: [
+      '十年后这家公司的护城河会更宽还是更窄？',
+      '业务赚的是真现金，还是只有会计利润？',
+      '如果你是创始人，你愿意一辈子只经营这一家公司吗？',
+    ],
+  },
+  {
+    title: 'Right People',
+    buffett: '管理层必须 honest、competent、shareholder-oriented。只与喜欢、信任、钦佩的人共事。好的管理层能"造钟"（建体系）而非仅"报时"（靠个人）。',
+    liLu: '关注管理层的诚信、能力与长期视野。Right People 在好生意中能充分体现价值；强调企业家特质和第一性原理思考能力。',
+    duanYongping: 'Right People 指企业文化（与创始人高度相关）。诚信、本分、消费者导向的文化最重要——文化好能长期支撑生意模式。',
+    consensus: '诚信是底线，资本配置能力是关键。文化与创始人高度绑定，没有好文化，再好的生意模式也会被人败掉。',
+    keyQuestions: [
+      '管理层历史上如何对待少数股东？',
+      '有没有把股东的钱用于无关收购或过度多元化？',
+      '没有创始人之后，公司文化能否自我传承？',
+    ],
+  },
+  {
+    title: 'Right Price',
+    buffett: '优选"wonderful company at a fair price"而非"fair company at a wonderful price"。以合理价格买入并长期持有，让复利而非短期价差创造价值。',
+    liLu: '安全边际重要，但相对于 Right Business 和 Right People 没那么关键。重点是内在价值与长期现金流折现，而非短期市场波动。',
+    duanYongping: 'Price 没有那么重要，Business 和 People 最重要。只要前两者好，就等"过得去的价格"。要从未来看回来判断今天是否是好价钱。',
+    consensus: '安全边际是价格与价值之间的缓冲。好生意可以容忍更高的价格——Business 和 People 足够好时，Price 反而是三者中最不关键的。',
+    keyQuestions: [
+      '以当前价格持有十年，年化回报率合理吗？',
+      '如果股价明天腰斩，你有信心加仓还是会恐慌卖出？',
+      '你买的是价值本身，还是在赌别人以更高价接盘？',
+    ],
+  },
+]
+
+export function makeFrameworkDefaultCanvas(): CanvasState {
+  return {
+    cards: [
+      {
+        type: 'value_framework',
+        status: 'done',
+        summary: '先看生意、再看人、最后看价格。',
+        lenses: VALUE_FRAMEWORK_LENSES,
+      },
+      {
+        type: 'company_snapshot',
+        status: 'pending',
+        basicInfo: [],
+        financialMetrics: [],
+        businessModel: [],
+        culture: [],
+        priceTrend: [],
+      },
+    ],
+    decision: 'watch',
+    openQuestions: [],
+  }
+}
 
 export const POPART_MOCK: CanvasState = {
   cards: [
     {
+      type: 'master_framework',
+      status: 'pending',
+      summary: '',
+      dimensions: [],
+    },
+    {
+      type: 'holding_behavior',
+      status: 'pending',
+      signal: '',
+      facts: [],
+    },
+    {
+      type: 'business_quality',
+      status: 'pending',
+      headline: '',
+      bullets: [],
+      metrics: [],
+    },
+    {
       type: 'company_overview',
-      status: 'done',
+      status: 'pending',
       name: '泡泡玛特',
       ticker: '09992.HK',
       market: 'hk',
-      sector: '消费 / 潮玩',
-      businessModel:
-        '通过潮玩 IP（Molly、Labubu 等）驱动的盲盒零售，靠惊喜感与收藏属性创造高复购率',
+      sector: undefined,
+      businessModel: undefined,
     },
     {
       type: 'financial_facts',
-      status: 'done',
-      period: '2023A / TTM',
-      metrics: [
-        { label: '营收', value: 'HK$93亿', trend: 'up', note: '+38% YoY' },
-        { label: '毛利率', value: '62%', trend: 'flat', note: '近三年稳定' },
-        { label: '净利率', value: '18%', trend: 'up' },
-        { label: 'ROIC', value: '23%', trend: 'up', note: '显著高于行业' },
-        { label: '自由现金流', value: '正向', trend: 'up', note: '持续为正' },
-        { label: 'ROE', value: '28%', trend: 'flat' },
-        { label: '资产负债率', value: '31%', trend: 'flat', note: '低杠杆' },
-      ],
+      status: 'pending',
+      period: undefined,
+      metrics: [],
     },
     {
       type: 'right_business',
@@ -64,56 +137,10 @@ export const POPART_MOCK: CanvasState = {
       counter: [],
       confidence: 0,
     },
-    {
-      type: 'master_mentions',
-      status: 'done',
-      mentions: [
-        {
-          master: '巴菲特',
-          year: 2007,
-          excerpt:
-            '真正伟大的消费品公司拥有一种近乎无形的资产——它让消费者反复回来，即使竞争对手提供更低的价格。',
-          sourceType: 'shareholder',
-        },
-        {
-          master: '段永平',
-          year: 2021,
-          excerpt:
-            '好的生意模式是那种你不用每天做决策的，IP 生意有个特点就是你不知道下一个爆款是什么。',
-          sourceType: 'post',
-        },
-      ],
-    },
+    { type: 'master_mentions', status: 'pending', mentions: [] },
   ],
-  decision: 'research',
-  openQuestions: [
-    'IP 矩阵长期粘性如何？Molly 之外，下一个大 IP 是什么？',
-    '海外扩张能否复制国内模式？文化差异影响有多大？',
-    '当前估值对应的内在价值区间是多少？安全边际是否充足？',
-  ],
-  references: [
-    {
-      sourceType: 'shareholder',
-      master: '巴菲特',
-      year: 2007,
-      title: '2007 致股东信',
-      excerpt: '真正伟大的消费品公司拥有一种近乎无形的资产——它让消费者反复回来，即使竞争对手提供更低的价格。',
-    },
-    {
-      sourceType: 'post',
-      master: '段永平',
-      year: 2021,
-      title: '雪球问答 · 2021',
-      excerpt: '好的生意模式是那种你不用每天做决策的，IP 生意有个特点就是你不知道下一个爆款是什么。',
-    },
-    {
-      sourceType: 'shareholder',
-      master: '巴菲特',
-      year: 1999,
-      title: '1999 致股东信',
-      excerpt: '我们对任何依赖持续创新维持竞争优势的公司都保持谨慎——历史表明，这类护城河往往比看起来更脆弱。',
-    },
-  ],
+  decision: 'watch',
+  openQuestions: [],
 }
 
 export function makeSkeletonCanvas(
@@ -123,6 +150,25 @@ export function makeSkeletonCanvas(
 ): CanvasState {
   return {
     cards: [
+      {
+        type: 'value_framework',
+        status: 'done',
+        summary: '先看生意、再看人、最后看价格。',
+        lenses: VALUE_FRAMEWORK_LENSES,
+      },
+      {
+        type: 'company_snapshot',
+        status: 'pending',
+        basicInfo: [
+          { label: '公司', value: name || '—' },
+          { label: 'Ticker', value: ticker || '—' },
+          { label: '市场', value: market.toUpperCase() },
+        ],
+        financialMetrics: [],
+        businessModel: [],
+        culture: [],
+        priceTrend: [],
+      },
       { type: 'company_overview', status: 'pending', name, ticker, market },
       { type: 'financial_facts', status: 'pending', period: undefined, metrics: [] },
       { type: 'right_business', status: 'pending', conclusion: '', supporting: [], counter: [], confidence: 0 },
