@@ -367,15 +367,13 @@ export function IdeaWorkspace() {
     throw new Error("Missing default tribe member: buffett");
   }
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const transfer = readTransferFromSessionStorage();
-    if (transfer?.messages.length) return transfer.messages;
-    return readAnonSessionFromStorage();
-  });
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [storageRestored, setStorageRestored] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const readingMode: ReadingMode = "all";
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatBodyRef = useRef<HTMLDivElement>(null);
   const streamingTextRef = useRef("");
 
   const [canvasContent, setCanvasContent] = useState<CanvasContent | null>(null);
@@ -445,19 +443,34 @@ export function IdeaWorkspace() {
     return () => { document.body.style.overflow = ""; };
   }, []);
 
+  // Restore client-side chat state only after hydration to avoid SSR/CSR mismatch.
+  useEffect(() => {
+    const transfer = readTransferFromSessionStorage();
+    if (transfer?.messages.length) {
+      setMessages(transfer.messages);
+      setStorageRestored(true);
+      return;
+    }
+
+    const anonMessages = readAnonSessionFromStorage();
+    if (anonMessages.length > 0) {
+      setMessages(anonMessages);
+    }
+    setStorageRestored(true);
+  }, []);
+
   // Load chat history for authenticated users on mount.
   // Only runs once when session resolves; skips if messages already exist
   // (e.g. transferred from sessionStorage during in-page navigation).
   const historyLoadedRef = useRef(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   useEffect(() => {
+    if (!storageRestored) return;
     if (sessionStatus === "loading") return;
     if (sessionStatus !== "authenticated" || !session?.user?.id) return;
     if (historyLoadedRef.current) return;
     historyLoadedRef.current = true;
-
-    const transfer = readTransferFromSessionStorage();
-    if (transfer?.messages.length) return;
+    if (messages.length > 0) return;
 
     setHistoryLoading(true);
     fetch("/api/chat/history")
@@ -470,7 +483,7 @@ export function IdeaWorkspace() {
       .catch((err) => console.error("[history] failed to load:", err))
       .finally(() => setHistoryLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStatus]);
+  }, [sessionStatus, session?.user?.id, storageRestored, messages.length]);
 
   // Persist messages to sessionStorage for anonymous users so navigation
   // away and back within the same tab restores the conversation.
@@ -487,15 +500,18 @@ export function IdeaWorkspace() {
   const sendRef = useRef<((text: string) => void) | null>(null);
 
   useEffect(() => {
+    if (!storageRestored) return;
     if (initialQuestion && sendRef.current && messages.length === 0) {
       sendRef.current(initialQuestion);
     }
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [storageRestored]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = chatBodyRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
@@ -559,6 +575,21 @@ export function IdeaWorkspace() {
   }, [router, hasReader, canvasType, canvasYear]);
 
 
+  const loadCanvasForCompany = useCallback(
+    async (ticker: string, name: string, market: 'us' | 'hk' | 'a') => {
+      try {
+        const url = `/api/canvas?ticker=${encodeURIComponent(ticker)}&name=${encodeURIComponent(name)}&market=${market}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json() as CanvasState;
+        setCanvasState(data);
+      } catch {
+        // Leave skeleton in place on error
+      }
+    },
+    [],
+  );
+
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -570,7 +601,10 @@ export function IdeaWorkspace() {
       });
 
       const userMsg: ChatMessage = { role: "user", content: trimmed };
-      detectAndInitCanvas(trimmed, setCanvasState);
+      const detected = detectAndInitCanvas(trimmed, setCanvasState);
+      if (detected) {
+        loadCanvasForCompany(detected.ticker, detected.name, detected.market);
+      }
       setMessages((prev) => [...prev, userMsg]);
       setInput("");
       setLoading(true);
@@ -603,13 +637,22 @@ export function IdeaWorkspace() {
             updated[updated.length - 1] = {
               ...updated[updated.length - 1],
               sources,
-              streaming: false,
               chatMessageId,
             };
             return updated;
           });
+        },
+        () => {
           // Flush any pending streaming text before marking done
           if (rafId) { cancelAnimationFrame(rafId); flushStreamingText(); }
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              streaming: false,
+            };
+            return updated;
+          });
           setLoading(false);
         },
         (errorMsg) => {
@@ -628,7 +671,7 @@ export function IdeaWorkspace() {
         personId,
       );
     },
-    [messages, loading, posthog, personId],
+    [messages, loading, posthog, personId, loadCanvasForCompany],
   );
 
   useEffect(() => {
@@ -659,7 +702,7 @@ export function IdeaWorkspace() {
       <div className={`workspace-chat${mobilePanel !== "chat" ? " workspace-panel--hidden-mobile" : ""}`}>
         <IdeaHeader title="巴菲特部落" onOpenSide={() => setMobilePanel("canvas")} />
 
-        <div className="workspace-chat-body">
+        <div className="workspace-chat-body" ref={chatBodyRef}>
           {historyLoading ? (
             <div className="history-loading">
               <div className="history-loading-spinner" />
@@ -957,28 +1000,35 @@ function WorkspaceMessage({
 }
 
 
-const COMPANY_PATTERNS: Array<{ regex: RegExp; name: string; ticker: string; market: 'us' | 'hk' | 'a' }> = [
-  { regex: /泡泡玛特|pop\s*mart/i,  name: '泡泡玛特', ticker: '09992.HK', market: 'hk' },
-  { regex: /比亚迪|byd/i,            name: '比亚迪',   ticker: '002594',  market: 'a'  },
-  { regex: /苹果|apple|aapl/i,       name: 'Apple',    ticker: 'AAPL',    market: 'us' },
-  { regex: /腾讯|tencent/i,          name: '腾讯',     ticker: '00700.HK', market: 'hk' },
-  { regex: /茅台|kweichow/i,         name: '贵州茅台', ticker: '600519',  market: 'a'  },
+type CompanyPattern = { regex: RegExp; name: string; ticker: string; market: 'us' | 'hk' | 'a' };
+
+const COMPANY_PATTERNS: CompanyPattern[] = [
+  { regex: /泡泡玛特|pop\s*mart/i,         name: '泡泡玛特', ticker: '09992.HK', market: 'hk' },
+  { regex: /比亚迪|byd/i,                  name: '比亚迪',   ticker: '002594',  market: 'a'  },
+  { regex: /苹果|apple|aapl/i,             name: 'Apple',    ticker: 'AAPL',    market: 'us' },
+  { regex: /腾讯|tencent/i,                name: '腾讯',     ticker: '00700.HK', market: 'hk' },
+  { regex: /茅台|kweichow/i,               name: '贵州茅台', ticker: '600519',  market: 'a'  },
+  { regex: /亚马逊|amazon|amzn/i,          name: 'Amazon',   ticker: 'AMZN',    market: 'us' },
+  { regex: /谷歌|google|alphabet|googl/i,  name: 'Alphabet', ticker: 'GOOGL',   market: 'us' },
+  { regex: /微软|microsoft|msft/i,         name: 'Microsoft',ticker: 'MSFT',    market: 'us' },
 ]
 
+// Returns the matched company or null (POP MART uses mock data and skips fetch).
 function detectAndInitCanvas(
   text: string,
   setCanvasState: (s: CanvasState) => void,
-): void {
+): { ticker: string; name: string; market: 'us' | 'hk' | 'a' } | null {
   for (const pattern of COMPANY_PATTERNS) {
     if (pattern.regex.test(text)) {
       if (pattern.name === '泡泡玛特') {
         setCanvasState(POPART_MOCK);
-      } else {
-        setCanvasState(makeSkeletonCanvas(pattern.name, pattern.ticker, pattern.market));
+        return null;
       }
-      return;
+      setCanvasState(makeSkeletonCanvas(pattern.name, pattern.ticker, pattern.market));
+      return { ticker: pattern.ticker, name: pattern.name, market: pattern.market };
     }
   }
+  return null;
 }
 
 function CanvasLineHeightIcon({ tight }: { tight?: boolean }) {

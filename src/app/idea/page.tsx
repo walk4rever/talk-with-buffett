@@ -9,11 +9,13 @@ export const metadata = {
 
 export default function IdeaPage() {
   return (
-    <>
+    <div className="idea-screen">
       <SiteNav />
-      <Suspense>
-        <IdeaWorkspace />
-      </Suspense>
-    </>
+      <div className="idea-screen-main">
+        <Suspense>
+          <IdeaWorkspace />
+        </Suspense>
+      </div>
+    </div>
   );
 }

@@ -43,7 +43,8 @@ export function getSourceTypeLabel(type: string): string {
 export async function streamChatAPI(
   messages: ChatMessage[],
   onDelta: (text: string) => void,
-  onDone: (sources: ChatSource[], chatMessageId?: string) => void,
+  onSources: (sources: ChatSource[], chatMessageId?: string) => void,
+  onDone: () => void,
   onError: (msg: string) => void,
   person = "buffett",
 ) {
@@ -71,6 +72,7 @@ export async function streamChatAPI(
   let buffer = "";
   let currentEvent = "";
   let gotDone = false;
+  let gotSources = false;
 
   function processLines(lines: string[]) {
     for (const line of lines) {
@@ -85,14 +87,15 @@ export async function streamChatAPI(
           // Sources arrive first, before AI streaming starts.
           try {
             const data = JSON.parse(payload);
-            onDone(data.sources ?? [], data.chatMessageId);
+            onSources(data.sources ?? [], data.chatMessageId);
           } catch {
-            onDone([]);
+            onSources([]);
           }
-          gotDone = true;
+          gotSources = true;
         } else if (currentEvent === "done") {
-          // End-of-stream signal — sources already delivered via "sources" event.
+          // End-of-stream signal.
           gotDone = true;
+          onDone();
         } else if (currentEvent === "error") {
           onError("抱歉，服务暂时不可用，请稍后重试。");
         }
@@ -117,6 +120,7 @@ export async function streamChatAPI(
   }
 
   if (!gotDone) {
-    onDone([]);
+    if (!gotSources) onSources([]);
+    onDone();
   }
 }
