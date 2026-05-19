@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
+import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-activity";
 import { getTribeMember } from "@/lib/tribe";
 import {
   formatShares,
@@ -54,8 +55,10 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
   const prevHoldings = prevQuarter
     ? await getHoldingsByQuarter(id, prevQuarter.year, prevQuarter.quarter)
     : [];
-  const holdingKey = (h: (typeof prevHoldings)[number]) => h.securityId ?? h.securityEntityId;
+  const holdingKey = (h: { securityId: string | null; securityEntityId: string }) => h.securityId ?? h.securityEntityId;
   const prevBySecurityId = new Map(prevHoldings.map((h) => [holdingKey(h), h] as const));
+  const currentKeySet = new Set(holdings.map((h) => holdingKey(h)));
+  const soldOutRows = prevHoldings.filter((h) => !currentKeySet.has(holdingKey(h)));
 
   const totalValue = holdings.reduce(
     (sum, h) => sum + (h.valueUsd ? Number(h.valueUsd) : 0),
@@ -80,45 +83,53 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
           </div>
         </div>
 
-        {/* Quarter selector timeline */}
-        <div className="holdings-timeline-wrap">
-          <div className="holdings-timeline-line" />
-          <div className="holdings-timeline">
-            {quarters.map((q) => {
-              const active = q.year === selectedYear && q.quarter === selectedQuarter;
-              return (
-                <Link
-                  key={`${q.year}-${q.quarter}`}
-                  href={`/master/${id}/holdings?year=${q.year}&quarter=${q.quarter}`}
-                  className={`holdings-timeline-node${active ? " holdings-timeline-node--active" : ""}`}
-                  style={active ? { borderColor: member.color, color: member.color } : undefined}
-                >
-                  <span className="holdings-timeline-dot" />
-                  <span className="holdings-timeline-label">{q.year} Q{q.quarter}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+        <div className="holdings-layout">
+          {/* Quarter selector timeline */}
+          <aside className="holdings-sidebar">
+            <div className="holdings-timeline-wrap">
+              <div className="holdings-timeline-line" />
+              <div className="holdings-timeline">
+                {quarters.map((q) => {
+                  const active = q.year === selectedYear && q.quarter === selectedQuarter;
+                  return (
+                    <Link
+                      key={`${q.year}-${q.quarter}`}
+                      href={`/master/${id}/holdings?year=${q.year}&quarter=${q.quarter}`}
+                      className={`holdings-timeline-node${active ? " holdings-timeline-node--active" : ""}`}
+                      style={active ? { borderColor: member.color, color: member.color } : undefined}
+                    >
+                      <span className="holdings-timeline-dot" />
+                      <span className="holdings-timeline-label">{q.year} Q{q.quarter}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
 
-        {/* Summary bar */}
-        <div className="holdings-summary">
-          <span className="holdings-summary-item">
-            <em>{holdings.length}</em> 持仓
-          </span>
-          <span className="holdings-summary-sep">·</span>
-          <span className="holdings-summary-item">
-            总计 <em>{formatValueUsd(BigInt(Math.round(totalValue)))}</em>
-          </span>
-          <span className="holdings-summary-sep">·</span>
-          <span className="holdings-summary-item">
-            {selectedYear} Q{selectedQuarter} · 数据来源 SEC 13F
-          </span>
-        </div>
+          <section className="holdings-main">
+            {/* Summary bar */}
+            <div className="holdings-summary">
+              <span className="holdings-summary-item">
+                <em>{holdings.length}</em> 持仓
+              </span>
+              <span className="holdings-summary-sep">·</span>
+              <span className="holdings-summary-item">
+                <em>{soldOutRows.length}</em> 已清仓
+              </span>
+              <span className="holdings-summary-sep">·</span>
+              <span className="holdings-summary-item">
+                总计 <em>{formatValueUsd(BigInt(Math.round(totalValue)))}</em>
+              </span>
+              <span className="holdings-summary-sep">·</span>
+              <span className="holdings-summary-item">
+                {selectedYear} Q{selectedQuarter} · 数据来源 SEC 13F
+              </span>
+            </div>
 
-        {/* Holdings table */}
-        <div className="holdings-table-wrap">
-          <table className="holdings-table">
+            {/* Holdings table */}
+            <div className="holdings-table-wrap holdings-table-wrap--fit">
+              <table className="holdings-table holdings-table--fit">
             <thead>
               <tr>
                 <th className="holdings-th holdings-th--rank">#</th>
@@ -137,19 +148,8 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
             <tbody>
               {holdings.map((h, i) => {
                 const prev = prevBySecurityId.get(holdingKey(h));
-                const prevShares = prev?.shares ? Number(prev.shares) : null;
-                const nowShares = h.shares ? Number(h.shares) : null;
-                const shareDeltaPct =
-                  prevShares && nowShares && prevShares > 0
-                    ? ((nowShares - prevShares) / prevShares) * 100
-                    : null;
-                const activity = !prev
-                  ? "New"
-                  : shareDeltaPct == null || Math.abs(shareDeltaPct) < 1
-                    ? "Unchanged"
-                    : shareDeltaPct > 0
-                      ? "Added"
-                      : "Reduced";
+                const shareDeltaPct = computeShareDeltaPct(prev?.shares, h.shares);
+                const activity = computeHoldingActivity(Boolean(prev), shareDeltaPct);
                 const rowClass =
                   activity === "New"
                     ? "holdings-row holdings-row--new"
@@ -210,7 +210,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                     </td>
                     <td className="holdings-td">
                       {activity === "New" ? (
-                        <span className="holdings-activity-new" aria-label="new position">*</span>
+                        <span className="holdings-activity-new">New</span>
                       ) : activity === "Added" ? (
                         <span className="holdings-activity-delta holdings-activity-delta--up">
                           ↑ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "—"}
@@ -233,8 +233,53 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                   </tr>
                 );
               })}
+              {soldOutRows.map((h, i) => {
+                const meta = (h.security.metadata ?? {}) as { nameZh?: string; nameEnShort?: string };
+                const zhName = meta.nameZh ?? h.security.canonicalName;
+                const enName = meta.nameEnShort ?? h.security.canonicalName;
+                const reportedPrice = formatPriceFromValueAndShares(h.valueUsd, h.shares);
+                return (
+                  <tr key={`exit-${h.id}`} className="holdings-row holdings-row--soldout">
+                    <td className="holdings-td holdings-td--rank">{holdings.length + i + 1}</td>
+                    <td className="holdings-td holdings-td--name">
+                      <span className="holdings-company">
+                        {getHoldingTicker(h) ? (
+                          <Link href={`/company/${getHoldingTicker(h)}`}>
+                            <CompanyDisplayName
+                              zhName={zhName}
+                              enName={enName}
+                              ticker={getHoldingTicker(h)}
+                              compact
+                            />
+                          </Link>
+                        ) : (
+                          <CompanyDisplayName
+                            zhName={zhName}
+                            enName={enName}
+                            ticker={getHoldingTicker(h)}
+                            compact
+                          />
+                        )}
+                      </span>
+                    </td>
+                    <td className="holdings-td holdings-td--num">0.00%</td>
+                    <td className="holdings-td">
+                      <span className="holdings-activity-soldout">Sold Out</span>
+                    </td>
+                    <td className="holdings-td holdings-td--num">{formatShares(h.shares)}</td>
+                    <td className="holdings-td holdings-td--num">{reportedPrice}</td>
+                    <td className="holdings-td holdings-td--num">{formatValueUsd(h.valueUsd)}</td>
+                    <td className="holdings-td holdings-td--num">—</td>
+                    <td className="holdings-td holdings-td--num">—</td>
+                    <td className="holdings-td holdings-td--num">—</td>
+                    <td className="holdings-td holdings-td--num">—</td>
+                  </tr>
+                );
+              })}
             </tbody>
-          </table>
+              </table>
+            </div>
+          </section>
         </div>
 
         <p className="holdings-note">

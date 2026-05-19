@@ -4522,37 +4522,45 @@ body.layout-no-header {
 .holdings-timeline-wrap {
   position: relative;
   margin-bottom: 1.25rem;
-  padding: 0.35rem 0.2rem 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  padding: 0.25rem 0 0.25rem 0.1rem;
+  max-height: 240px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y pinch-zoom;
+  -webkit-overflow-scrolling: touch;
 }
 
 .holdings-timeline-line {
   position: absolute;
-  left: 0.25rem;
-  right: 0.25rem;
-  top: 0.83rem;
-  height: 2px;
+  left: 0.58rem;
+  top: 0.45rem;
+  bottom: 0.45rem;
+  width: 2px;
   background: #cfd7e3;
   border-radius: 999px;
 }
 
 .holdings-timeline {
   position: relative;
-  display: inline-flex;
-  gap: 0.9rem;
-  min-width: max-content;
-  padding-bottom: 0.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.52rem;
+  padding: 0.12rem 0 0.12rem 0;
 }
 
 .holdings-timeline-node {
   text-decoration: none;
   color: #64748b;
-  display: grid;
-  justify-items: center;
-  gap: 0.34rem;
-  min-width: 78px;
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  min-height: 24px;
+  font-size: 0.75rem;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 0.08rem 0.35rem 0.08rem 0;
 }
 
 .holdings-timeline-dot {
@@ -4582,6 +4590,23 @@ body.layout-no-header {
 .holdings-summary em { font-style: normal; font-weight: 600; color: var(--apple-near-black); }
 .holdings-summary-sep { color: #d1d1d6; }
 
+.holdings-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.holdings-sidebar {
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 110px);
+}
+
+.holdings-main {
+  min-width: 0;
+}
+
 .holdings-table-wrap { overflow-x: auto; background: var(--apple-white); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .holdings-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
 .holdings-table { min-width: 1320px; }
@@ -4599,6 +4624,9 @@ body.layout-no-header {
 }
 .holdings-row--reduced td {
   background: rgba(185, 28, 28, 0.06);
+}
+.holdings-row--soldout td {
+  background: rgba(180, 83, 9, 0.09);
 }
 .holdings-td { padding: 0.625rem 1rem; vertical-align: middle; color: var(--apple-near-black); letter-spacing: -0.224px; }
 .holdings-td--rank { text-align: center; color: rgba(0,0,0,0.3); font-size: 0.75rem; }
@@ -4644,6 +4672,102 @@ body.layout-no-header {
 .holdings-bar { height: 2px; border-radius: 2px; background: var(--apple-blue); opacity: 0.5; max-width: 72px; }
 
 .holdings-note { margin-top: 1.5rem; font-size: 0.6875rem; color: var(--apple-secondary); text-align: center; letter-spacing: -0.12px; }
+
+/* Holdings page: fit table into panel without horizontal scrolling */
+.holdings-table-wrap--fit {
+  overflow-x: hidden;
+}
+
+.holdings-table--fit {
+  min-width: 0;
+  table-layout: fixed;
+  font-size: 0.66rem;
+}
+
+.holdings-table--fit .holdings-th,
+.holdings-table--fit .holdings-td {
+  padding-left: 0.36rem;
+  padding-right: 0.36rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+/* Override global numeric-right alignment inside fit table */
+.holdings-table--fit .holdings-td--num,
+.holdings-table--fit .holdings-th--num {
+  text-align: center;
+}
+
+.holdings-table--fit .holdings-th {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.2;
+  font-size: 0.62rem;
+  padding-top: 0.44rem;
+  padding-bottom: 0.44rem;
+}
+
+.holdings-table--fit .holdings-td--name {
+  max-width: none;
+  text-align: left;
+}
+
+.holdings-table--fit .holdings-company {
+  max-width: none;
+}
+
+.holdings-table--fit .holdings-th:nth-child(2) {
+  text-align: left;
+}
+
+.holdings-table--fit .holdings-th:nth-child(1),
+.holdings-table--fit .holdings-td:nth-child(1) { width: 3%; }
+.holdings-table--fit .holdings-th:nth-child(2),
+.holdings-table--fit .holdings-td:nth-child(2) { width: 21%; }
+.holdings-table--fit .holdings-th:nth-child(3),
+.holdings-table--fit .holdings-td:nth-child(3) { width: 9.5%; }
+.holdings-table--fit .holdings-th:nth-child(4),
+.holdings-table--fit .holdings-td:nth-child(4) { width: 10%; }
+.holdings-table--fit .holdings-th:nth-child(5),
+.holdings-table--fit .holdings-td:nth-child(5) { width: 9%; }
+.holdings-table--fit .holdings-th:nth-child(6),
+.holdings-table--fit .holdings-td:nth-child(6) { width: 9%; }
+.holdings-table--fit .holdings-th:nth-child(7),
+.holdings-table--fit .holdings-td:nth-child(7) { width: 9%; }
+.holdings-table--fit .holdings-th:nth-child(8),
+.holdings-table--fit .holdings-td:nth-child(8) { width: 8%; }
+.holdings-table--fit .holdings-th:nth-child(9),
+.holdings-table--fit .holdings-td:nth-child(9) { width: 8%; }
+.holdings-table--fit .holdings-th:nth-child(10),
+.holdings-table--fit .holdings-td:nth-child(10) { width: 6.75%; }
+.holdings-table--fit .holdings-th:nth-child(11),
+.holdings-table--fit .holdings-td:nth-child(11) { width: 6.75%; }
+
+/* % of Portfolio: never ellipsize percentage text */
+.holdings-table--fit .holdings-th:nth-child(3),
+.holdings-table--fit .holdings-td:nth-child(3) {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.holdings-table--fit .holdings-pct-wrap {
+  align-items: center;
+}
+
+@media (max-width: 920px) {
+  .holdings-layout {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .holdings-sidebar {
+    position: static;
+    max-height: none;
+  }
+}
 
 .holdings-activity {
   display: inline-flex;
@@ -4695,11 +4819,27 @@ body.layout-no-header {
 }
 
 .holdings-activity-new {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.46rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
   color: #1d4ed8;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1;
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+.holdings-activity-soldout {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.46rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: #9a3412;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.34);
 }
 
 /* ─── Person hub page ───────────────────────────────────────────────────── */

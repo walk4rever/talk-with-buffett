@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
+import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-activity";
 import { getTribeMember } from "@/lib/tribe";
 import {
   buildHoldingInsights,
@@ -177,8 +178,10 @@ export default async function PersonHubPage({ params }: Props) {
   const prevHoldings = changeSet.base
     ? await getHoldingsByQuarter(id, changeSet.base.year, changeSet.base.quarter)
     : [];
-  const holdingKey = (h: (typeof prevHoldings)[number]) => h.securityId ?? h.securityEntityId;
+  const holdingKey = (h: { securityId: string | null; securityEntityId: string }) => h.securityId ?? h.securityEntityId;
   const prevBySecurityId = new Map(prevHoldings.map((h) => [holdingKey(h), h] as const));
+  const currentKeySet = new Set(fullHoldings.map((h) => holdingKey(h)));
+  const soldOutRows = prevHoldings.filter((h) => !currentKeySet.has(holdingKey(h)));
 
   return (
     <div className="person-page">
@@ -301,8 +304,8 @@ export default async function PersonHubPage({ params }: Props) {
                 <div className="person-section-head">
                   <h2 className="person-section-title">持仓明细（{latestLabel}）</h2>
                 </div>
-                <div className="holdings-table-wrap person-holdings-table-wrap">
-                  <table className="holdings-table person-holdings-table">
+                <div className="holdings-table-wrap holdings-table-wrap--fit person-holdings-table-wrap">
+                  <table className="holdings-table holdings-table--fit person-holdings-table">
                     <thead>
                       <tr>
                         <th className="holdings-th holdings-th--rank">#</th>
@@ -322,19 +325,8 @@ export default async function PersonHubPage({ params }: Props) {
                       {fullHoldings.map((h, i) => {
                         const display = getHoldingDisplay(h.security);
                         const prev = prevBySecurityId.get(holdingKey(h));
-                        const prevShares = prev?.shares ? Number(prev.shares) : null;
-                        const nowShares = h.shares ? Number(h.shares) : null;
-                        const shareDeltaPct =
-                          prevShares && nowShares && prevShares > 0
-                            ? ((nowShares - prevShares) / prevShares) * 100
-                            : null;
-                        const activity = !prev
-                          ? "New"
-                          : shareDeltaPct == null || Math.abs(shareDeltaPct) < 1
-                            ? "Unchanged"
-                            : shareDeltaPct > 0
-                              ? "Added"
-                              : "Reduced";
+                        const shareDeltaPct = computeShareDeltaPct(prev?.shares, h.shares);
+                        const activity = computeHoldingActivity(Boolean(prev), shareDeltaPct);
                         const rowClass =
                           activity === "New"
                             ? "holdings-row holdings-row--new"
@@ -372,7 +364,7 @@ export default async function PersonHubPage({ params }: Props) {
                             </td>
                             <td className="holdings-td">
                               {activity === "New" ? (
-                                <span className="holdings-activity-new" aria-label="new position">*</span>
+                                <span className="holdings-activity-new">New</span>
                               ) : activity === "Added" ? (
                                 <span className="holdings-activity-delta holdings-activity-delta--up">
                                   ↑ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "—"}
@@ -384,6 +376,46 @@ export default async function PersonHubPage({ params }: Props) {
                               ) : (
                                 <span className="holdings-activity-delta">—</span>
                               )}
+                            </td>
+                            <td className="holdings-td holdings-td--num">{formatShares(h.shares)}</td>
+                            <td className="holdings-td holdings-td--num">{formatPriceFromValueAndShares(h.valueUsd, h.shares)}</td>
+                            <td className="holdings-td holdings-td--num">{formatValueUsd(h.valueUsd)}</td>
+                            <td className="holdings-td holdings-td--num">—</td>
+                            <td className="holdings-td holdings-td--num">—</td>
+                            <td className="holdings-td holdings-td--num">—</td>
+                            <td className="holdings-td holdings-td--num">—</td>
+                          </tr>
+                        );
+                      })}
+                      {soldOutRows.map((h, i) => {
+                        const display = getHoldingDisplay(h.security);
+                        return (
+                          <tr key={`exit-${h.id}`} className="holdings-row holdings-row--soldout">
+                            <td className="holdings-td holdings-td--rank">{fullHoldings.length + i + 1}</td>
+                            <td className="holdings-td holdings-td--name">
+                              <span className="holdings-company">
+                                {getHoldingTicker(h) ? (
+                                  <Link href={`/company/${getHoldingTicker(h)}`}>
+                                    <CompanyDisplayName
+                                      zhName={display.zh}
+                                      enName={display.en}
+                                      ticker={getHoldingTicker(h)}
+                                      compact
+                                    />
+                                  </Link>
+                                ) : (
+                                  <CompanyDisplayName
+                                    zhName={display.zh}
+                                    enName={display.en}
+                                    ticker={getHoldingTicker(h)}
+                                    compact
+                                  />
+                                )}
+                              </span>
+                            </td>
+                            <td className="holdings-td holdings-td--num">0.00%</td>
+                            <td className="holdings-td">
+                              <span className="holdings-activity-soldout">Sold Out</span>
                             </td>
                             <td className="holdings-td holdings-td--num">{formatShares(h.shares)}</td>
                             <td className="holdings-td holdings-td--num">{formatPriceFromValueAndShares(h.valueUsd, h.shares)}</td>

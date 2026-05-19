@@ -14,6 +14,7 @@ const db = new PrismaClient();
 const zhByTickerDb = new Map<string, string>();
 const zhByIssuerDb = new Map<string, string>();
 const tickerByIssuerDb = new Map<string, string>();
+const tickerByCusipDb = new Map<string, string>();
 
 const entityByCusip = new Map<string, { id: string; backfilled: boolean }>();
 const companyByTickerCache = new Map<string, string>();
@@ -21,6 +22,12 @@ const securityIdByEntityId = new Map<string, string>();
 const CUSIP_TICKER_OVERRIDES: Record<string, string> = {
   // Alphabet Class C should map to GOOG (Class A is GOOGL).
   "02079K107": "GOOG",
+  // Liberty Latin America: Class A = LILA, Class C = LILAK.
+  "G9001E102": "LILA",
+  "G9001E128": "LILAK",
+  // Liberty Live: Series A / Series C
+  "530909100": "LLYVA",
+  "530909308": "LLYVK",
 };
 
 type SecuritySnapshot = {
@@ -52,6 +59,8 @@ function resolveNamesDbFirst(canonicalName: string, existingNameZh?: string | nu
 }
 
 function resolveTickerWithCusipOverride(cusip: string, ticker: string | null) {
+  const mapped = tickerByCusipDb.get(cusip);
+  if (mapped) return mapped;
   const override = CUSIP_TICKER_OVERRIDES[cusip];
   if (override) return override;
   return ticker;
@@ -240,6 +249,15 @@ interface InfoTableEntry {
   putCall?: string;
 }
 
+function normalizeCusip(raw: string): string {
+  const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!compact) return "";
+  if (/^\d+$/.test(compact) && compact.length < 9) {
+    return compact.padStart(9, "0");
+  }
+  return compact;
+}
+
 function parseInfoTable(xml: string): InfoTableEntry[] {
   const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true });
   const doc = parser.parse(xml);
@@ -257,7 +275,7 @@ function parseInfoTable(xml: string): InfoTableEntry[] {
     return {
       nameOfIssuer: String(row.nameOfIssuer ?? ""),
       titleOfClass: String(row.titleOfClass ?? ""),
-      cusip: String(row.cusip ?? ""),
+      cusip: normalizeCusip(String(row.cusip ?? "")),
       value: BigInt(Math.round(valueRaw)),
       shares: BigInt(Number(sharesRaw)),
       investmentDiscretion: String(row.investmentDiscretion ?? "SOLE"),
@@ -267,6 +285,7 @@ function parseInfoTable(xml: string): InfoTableEntry[] {
 
   const byCusip = new Map<string, InfoTableEntry>();
   for (const e of rawEntries) {
+    if (!e.cusip) continue;
     const existing = byCusip.get(e.cusip);
     if (existing) {
       byCusip.set(e.cusip, { ...existing, value: existing.value + e.value, shares: existing.shares + e.shares });
@@ -314,12 +333,14 @@ async function seedEntityCache() {
   console.log(`  Entity cache seeded: ${entityByCusip.size} security entities by cusip`);
 
   const dbMaps = await db.companyNameMap.findMany({
-    where: { keyType: { in: ["ticker", "issuer"] } },
+    where: { keyType: { in: ["ticker", "issuer", "cusip"] } },
     select: { keyType: true, key: true, nameZh: true, ticker: true },
   });
   for (const row of dbMaps) {
     if (row.keyType === "ticker") {
       if (row.nameZh) zhByTickerDb.set(row.key.toUpperCase(), row.nameZh);
+    } else if (row.keyType === "cusip") {
+      if (row.ticker) tickerByCusipDb.set(row.key.toUpperCase(), row.ticker.toUpperCase());
     } else {
       if (row.nameZh) zhByIssuerDb.set(row.key, row.nameZh);
       if (row.ticker) tickerByIssuerDb.set(row.key, row.ticker.toUpperCase());
