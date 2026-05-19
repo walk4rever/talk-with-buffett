@@ -29,7 +29,7 @@ export function HeroSearch() {
   }
 
   return (
-    <div className="hero-search">
+    <div className="hero-search" style={{ position: 'relative', zIndex: 2 }}>
       {/* Search input */}
       <div className="hero-input-wrap">
         <input
@@ -39,7 +39,6 @@ export function HeroSearch() {
           placeholder="研究一家公司，或向大师提问"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onClick={submit}
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
         <button className="hero-input-btn" onClick={submit} aria-label="提问">

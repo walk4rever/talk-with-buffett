@@ -4320,9 +4320,12 @@ body.layout-no-header {
   flex-direction: column;
   gap: 1rem;
   transition: box-shadow 0.2s;
-  cursor: pointer;
+}
+
+.home-member-main {
   text-decoration: none;
   color: inherit;
+  display: block;
 }
 
 .home-member-card:hover {
@@ -4405,11 +4408,18 @@ body.layout-no-header {
   text-decoration: none;
   letter-spacing: -0.12px;
   transition: background 0.15s, color 0.15s;
+  cursor: pointer;
 }
 
 .home-member-link:hover {
   background: rgba(255, 255, 255, 0.1);
   color: var(--apple-white);
+}
+
+.home-member-link--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .home-member-link-icon {
@@ -7613,4 +7623,40 @@ body {
 
 .idea-screen .workspace-canvas-body {
   overflow: hidden;
+}
+
+/* ── Home hero CTA ── */
+.home-hero {
+  transition: background 0.25s cubic-bezier(.22,1,.36,1), box-shadow 0.25s cubic-bezier(.22,1,.36,1);
+  cursor: pointer;
+  border-radius: 24px;
+  margin-left: -1rem;
+  margin-right: -1rem;
+}
+
+.home-hero:hover {
+  background: rgba(37, 99, 235, 0.04);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
+.home-hero:hover .home-hero-brand {
+  color: var(--graphite-accent);
+}
+
+.home-hero-hitbox {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 24px;
+}
+
+@media (max-width: 640px) {
+  .home-hero {
+    border-radius: 16px;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  .home-hero-hitbox {
+    border-radius: 16px;
+  }
 }

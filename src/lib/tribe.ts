@@ -11,6 +11,7 @@ export interface TribeMember {
   materialHref: string;
   holdingsHref: string;
   hasData: boolean;
+  icon: string;
 }
 
 export const TRIBE_MEMBERS: TribeMember[] = [
@@ -24,9 +25,10 @@ export const TRIBE_MEMBERS: TribeMember[] = [
     aum: "$294B",
     materialLabel: "信件档案",
     materialSub: "1958–2025",
-    materialHref: "/letters/shareholder/2024",
+    materialHref: "/master/buffett/library",
     holdingsHref: "/master/buffett/holdings",
     hasData: true,
+    icon: "📝",
   },
   {
     id: "lilu",
@@ -37,10 +39,11 @@ export const TRIBE_MEMBERS: TribeMember[] = [
     initials: "李",
     aum: "$3.6B",
     materialLabel: "演讲材料",
-    materialSub: "公开讲座",
+    materialSub: "1997–至今",
     materialHref: "/master/lilu/materials",
     holdingsHref: "/master/lilu/holdings",
-    hasData: false,
+    hasData: true,
+    icon: "🎙",
   },
   {
     id: "duan",
@@ -49,11 +52,13 @@ export const TRIBE_MEMBERS: TribeMember[] = [
     firm: "H&H International Investment",
     color: "#059669",
     initials: "段",
-    materialLabel: "雪球帖子",
-    materialSub: "公开言论",
+    aum: "$14.5B",
+    materialLabel: "投资问答",
+    materialSub: "2006–至今",
     materialHref: "/master/duan/materials",
     holdingsHref: "/master/duan/holdings",
-    hasData: false,
+    hasData: true,
+    icon: "✍️",
   },
 ];
 

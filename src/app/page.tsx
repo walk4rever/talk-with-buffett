@@ -3,6 +3,7 @@ import { formatCompanyPathFromCik } from "@/lib/cik";
 import { SiteNav } from "@/components/SiteNav";
 import { HeroSearch } from "@/components/HeroSearch";
 import { TRIBE_MEMBERS } from "@/lib/tribe";
+import { getAvailableQuarters, getMasterClassSummary } from "@/lib/master-data";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,23 @@ const SIGNALS = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const memberStates = await Promise.all(
+    TRIBE_MEMBERS.map(async (m) => {
+      const [quarters, classes] = await Promise.all([
+        getAvailableQuarters(m.id),
+        getMasterClassSummary(m.id),
+      ]);
+      return {
+        id: m.id,
+        latestQuarter: quarters[0] ?? null,
+        hasLibrary: classes.some((c) => c.count > 0),
+      };
+    })
+  );
+
+  const stateMap = new Map(memberStates.map((s) => [s.id, s]));
+
   return (
     <div className="home-v2">
       <SiteNav />
@@ -77,10 +94,10 @@ export default function Home() {
 
       {/* Hero search */}
       <section className="home-hero">
+        <Link href="/idea" className="home-hero-hitbox" aria-label="进入对话研究室" />
+        <h1 className="home-hero-brand">买股票就是买公司</h1>
         <p className="home-hero-sub home-hero-sub--compact">
-          追踪 <strong>巴菲特</strong>、<strong>李录</strong>、<strong>段永平</strong> 等价值投资大师的信件、演讲与持仓
-          <br />
-          与他们的思想直接对话
+          用大师的框架，看懂一家公司
         </p>
         <HeroSearch />
       </section>
@@ -90,41 +107,64 @@ export default function Home() {
         <div className="home-members-in">
           <p className="home-members-hd">部落成员</p>
           <div className="home-member-list">
-            {TRIBE_MEMBERS.map((m) => (
-              <Link key={m.id} href={`/master/${m.id}`} className="home-member-card">
-                <div className="home-member-top">
-                  <span
-                    className="home-member-avatar"
-                    style={{ background: m.color }}
-                  >
-                    {m.initials.slice(0, 2)}
-                  </span>
-                  <div className="home-member-info">
-                    <div className="home-member-name">{m.nameZh}</div>
-                    <div className="home-member-firm">{m.firm}</div>
+            {TRIBE_MEMBERS.map((m) => {
+              const state = stateMap.get(m.id)!;
+              return (
+                <div key={m.id} className="home-member-card">
+                  <Link href={`/master/${m.id}`} className="home-member-main">
+                    <div className="home-member-top">
+                      <span
+                        className="home-member-avatar"
+                        style={{ background: m.color }}
+                      >
+                        {m.initials.slice(0, 2)}
+                      </span>
+                      <div className="home-member-info">
+                        <div className="home-member-name">{m.nameZh}</div>
+                        <div className="home-member-firm">{m.firm}</div>
+                      </div>
+                      {m.aum && <span className="home-member-aum">{m.aum}</span>}
+                    </div>
+                  </Link>
+                  <div className="home-member-links">
+                    {state.hasLibrary ? (
+                      <Link href={m.materialHref} className="home-member-link">
+                        <span className="home-member-link-icon">{m.icon}</span>
+                        <span className="home-member-link-text">
+                          {m.materialLabel}
+                          <em>{m.materialSub}</em>
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="home-member-link home-member-link--disabled" title="即将上线">
+                        <span className="home-member-link-icon">{m.icon}</span>
+                        <span className="home-member-link-text">
+                          {m.materialLabel}
+                          <em>即将上线</em>
+                        </span>
+                      </span>
+                    )}
+                    {state.latestQuarter ? (
+                      <Link href={m.holdingsHref} className="home-member-link">
+                        <span className="home-member-link-icon">📊</span>
+                        <span className="home-member-link-text">
+                          最新持仓
+                          <em>{state.latestQuarter.year} Q{state.latestQuarter.quarter}</em>
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="home-member-link home-member-link--disabled">
+                        <span className="home-member-link-icon">📊</span>
+                        <span className="home-member-link-text">
+                          最新持仓
+                          <em>暂无数据</em>
+                        </span>
+                      </span>
+                    )}
                   </div>
-                  {m.aum && <span className="home-member-aum">{m.aum}</span>}
                 </div>
-                <div className="home-member-links">
-                  <div className="home-member-link">
-                    <span className="home-member-link-icon">
-                      {m.id === "duan" ? "✍️" : m.id === "lilu" ? "🎙" : "📝"}
-                    </span>
-                    <span className="home-member-link-text">
-                      {m.materialLabel}
-                      <em>{m.materialSub}</em>
-                    </span>
-                  </div>
-                  <div className="home-member-link">
-                    <span className="home-member-link-icon">📊</span>
-                    <span className="home-member-link-text">
-                      持仓快照
-                      <em>2025 Q4</em>
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
