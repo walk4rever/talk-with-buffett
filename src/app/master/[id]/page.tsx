@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
 import { getTribeMember } from "@/lib/tribe";
 import {
@@ -32,14 +33,12 @@ const PIE_COLORS = [
 ];
 
 type PieDatum = {
-  label: string;
+  zh: string;
+  en: string;
+  code: string;
   pct: number;
   color: string;
 };
-
-function pieZhLabel(label: string) {
-  return label.split(" (")[0] ?? label;
-}
 
 function formatPriceFromValueAndShares(valueUsd: bigint | null, shares: bigint | null) {
   if (valueUsd == null || shares == null) return "—";
@@ -55,18 +54,6 @@ function formatSignedPct(diffPct: number | null) {
   return `${sign}${diffPct.toFixed(1)}%`;
 }
 
-function shortZhName(name: string, max = 8) {
-  const cleaned = name.replace(/\s+/g, "");
-  return cleaned.length > max ? `${cleaned.slice(0, max)}…` : cleaned;
-}
-
-function stockDisplayLabel(security: { canonicalName: string; ticker: string | null; metadata: unknown }) {
-  const meta = (security.metadata ?? {}) as { nameZh?: string };
-  const zh = meta.nameZh ?? security.canonicalName;
-  const ticker = security.ticker ?? "—";
-  return `${shortZhName(zh)} ${ticker}`;
-}
-
 function buildPieSeries(
   changeSet: Awaited<ReturnType<typeof getLatestHoldingChangeSet>>,
 ) {
@@ -74,19 +61,19 @@ function buildPieSeries(
   let colorIdx = 0;
   for (const h of changeSet.top) {
     const d = getHoldingDisplay(h.security);
-    const label = `${d.zh} (${d.code})`;
+    const key = `${d.zh}__${d.code}`;
     const pct = Math.max(0, h.percentOfPortfolio ?? 0);
-    const existing = merged.get(label);
+    const existing = merged.get(key);
     if (existing) {
-      merged.set(label, { ...existing, pct: existing.pct + pct });
+      merged.set(key, { ...existing, pct: existing.pct + pct });
     } else {
-      merged.set(label, { label, pct, color: PIE_COLORS[colorIdx++ % PIE_COLORS.length] });
+      merged.set(key, { zh: d.zh, en: d.en, code: d.code, pct, color: PIE_COLORS[colorIdx++ % PIE_COLORS.length] });
     }
   }
   const top = Array.from(merged.values());
   const topPct = top.reduce((sum, x) => sum + x.pct, 0);
   const otherPct = Math.max(0, 100 - topPct);
-  return [...top, { label: "其他", pct: otherPct, color: "#e5e7eb" }] as PieDatum[];
+  return [...top, { zh: "其他", en: "Others", code: "—", pct: otherPct, color: "#e5e7eb" }] as PieDatum[];
 }
 
 function getHoldingDisplay(security: {
@@ -251,10 +238,15 @@ export default async function PersonHubPage({ params }: Props) {
                   <div className="person-pie-svg-wrap">
                     <div className="person-bar-chart" role="img" aria-label="Top10 持仓占比横向柱状图">
                       {pieData.filter((s) => s.pct > 0).map((seg, idx) => (
-                        <div key={`${seg.label}-${idx}`} className="person-bar-row">
+                        <div key={`${seg.zh}-${seg.code}-${idx}`} className="person-bar-row">
                           <div className="person-bar-head">
                             <span className="person-bar-name">
-                              <span>{pieZhLabel(seg.label)}</span>
+                              <CompanyDisplayName
+                                zhName={seg.zh}
+                                enName={seg.en}
+                                ticker={seg.code === "—" ? null : seg.code}
+                                compact
+                              />
                             </span>
                             <span className="person-bar-pct">{seg.pct.toFixed(1)}%</span>
                           </div>
@@ -304,6 +296,7 @@ export default async function PersonHubPage({ params }: Props) {
                     </thead>
                     <tbody>
                       {fullHoldings.map((h, i) => {
+                        const display = getHoldingDisplay(h.security);
                         const prev = prevBySecurityId.get(holdingKey(h));
                         const prevShares = prev?.shares ? Number(prev.shares) : null;
                         const nowShares = h.shares ? Number(h.shares) : null;
@@ -332,9 +325,21 @@ export default async function PersonHubPage({ params }: Props) {
                             <td className="holdings-td holdings-td--name">
                               <span className="holdings-company">
                                 {h.security.ticker ? (
-                                  <Link href={`/company/${h.security.ticker}`}>{stockDisplayLabel(h.security)}</Link>
+                                  <Link href={`/company/${h.security.ticker}`}>
+                                    <CompanyDisplayName
+                                      zhName={display.zh}
+                                      enName={display.en}
+                                      ticker={h.security.ticker}
+                                      compact
+                                    />
+                                  </Link>
                                 ) : (
-                                  stockDisplayLabel(h.security)
+                                  <CompanyDisplayName
+                                    zhName={display.zh}
+                                    enName={display.en}
+                                    ticker={h.security.ticker}
+                                    compact
+                                  />
                                 )}
                               </span>
                             </td>

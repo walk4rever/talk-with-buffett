@@ -71,7 +71,7 @@ function parseArgs(argv: string[]): CliArgs {
   };
 }
 
-async function getTickersFrom13f(investors: string[]): Promise<string[]> {
+async function getTickersFrom13f(investors: string[]): Promise<{ tickers: string[]; unresolved: Array<{ issuer: string; cusip: string | null }> }> {
   const rows = await db.holding.findMany({
     where: {
       holder: { tribeId: { in: investors } },
@@ -81,19 +81,42 @@ async function getTickersFrom13f(investors: string[]): Promise<string[]> {
       },
     },
     select: {
-      security: { select: { ticker: true } },
+      security: { select: { ticker: true, canonicalName: true } },
+      securityProfile: {
+        select: {
+          ticker: true,
+          cusip: true,
+          company: { select: { ticker: true } },
+        },
+      },
     },
   });
 
   const set = new Set<string>();
+  const unresolvedByIssuer = new Map<string, { issuer: string; cusip: string | null }>();
   for (const r of rows) {
-    const t = r.security?.ticker?.trim().toUpperCase();
-    if (!t) continue;
+    const t = (
+      r.securityProfile?.ticker ??
+      r.securityProfile?.company?.ticker ??
+      r.security?.ticker ??
+      ""
+    ).trim().toUpperCase();
+    if (!t) {
+      const issuer = r.security?.canonicalName?.trim() || "UNKNOWN_ISSUER";
+      unresolvedByIssuer.set(issuer, {
+        issuer,
+        cusip: r.securityProfile?.cusip ?? null,
+      });
+      continue;
+    }
     if (/[^A-Z0-9.\-]/.test(t)) continue;
     set.add(t);
   }
 
-  return [...set.values()].sort();
+  return {
+    tickers: [...set.values()].sort(),
+    unresolved: [...unresolvedByIssuer.values()].sort((a, b) => a.issuer.localeCompare(b.issuer)),
+  };
 }
 
 function runTickerImport(ticker: string, fromYear: number, toYear: number): Promise<{ ok: boolean; error?: string }> {
@@ -181,9 +204,10 @@ async function runPool(tickers: string[], args: CliArgs): Promise<RunResult[]> {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const discovered = await getTickersFrom13f(args.investors);
+  const discovery = await getTickersFrom13f(args.investors);
+  const discovered = discovery.tickers;
   const sourceTickers = args.tickerList
-    ? discovered.filter((t) => args.tickerList!.includes(t))
+    ? [...new Set(args.tickerList.map((t) => t.trim().toUpperCase()).filter(Boolean))].sort()
     : discovered;
   const tickers = args.limit ? sourceTickers.slice(0, args.limit) : sourceTickers;
 
@@ -206,7 +230,20 @@ async function main() {
 
   if (args.dryRun || tickers.length === 0) {
     if (tickers.length) console.log(`sample: ${tickers.slice(0, 20).join(", ")}`);
+    if (discovery.unresolved.length) {
+      console.log(`unresolvedIssuerCount: ${discovery.unresolved.length}`);
+      for (const item of discovery.unresolved.slice(0, 30)) {
+        console.log(`  unresolved: issuer=${item.issuer} cusip=${item.cusip ?? "-"}`);
+      }
+    }
     return;
+  }
+
+  if (discovery.unresolved.length) {
+    console.log(`unresolvedIssuerCount: ${discovery.unresolved.length}`);
+    for (const item of discovery.unresolved.slice(0, 30)) {
+      console.log(`  unresolved: issuer=${item.issuer} cusip=${item.cusip ?? "-"}`);
+    }
   }
 
   const started = Date.now();

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
 import {
   formatMoney,
@@ -92,6 +93,12 @@ export default async function CompanyPage({ params }: Props) {
   const debtToAssets = ratio(liabilities, assets);
 
   const meta = normalizeMeta(company.metadata);
+  const zhName =
+    (typeof meta.nameZh === "string" && meta.nameZh.trim()) ? meta.nameZh.trim() : company.canonicalName;
+  const enDisplayName =
+    (typeof meta.nameEnShort === "string" && meta.nameEnShort.trim())
+      ? meta.nameEnShort.trim()
+      : company.canonicalName;
   const latestYear = latest?.year ?? null;
   const priorYear = latestYear ? latestYear - 1 : null;
   const revYoY =
@@ -124,7 +131,14 @@ export default async function CompanyPage({ params }: Props) {
       <div className="company-wrap">
         <section className="company-hero">
           <p className="company-eyebrow">EDGAR Company Profile</p>
-          <h1 className="company-name">{company.canonicalName}</h1>
+          <h1 className="company-name">
+            <CompanyDisplayName
+              zhName={zhName}
+              enName={enDisplayName}
+              ticker={ticker}
+              className="company-display--hero"
+            />
+          </h1>
           <div className="company-meta">
             <span className="company-chip">{ticker}</span>
             {company.cik ? <span className="company-chip">CIK {company.cik}</span> : null}

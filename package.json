@@ -1,6 +1,6 @@
 {
   "name": "buffett-tribe",
-  "version": "0.34.7",
+  "version": "0.34.8",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
     "test:asr": "node scripts/test-volc-asr.mjs",
     "import:13f": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/import-13f.ts",
     "import:13f:range": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/import-13f.ts --from 2024Q1 --to 2025Q4",
-    "import:10k": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/import-10k-xbrl.ts",
+    "import:10k": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/import-10k-xbrl.ts",
     "import:10k:from13f": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/import-10k-from-13f.ts",
     "migrate:company:securities": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/migrate-company-securities.ts",
     "migrate:company:securities:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/migrate-company-securities.ts --dry-run",

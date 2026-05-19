@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
 import { getTribeMember } from "@/lib/tribe";
 import {
@@ -28,11 +29,6 @@ function formatSignedPct(diffPct: number | null) {
   if (diffPct == null || !Number.isFinite(diffPct)) return "—";
   const sign = diffPct > 0 ? "+" : "";
   return `${sign}${diffPct.toFixed(1)}%`;
-}
-
-function shortZhName(name: string, max = 8) {
-  const cleaned = name.replace(/\s+/g, "");
-  return cleaned.length > max ? `${cleaned.slice(0, max)}…` : cleaned;
 }
 
 export default async function HoldingsPage({ params, searchParams }: Props) {
@@ -164,8 +160,9 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                 const pctVsReported = "—";
                 const low52 = "—";
                 const high52 = "—";
-                const ticker = h.security.ticker ?? "—";
-                const stockLabel = `${shortZhName(h.security.canonicalName)} ${ticker}`;
+                const meta = (h.security.metadata ?? {}) as { nameZh?: string; nameEnShort?: string };
+                const zhName = meta.nameZh ?? h.security.canonicalName;
+                const enName = meta.nameEnShort ?? h.security.canonicalName;
 
                 return (
                   <tr key={h.id} className={rowClass}>
@@ -173,9 +170,21 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                     <td className="holdings-td holdings-td--name">
                       <span className="holdings-company">
                         {h.security.ticker ? (
-                          <Link href={`/company/${h.security.ticker}`}>{stockLabel}</Link>
+                          <Link href={`/company/${h.security.ticker}`}>
+                            <CompanyDisplayName
+                              zhName={zhName}
+                              enName={enName}
+                              ticker={h.security.ticker}
+                              compact
+                            />
+                          </Link>
                         ) : (
-                          stockLabel
+                          <CompanyDisplayName
+                            zhName={zhName}
+                            enName={enName}
+                            ticker={h.security.ticker}
+                            compact
+                          />
                         )}
                       </span>
                     </td>
