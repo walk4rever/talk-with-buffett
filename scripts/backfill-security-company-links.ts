@@ -1,22 +1,26 @@
 /**
  * backfill-security-company-links.ts
  *
- * Backfill security -> company linkage in metadata.companyEntityId.
+ * One-shot reconciliation for security/company linkage and ticker completeness.
  *
- * Strategy:
- * 1) keep existing valid companyEntityId
- * 2) map by ticker (with aliases) to existing company
- * 3) if missing, resolve ticker->CIK from SEC ticker map and create/upsert company shell
+ * What it does:
+ * 1) Resolve ticker via stable priority:
+ *    CUSIP override > existing security ticker > existing entity ticker > issuer map
+ * 2) Resolve company entity via:
+ *    existing link > ticker->company > issuer->company > SEC ticker map -> create company shell
+ * 3) Persist updates to BOTH security + entity(metadata/companyEntityId/ticker)
  *
  * Usage:
- *   node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-security-company-links.ts --dry-run
- *   node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-security-company-links.ts
+ *   npm run backfill:security:company-links
+ *   npm run backfill:security:company-links -- --dry-run
+ *   npm run backfill:security:company-links -- --strict
  */
 import { PrismaClient } from "@prisma/client";
-import { normalizeEnglishName } from "../src/lib/company-name-map";
+import { issuerKey, normalizeEnglishName } from "../src/lib/company-name-map";
 
 const db = new PrismaClient();
 const dryRun = process.argv.includes("--dry-run");
+const strict = process.argv.includes("--strict");
 
 const SEC_WWW = "https://www.sec.gov";
 const HEADERS = {
@@ -31,9 +35,45 @@ const TICKER_ALIASES: Record<string, string> = {
   YY: "JOYY",
 };
 
+// High-confidence CUSIP overrides for known dual-class / naming edge cases.
+const CUSIP_TICKER_OVERRIDES: Record<string, string> = {
+  "02079K107": "GOOG", // Alphabet Class C
+  "02079K305": "GOOGL", // Alphabet Class A
+  "88034P109": "TME", // Tencent Music ADR
+};
+
 function normalizeTicker(ticker: string): string {
   const raw = ticker.trim().toUpperCase();
   return TICKER_ALIASES[raw] ?? raw;
+}
+
+function issuerMatchKey(name: string): string {
+  const base = normalizeEnglishName(name)
+    .replace(/\b(DEL|DE|NEW)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const ABBR: Record<string, string> = {
+    AIRLS: "AIRLINES",
+    CONTL: "CONTINENTAL",
+    COMM: "COMMUNICATIONS",
+    INTL: "INTERNATIONAL",
+    ENTMT: "ENTERTAINMENT",
+    BK: "BANK",
+    MTRS: "MOTORS",
+    WHSL: "WHOLESALE",
+    COS: "COMPANIES",
+    SYS: "SYSTEMS",
+    HLDG: "HOLDING",
+    HLDGS: "HOLDINGS",
+  };
+
+  const expanded = base
+    .split(/\\s+/)
+    .map((token) => ABBR[token.toUpperCase()] ?? token)
+    .join(" ");
+
+  return expanded.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
 }
 
 function asObj(v: unknown): Record<string, unknown> {
@@ -46,84 +86,111 @@ async function getTickerCikMap() {
   if (!res.ok) throw new Error(`Ticker map fetch failed: ${res.status}`);
   const data = (await res.json()) as Record<string, { cik_str: number; ticker: string; title: string }>;
   const map = new Map<string, { cik: string; title: string }>();
+  const tickerByIssuer = new Map<string, string>();
   for (const item of Object.values(data)) {
     map.set(item.ticker.toUpperCase(), { cik: String(item.cik_str), title: item.title });
+    tickerByIssuer.set(issuerMatchKey(item.title), item.ticker.toUpperCase());
   }
-  return map;
+  return { tickerMap: map, tickerByIssuer };
 }
 
 async function main() {
-  const tickerMap = await getTickerCikMap();
+  const { tickerMap, tickerByIssuer: secTickerByIssuer } = await getTickerCikMap();
+
   const nameMapRows = await db.companyNameMap.findMany({
-    where: { keyType: "ticker" },
-    select: { key: true, nameZh: true },
+    where: { keyType: { in: ["ticker", "issuer"] } },
+    select: { keyType: true, key: true, nameZh: true, ticker: true },
   });
   const zhByTicker = new Map<string, string>();
+  const tickerByIssuer = new Map<string, string>();
   for (const row of nameMapRows) {
-    if (row.nameZh) zhByTicker.set(row.key.toUpperCase(), row.nameZh);
+    if (row.keyType === "ticker") {
+      if (row.nameZh) zhByTicker.set(row.key.toUpperCase(), row.nameZh);
+      continue;
+    }
+    if (row.ticker) tickerByIssuer.set(row.key, row.ticker.toUpperCase());
   }
 
   const companies = await db.entity.findMany({
     where: { type: "company" },
-    select: { id: true, ticker: true, cik: true },
+    select: { id: true, ticker: true, cik: true, canonicalName: true },
   });
-  const companyByTicker = new Map<string, string>();
+  const companyByTicker = new Map<string, { id: string; cik: string | null }>();
+  const companyByIssuer = new Map<string, string>();
   const companyById = new Set<string>();
   for (const c of companies) {
     companyById.add(c.id);
-    if (c.ticker) companyByTicker.set(c.ticker.toUpperCase(), c.id);
+    if (c.ticker) companyByTicker.set(c.ticker.toUpperCase(), { id: c.id, cik: c.cik ?? null });
+    companyByIssuer.set(issuerKey(c.canonicalName), c.id);
   }
 
-  const securities = await db.entity.findMany({
-    where: { type: "security" },
-    select: { id: true, ticker: true, canonicalName: true, metadata: true },
-    orderBy: { ticker: "asc" },
+  const rows = await db.security.findMany({
+    select: {
+      id: true,
+      entityId: true,
+      ticker: true,
+      cusip: true,
+      companyEntityId: true,
+      metadata: true,
+      entity: { select: { canonicalName: true, ticker: true, metadata: true } },
+    },
   });
 
   let kept = 0;
+  let updated = 0;
   let linked = 0;
   let createdCompany = 0;
   let unresolved = 0;
+  let unresolvedWithCusip = 0;
 
-  for (const s of securities) {
-    const meta = asObj(s.metadata);
-    const existingLink = typeof meta.companyEntityId === "string" ? meta.companyEntityId : null;
-    if (existingLink && companyById.has(existingLink)) {
-      kept++;
-      continue;
-    }
+  for (const row of rows) {
+    const secMeta = asObj(row.metadata);
+    const entMeta = asObj(row.entity.metadata);
+    const existingCompanyId = row.companyEntityId ?? (typeof secMeta.companyEntityId === "string" ? secMeta.companyEntityId : null) ?? (typeof entMeta.companyEntityId === "string" ? entMeta.companyEntityId : null);
 
-    const rawTicker = s.ticker?.toUpperCase() ?? null;
-    const normalizedTicker = rawTicker ? normalizeTicker(rawTicker) : null;
-    const candidateTickers = [rawTicker, normalizedTicker].filter(Boolean) as string[];
+    const issuer = row.entity.canonicalName;
+    const issuerK = issuerKey(issuer);
+
+    const rawTickerCandidates = [
+      row.ticker,
+      row.entity.ticker,
+      typeof secMeta.ticker === "string" ? secMeta.ticker : null,
+      typeof entMeta.ticker === "string" ? entMeta.ticker : null,
+      row.cusip ? CUSIP_TICKER_OVERRIDES[row.cusip] ?? null : null,
+      tickerByIssuer.get(issuerK) ?? null,
+      secTickerByIssuer.get(issuerMatchKey(issuer)) ?? null,
+    ].filter((x): x is string => !!x && x.trim().length > 0);
+
+    const resolvedTicker = rawTickerCandidates.length ? normalizeTicker(rawTickerCandidates[0]) : null;
 
     let companyId: string | null = null;
-    for (const t of candidateTickers) {
-      const hit = companyByTicker.get(t);
-      if (hit) {
-        companyId = hit;
-        break;
-      }
+    if (existingCompanyId && companyById.has(existingCompanyId)) {
+      companyId = existingCompanyId;
     }
 
-    if (!companyId && normalizedTicker) {
-      const resolved = tickerMap.get(normalizedTicker);
-      if (resolved) {
-        const byCik = await db.entity.findUnique({
-          where: { cik: resolved.cik },
-          select: { id: true, metadata: true },
-        });
+    if (!companyId && resolvedTicker) {
+      companyId = companyByTicker.get(resolvedTicker)?.id ?? null;
+    }
+
+    if (!companyId) {
+      companyId = companyByIssuer.get(issuerK) ?? null;
+    }
+
+    if (!companyId && resolvedTicker) {
+      const secRef = tickerMap.get(resolvedTicker);
+      if (secRef) {
+        const byCik = await db.entity.findUnique({ where: { cik: secRef.cik }, select: { id: true } });
         if (byCik) {
           companyId = byCik.id;
-        } else {
-          const nameEnShort = normalizeEnglishName(resolved.title);
-          const nameZh = zhByTicker.get(normalizedTicker) ?? nameEnShort;
+        } else if (!dryRun) {
+          const nameEnShort = normalizeEnglishName(secRef.title);
+          const nameZh = zhByTicker.get(resolvedTicker) ?? nameEnShort;
           const created = await db.entity.create({
             data: {
               type: "company",
-              canonicalName: resolved.title,
-              ticker: normalizedTicker,
-              cik: resolved.cik,
+              canonicalName: secRef.title,
+              ticker: resolvedTicker,
+              cik: secRef.cik,
               metadata: {
                 source: "sec-edgar",
                 importedBy: "backfill-security-company-links",
@@ -132,48 +199,85 @@ async function main() {
               },
             },
             select: { id: true },
+          }).catch(async (err) => {
+            // Another entity with same CIK may exist (race / legacy type). Reuse it.
+            const conflict = await db.entity.findUnique({ where: { cik: secRef.cik }, select: { id: true } });
+            if (conflict) return conflict;
+            throw err;
           });
           companyId = created.id;
-          companyByTicker.set(normalizedTicker, created.id);
           companyById.add(created.id);
+          companyByTicker.set(resolvedTicker, { id: created.id, cik: secRef.cik });
           createdCompany++;
         }
       }
     }
 
-    if (!companyId) {
-      unresolved++;
-      continue;
+    const willUpdateTicker = resolvedTicker && (row.ticker ?? null) !== resolvedTicker;
+    const willUpdateEntityTicker = resolvedTicker && (row.entity.ticker ?? null) !== resolvedTicker;
+    const willLinkCompany = companyId && row.companyEntityId !== companyId;
+    const hasAnyChange = Boolean(willUpdateTicker || willUpdateEntityTicker || willLinkCompany);
+
+    if (!hasAnyChange) {
+      kept++;
+    } else {
+      updated++;
+      if (willLinkCompany) linked++;
     }
 
-    linked++;
-    if (!dryRun) {
-      await db.entity.update({
-        where: { id: s.id },
-        data: {
-          metadata: {
-            ...meta,
-            companyEntityId: companyId,
-          },
-        },
-      });
+    if (!companyId || !resolvedTicker) {
+      unresolved++;
+      if (row.cusip) unresolvedWithCusip++;
     }
+
+    if (dryRun || !hasAnyChange) continue;
+
+    const nextSecMeta = { ...secMeta };
+    const nextEntMeta = { ...entMeta };
+    if (companyId) {
+      nextSecMeta.companyEntityId = companyId;
+      nextEntMeta.companyEntityId = companyId;
+    }
+    if (resolvedTicker) {
+      nextSecMeta.ticker = resolvedTicker;
+      nextEntMeta.ticker = resolvedTicker;
+    }
+
+    await db.security.update({
+      where: { id: row.id },
+      data: {
+        ticker: resolvedTicker ?? row.ticker,
+        companyEntityId: companyId ?? row.companyEntityId,
+        metadata: nextSecMeta,
+      },
+    });
+
+    await db.entity.update({
+      where: { id: row.entityId },
+      data: {
+        ticker: resolvedTicker ?? row.entity.ticker,
+        metadata: nextEntMeta,
+      },
+    });
   }
 
-  console.log(
-    JSON.stringify(
-      {
-        mode: dryRun ? "dry-run" : "live",
-        totalSecurities: securities.length,
-        kept,
-        linked,
-        createdCompany,
-        unresolved,
-      },
-      null,
-      2,
-    ),
-  );
+  const report = {
+    mode: dryRun ? "dry-run" : "live",
+    strict,
+    totalSecurities: rows.length,
+    kept,
+    updated,
+    linked,
+    createdCompany,
+    unresolved,
+    unresolvedWithCusip,
+  };
+
+  console.log(JSON.stringify(report, null, 2));
+
+  if (strict && unresolvedWithCusip > 0) {
+    throw new Error(`strict mode failed: unresolvedWithCusip=${unresolvedWithCusip}`);
+  }
 
   await db.$disconnect();
 }
