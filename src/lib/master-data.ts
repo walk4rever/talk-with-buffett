@@ -42,6 +42,7 @@ export async function getHoldingsByQuarter(tribeId: string, year: number, quarte
         securityProfile: {
           include: {
             entity: true,
+            company: true,
           },
         },
       },

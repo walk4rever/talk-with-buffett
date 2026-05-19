@@ -55,22 +55,42 @@ function formatSignedPct(diffPct: number | null) {
 }
 
 function buildPieSeries(
-  changeSet: Awaited<ReturnType<typeof getLatestHoldingChangeSet>>,
+  holdings: Awaited<ReturnType<typeof getHoldingsByQuarter>>,
 ) {
-  const merged = new Map<string, PieDatum>();
+  const merged = new Map<string, PieDatum & { tickers: Set<string> }>();
   let colorIdx = 0;
-  for (const h of changeSet.top) {
+  for (const h of holdings) {
     const d = getHoldingDisplay(h.security);
-    const key = `${d.zh}__${d.code}`;
+    const meta = (h.security.metadata ?? {}) as { companyEntityId?: string };
+    const companyEntityId =
+      h.securityProfile?.companyEntityId ??
+      (typeof meta.companyEntityId === "string" ? meta.companyEntityId : null);
+    const key = companyEntityId ? `cmp:${companyEntityId}` : `sec:${h.securityEntityId}`;
     const pct = Math.max(0, h.percentOfPortfolio ?? 0);
+    const securityTicker = getHoldingTicker(h)?.toUpperCase() ?? null;
     const existing = merged.get(key);
     if (existing) {
+      if (securityTicker) existing.tickers.add(securityTicker);
       merged.set(key, { ...existing, pct: existing.pct + pct });
     } else {
-      merged.set(key, { zh: d.zh, en: d.en, code: d.code, pct, color: PIE_COLORS[colorIdx++ % PIE_COLORS.length] });
+      merged.set(key, {
+        zh: d.zh,
+        en: d.en,
+        code: d.code,
+        pct,
+        color: PIE_COLORS[colorIdx++ % PIE_COLORS.length],
+        tickers: new Set(securityTicker ? [securityTicker] : []),
+      });
     }
   }
-  const top = Array.from(merged.values());
+  const aggregated = Array.from(merged.values())
+    .map((x) => {
+      const tickerList = [...x.tickers.values()].sort();
+      const code = tickerList.length === 0 ? "—" : tickerList.join(", ");
+      return { zh: x.zh, en: x.en, code, pct: x.pct, color: x.color };
+    })
+    .sort((a, b) => b.pct - a.pct);
+  const top = aggregated.slice(0, 10);
   const topPct = top.reduce((sum, x) => sum + x.pct, 0);
   const otherPct = Math.max(0, 100 - topPct);
   return [...top, { zh: "其他", en: "Others", code: "—", pct: otherPct, color: "#e5e7eb" }] as PieDatum[];
@@ -86,6 +106,10 @@ function getHoldingDisplay(security: {
   const en = meta.nameEnShort ?? security.canonicalName;
   const zh = meta.nameZh ?? en;
   return { code, zh, en };
+}
+
+function getHoldingTicker(h: Awaited<ReturnType<typeof getHoldingsByQuarter>>[number]) {
+  return h.security.ticker ?? h.securityProfile?.ticker ?? h.securityProfile?.company?.ticker ?? null;
 }
 
 const INVESTOR_BRIEF: Record<
@@ -146,10 +170,10 @@ export default async function PersonHubPage({ params }: Props) {
   const latest = changeSet.latest;
   const latestLabel = latest ? `${latest.year} Q${latest.quarter}` : "暂无数据";
   const baseLabel = changeSet.base ? `${changeSet.base.year} Q${changeSet.base.quarter}` : "无可比季度";
-  const pieData = buildPieSeries(changeSet);
   const fullHoldings = latest
     ? await getHoldingsByQuarter(id, latest.year, latest.quarter)
     : [];
+  const pieData = buildPieSeries(fullHoldings);
   const prevHoldings = changeSet.base
     ? await getHoldingsByQuarter(id, changeSet.base.year, changeSet.base.quarter)
     : [];
@@ -324,12 +348,12 @@ export default async function PersonHubPage({ params }: Props) {
                             <td className="holdings-td holdings-td--rank">{i + 1}</td>
                             <td className="holdings-td holdings-td--name">
                               <span className="holdings-company">
-                                {h.security.ticker ? (
-                                  <Link href={`/company/${h.security.ticker}`}>
+                                {getHoldingTicker(h) ? (
+                                  <Link href={`/company/${getHoldingTicker(h)}`}>
                                     <CompanyDisplayName
                                       zhName={display.zh}
                                       enName={display.en}
-                                      ticker={h.security.ticker}
+                                      ticker={getHoldingTicker(h)}
                                       compact
                                     />
                                   </Link>
@@ -337,7 +361,7 @@ export default async function PersonHubPage({ params }: Props) {
                                   <CompanyDisplayName
                                     zhName={display.zh}
                                     enName={display.en}
-                                    ticker={h.security.ticker}
+                                    ticker={getHoldingTicker(h)}
                                     compact
                                   />
                                 )}

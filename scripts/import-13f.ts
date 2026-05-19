@@ -18,6 +18,10 @@ const tickerByIssuerDb = new Map<string, string>();
 const entityByCusip = new Map<string, { id: string; backfilled: boolean }>();
 const companyByTickerCache = new Map<string, string>();
 const securityIdByEntityId = new Map<string, string>();
+const CUSIP_TICKER_OVERRIDES: Record<string, string> = {
+  // Alphabet Class C should map to GOOG (Class A is GOOGL).
+  "02079K107": "GOOG",
+};
 
 type SecuritySnapshot = {
   entityId: string;
@@ -45,6 +49,12 @@ function resolveNamesDbFirst(canonicalName: string, existingNameZh?: string | nu
     nameEnShort: resolved.nameEnShort,
     issuerKey: issuerKey(canonicalName),
   };
+}
+
+function resolveTickerWithCusipOverride(cusip: string, ticker: string | null) {
+  const override = CUSIP_TICKER_OVERRIDES[cusip];
+  if (override) return override;
+  return ticker;
 }
 
 async function mapLimit<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>) {
@@ -332,7 +342,11 @@ async function upsertFilerEntity(filer: (typeof FILERS)[number]) {
 }
 
 async function upsertSecurityEntity(entry: InfoTableEntry): Promise<SecuritySnapshot> {
-  const resolved = resolveNamesDbFirst(entry.nameOfIssuer);
+  const baseResolved = resolveNamesDbFirst(entry.nameOfIssuer);
+  const resolved = {
+    ...baseResolved,
+    ticker: resolveTickerWithCusipOverride(entry.cusip, baseResolved.ticker),
+  };
   const maybeCompanyId = (resolved.ticker ? companyByTickerCache.get(resolved.ticker.toUpperCase()) : undefined) ?? null;
 
   const cached = entityByCusip.get(entry.cusip);

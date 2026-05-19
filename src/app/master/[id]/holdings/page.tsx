@@ -31,6 +31,10 @@ function formatSignedPct(diffPct: number | null) {
   return `${sign}${diffPct.toFixed(1)}%`;
 }
 
+function getHoldingTicker(h: Awaited<ReturnType<typeof getHoldingsByQuarter>>[number]) {
+  return h.security.ticker ?? h.securityProfile?.ticker ?? h.securityProfile?.company?.ticker ?? null;
+}
+
 export default async function HoldingsPage({ params, searchParams }: Props) {
   const { id } = await params;
   const { year: yearStr, quarter: quarterStr } = await searchParams;
@@ -169,12 +173,12 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                     <td className="holdings-td holdings-td--rank">{i + 1}</td>
                     <td className="holdings-td holdings-td--name">
                       <span className="holdings-company">
-                        {h.security.ticker ? (
-                          <Link href={`/company/${h.security.ticker}`}>
+                        {getHoldingTicker(h) ? (
+                          <Link href={`/company/${getHoldingTicker(h)}`}>
                             <CompanyDisplayName
                               zhName={zhName}
                               enName={enName}
-                              ticker={h.security.ticker}
+                              ticker={getHoldingTicker(h)}
                               compact
                             />
                           </Link>
@@ -182,7 +186,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                           <CompanyDisplayName
                             zhName={zhName}
                             enName={enName}
-                            ticker={h.security.ticker}
+                            ticker={getHoldingTicker(h)}
                             compact
                           />
                         )}
