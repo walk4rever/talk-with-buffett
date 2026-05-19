@@ -1,12 +1,31 @@
 import db from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
+export async function getCompanyByCik(cikRaw: string) {
+  const cik = String(Number(cikRaw.replace(/\D/g, "")));
+  if (!cik || cik === "0" || Number.isNaN(Number(cik))) return null;
+
+  const entity = await db.entity.findUnique({
+    where: { cik },
+    select: {
+      id: true,
+      canonicalName: true,
+      ticker: true,
+      cik: true,
+      sector: true,
+      metadata: true,
+    },
+  });
+  return entity;
+}
+
 export async function getCompanyByTicker(ticker: string) {
+  const normalizedTicker = ticker.toUpperCase();
   const rows = await db.entity.findMany({
     where: {
       type: "company",
       ticker: {
-        equals: ticker.toUpperCase(),
+        equals: normalizedTicker,
         mode: "insensitive",
       },
     },
@@ -27,7 +46,31 @@ export async function getCompanyByTicker(ticker: string) {
     },
   });
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    // Fallback: resolve via security ticker (e.g. GOOG/GOOGL share classes).
+    const security = await db.security.findFirst({
+      where: { ticker: { equals: normalizedTicker, mode: "insensitive" } },
+      select: { companyEntityId: true, entityId: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    const fallbackCompanyId = security?.companyEntityId;
+    if (!fallbackCompanyId) return null;
+
+    const resolved = await db.entity.findUnique({
+      where: { id: fallbackCompanyId },
+      select: {
+        id: true,
+        canonicalName: true,
+        ticker: true,
+        cik: true,
+        sector: true,
+        metadata: true,
+      },
+    });
+    if (!resolved) return null;
+    return resolved;
+  }
 
   const best = [...rows].sort((a, b) => {
     const score = (x: (typeof rows)[number]) =>
@@ -47,6 +90,12 @@ export async function getCompanyByTicker(ticker: string) {
     sector: best.sector,
     metadata: best.metadata,
   };
+}
+
+export async function getCompanyByIdentifier(identifier: string) {
+  const byCik = await getCompanyByCik(identifier);
+  if (byCik) return byCik;
+  return getCompanyByTicker(identifier);
 }
 
 async function getEntityFamilyIds(entityId: string) {

@@ -4,7 +4,7 @@ import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
 import {
   formatMoney,
-  getCompanyByTicker,
+  getCompanyByCik,
   getCompanyFinancials,
   getRecentHolders,
 } from "@/lib/company-data";
@@ -65,10 +65,10 @@ function normalizeMeta(metadata: unknown): Record<string, string | number | bool
 
 export default async function CompanyPage({ params }: Props) {
   const { ticker: rawTicker } = await params;
-  const ticker = rawTicker.toUpperCase();
-
-  const company = await getCompanyByTicker(ticker);
+  const requestId = rawTicker.trim();
+  const company = await getCompanyByCik(requestId);
   if (!company) notFound();
+  const displayTicker = company.ticker ?? "—";
 
   const [financials, holders] = await Promise.all([
     getCompanyFinancials(company.id, 8),
@@ -135,12 +135,12 @@ export default async function CompanyPage({ params }: Props) {
             <CompanyDisplayName
               zhName={zhName}
               enName={enDisplayName}
-              ticker={ticker}
+              ticker={displayTicker}
               className="company-display--hero"
             />
           </h1>
           <div className="company-meta">
-            <span className="company-chip">{ticker}</span>
+            <span className="company-chip">{displayTicker}</span>
             {company.cik ? <span className="company-chip">CIK {company.cik}</span> : null}
             {company.sector ? <span className="company-chip">{company.sector}</span> : null}
             {meta.exchange ? <span className="company-chip">{String(meta.exchange)}</span> : null}
@@ -172,7 +172,8 @@ export default async function CompanyPage({ params }: Props) {
             </div>
             <dl className="company-facts">
               <div><dt>Legal Name</dt><dd>{company.canonicalName}</dd></div>
-              <div><dt>Ticker</dt><dd>{ticker}</dd></div>
+              <div><dt>Ticker</dt><dd>{displayTicker}</dd></div>
+              <div><dt>Requested Id</dt><dd>{requestId}</dd></div>
               <div><dt>CIK</dt><dd>{company.cik ?? "—"}</dd></div>
               <div><dt>Sector</dt><dd>{company.sector ?? "—"}</dd></div>
               <div><dt>Industry</dt><dd>{meta.industry ? String(meta.industry) : "—"}</dd></div>

@@ -11,10 +11,12 @@ export function computeShareDeltaPct(
 }
 
 export function computeHoldingActivity(
+  hasComparableQuarter: boolean,
   hasPrev: boolean,
   shareDeltaPct: number | null,
   unchangedThresholdPct = 1,
 ): HoldingActivity {
+  if (!hasComparableQuarter) return "Unchanged";
   if (!hasPrev) return "New";
   if (shareDeltaPct == null || Math.abs(shareDeltaPct) < unchangedThresholdPct) return "Unchanged";
   return shareDeltaPct > 0 ? "Added" : "Reduced";

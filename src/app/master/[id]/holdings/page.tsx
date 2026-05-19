@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
+import { formatCompanyPathFromCik } from "@/lib/cik";
 import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-activity";
 import { getTribeMember } from "@/lib/tribe";
 import {
@@ -34,6 +35,10 @@ function formatSignedPct(diffPct: number | null) {
 
 function getHoldingTicker(h: Awaited<ReturnType<typeof getHoldingsByQuarter>>[number]) {
   return h.security.ticker ?? h.securityProfile?.ticker ?? h.securityProfile?.company?.ticker ?? null;
+}
+
+function getHoldingCompanyPath(h: Awaited<ReturnType<typeof getHoldingsByQuarter>>[number]) {
+  return formatCompanyPathFromCik(h.securityProfile?.company?.cik);
 }
 
 export default async function HoldingsPage({ params, searchParams }: Props) {
@@ -79,7 +84,6 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
             <p className="holdings-eyebrow">持仓快照</p>
             <h1 className="holdings-name">{member.nameZh}</h1>
             <p className="holdings-firm">{member.firm}</p>
-            {member.aum && <span className="holdings-aum">{member.aum} AUM</span>}
           </div>
         </div>
 
@@ -149,7 +153,7 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
               {holdings.map((h, i) => {
                 const prev = prevBySecurityId.get(holdingKey(h));
                 const shareDeltaPct = computeShareDeltaPct(prev?.shares, h.shares);
-                const activity = computeHoldingActivity(Boolean(prev), shareDeltaPct);
+                const activity = computeHoldingActivity(Boolean(prevQuarter), Boolean(prev), shareDeltaPct);
                 const rowClass =
                   activity === "New"
                     ? "holdings-row holdings-row--new"
@@ -173,8 +177,8 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                     <td className="holdings-td holdings-td--rank">{i + 1}</td>
                     <td className="holdings-td holdings-td--name">
                       <span className="holdings-company">
-                        {getHoldingTicker(h) ? (
-                          <Link href={`/company/${getHoldingTicker(h)}`}>
+                        {getHoldingCompanyPath(h) ? (
+                          <Link href={getHoldingCompanyPath(h)!}>
                             <CompanyDisplayName
                               zhName={zhName}
                               enName={enName}
@@ -243,8 +247,8 @@ export default async function HoldingsPage({ params, searchParams }: Props) {
                     <td className="holdings-td holdings-td--rank">{holdings.length + i + 1}</td>
                     <td className="holdings-td holdings-td--name">
                       <span className="holdings-company">
-                        {getHoldingTicker(h) ? (
-                          <Link href={`/company/${getHoldingTicker(h)}`}>
+                        {getHoldingCompanyPath(h) ? (
+                          <Link href={getHoldingCompanyPath(h)!}>
                             <CompanyDisplayName
                               zhName={zhName}
                               enName={enName}

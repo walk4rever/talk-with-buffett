@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatCompanyPathFromCik } from "@/lib/cik";
 import { SiteNav } from "@/components/SiteNav";
 import { HeroSearch } from "@/components/HeroSearch";
 import { TRIBE_MEMBERS } from "@/lib/tribe";
@@ -10,6 +11,7 @@ const SIGNALS = [
     type: "consensus" as const,
     tag: "★ 共识持仓",
     ticker: "BAC",
+    cik: "70858",
     tickerLabel: "美国银行（BAC）",
     company: "Bank of America",
     body: "巴菲特持有14年，李录独立建仓，均列前3重仓",
@@ -22,6 +24,7 @@ const SIGNALS = [
     type: "new" as const,
     tag: "↑ 新动作",
     ticker: "OXY",
+    cik: "797468",
     tickerLabel: "西方石油（OXY）",
     company: "Occidental Petroleum",
     body: "巴菲特本季继续增持，持仓占比突破28%，接近收购门槛",
@@ -33,6 +36,7 @@ const SIGNALS = [
     type: "divergent" as const,
     tag: "⇅ 各有判断",
     ticker: "AAPL",
+    cik: "320193",
     tickerLabel: "苹果（AAPL）",
     company: "Apple",
     body: "巴菲特连续4季减持至5.2亿股；段永平仍视为核心持仓",
@@ -54,7 +58,7 @@ export default function Home() {
           {SIGNALS.map((s) => (
             <div key={s.ticker} className={`home-sig home-sig--${s.type}`}>
               <span className="home-sig-tag">{s.tag}</span>
-              <Link href={`/company/${s.ticker}`} className="home-sig-ticker">
+              <Link href={formatCompanyPathFromCik(s.cik) ?? "#"} className="home-sig-ticker">
                 {s.tickerLabel}
               </Link>
               <div className="home-sig-company">{s.company}</div>

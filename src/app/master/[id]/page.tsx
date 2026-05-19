@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CompanyDisplayName } from "@/components/CompanyDisplayName";
 import { SiteNav } from "@/components/SiteNav";
+import { formatCompanyPathFromCik } from "@/lib/cik";
 import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-activity";
 import { getTribeMember } from "@/lib/tribe";
 import {
@@ -111,6 +112,10 @@ function getHoldingDisplay(security: {
 
 function getHoldingTicker(h: Awaited<ReturnType<typeof getHoldingsByQuarter>>[number]) {
   return h.security.ticker ?? h.securityProfile?.ticker ?? h.securityProfile?.company?.ticker ?? null;
+}
+
+function getHoldingCompanyPath(h: Awaited<ReturnType<typeof getHoldingsByQuarter>>[number]) {
+  return formatCompanyPathFromCik(h.securityProfile?.company?.cik);
 }
 
 const INVESTOR_BRIEF: Record<
@@ -326,7 +331,7 @@ export default async function PersonHubPage({ params }: Props) {
                         const display = getHoldingDisplay(h.security);
                         const prev = prevBySecurityId.get(holdingKey(h));
                         const shareDeltaPct = computeShareDeltaPct(prev?.shares, h.shares);
-                        const activity = computeHoldingActivity(Boolean(prev), shareDeltaPct);
+                        const activity = computeHoldingActivity(Boolean(changeSet.base), Boolean(prev), shareDeltaPct);
                         const rowClass =
                           activity === "New"
                             ? "holdings-row holdings-row--new"
@@ -340,8 +345,8 @@ export default async function PersonHubPage({ params }: Props) {
                             <td className="holdings-td holdings-td--rank">{i + 1}</td>
                             <td className="holdings-td holdings-td--name">
                               <span className="holdings-company">
-                                {getHoldingTicker(h) ? (
-                                  <Link href={`/company/${getHoldingTicker(h)}`}>
+                                {getHoldingCompanyPath(h) ? (
+                                  <Link href={getHoldingCompanyPath(h)!}>
                                     <CompanyDisplayName
                                       zhName={display.zh}
                                       enName={display.en}
@@ -394,8 +399,8 @@ export default async function PersonHubPage({ params }: Props) {
                             <td className="holdings-td holdings-td--rank">{fullHoldings.length + i + 1}</td>
                             <td className="holdings-td holdings-td--name">
                               <span className="holdings-company">
-                                {getHoldingTicker(h) ? (
-                                  <Link href={`/company/${getHoldingTicker(h)}`}>
+                                {getHoldingCompanyPath(h) ? (
+                                  <Link href={getHoldingCompanyPath(h)!}>
                                     <CompanyDisplayName
                                       zhName={display.zh}
                                       enName={display.en}
