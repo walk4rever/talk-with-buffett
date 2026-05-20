@@ -80,11 +80,11 @@ function issuerMatchKey(name: string): string {
   };
 
   const expanded = base
-    .split(/\\s+/)
+    .split(/\s+/)
     .map((token) => ABBR[token.toUpperCase()] ?? token)
     .join(" ");
 
-  return expanded.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
+  return expanded.toUpperCase().replace(/[^A-Z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 }
 
 function asObj(v: unknown): Record<string, unknown> {
