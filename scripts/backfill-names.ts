@@ -38,7 +38,7 @@ async function main() {
   }
 
   const entities = await db.entity.findMany({
-    where: { type: "company" },
+    where: { type: { in: ["company", "master"] } },
     select: { id: true, canonicalName: true, ticker: true, metadata: true },
   });
 

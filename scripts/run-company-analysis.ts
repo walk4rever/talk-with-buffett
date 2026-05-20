@@ -17,11 +17,20 @@ function hasFlag(flag: string): boolean {
 async function findCompanies(query?: string) {
   if (!query) {
     return db.entity.findMany({
-      where: { type: "company" },
+      where: { type: { in: ["company", "master"] } },
       select: { id: true, canonicalName: true, ticker: true, cik: true, sector: true, metadata: true },
       orderBy: { canonicalName: "asc" },
     });
   }
+
+  const byTicker = await db.entity.findFirst({
+    where: {
+      type: { in: ["company", "master"] },
+      ticker: { equals: query, mode: "insensitive" }
+    },
+    select: { id: true, canonicalName: true, ticker: true, cik: true, sector: true, metadata: true },
+  });
+  if (byTicker) return [byTicker];
 
   const cikQuery = query.replace(/\D/g, "");
   if (cikQuery && cikQuery.length >= 5) {
@@ -34,7 +43,7 @@ async function findCompanies(query?: string) {
 
   const byName = await db.entity.findMany({
     where: {
-      type: "company",
+      type: { in: ["company", "master"] },
       OR: [
         { canonicalName: { contains: query, mode: "insensitive" } },
         { ticker: { equals: query, mode: "insensitive" } },
@@ -220,7 +229,8 @@ ${holderLines}
 重要约束：
 1. 所有 verdict 和 evidence 必须基于提供的财务数据，不要编造具体数字
 2. 如果没有足够数据支撑，评分可以偏低，verdict 中说明"数据不足"
-3. 输出必须是纯 JSON，不要 markdown 代码块`;
+3. 输出必须是纯 JSON，不要 markdown 代码块
+4. 所有 narrative 中的内容、moat.thesis、dimensions 中每个维度的 verdict 和 evidence、以及 notes 中每个维度的 value，句尾必须统一使用中文句号（。）结尾，确保标点格式的一致性`;
 }
 
 async function callAI(prompt: string): Promise<unknown> {
