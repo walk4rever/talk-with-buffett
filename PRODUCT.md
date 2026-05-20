@@ -116,7 +116,7 @@ Apple HIG 精简风格：
 /master/[id]        大师主页（材料库 + 持仓）
 /master/[id]/library  文章/信件列表
 /master/[id]/holdings 持仓快照
-/company/[ticker]   公司研究画布
+/company/[cik]      公司研究画布
 /idea               对话研究室（左：对话，右：Canvas）
 /login              登录
 ```
@@ -132,6 +132,6 @@ Apple HIG 精简风格：
 | Company Canvas（6 Tab UI） | ✅ 已实现（Mock 数据） |
 | Canvas 实时生成（RAG → AI） | 🔲 待开发 |
 | Company Brain 写回 | 🔲 待开发 |
-| /company/[ticker] 公司页 | 🔲 待开发 |
+| /company/[cik] 公司页 | 🔲 待开发 |
 | Fact Fetch Pipeline | 🔲 待开发 |
 | 持仓数据实时更新 | 🔲 待开发 |

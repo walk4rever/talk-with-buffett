@@ -75,7 +75,7 @@ src/
   app/
     idea/          # 对话研究室（主入口）
     master/[id]/   # 大师主页
-    company/[ticker]/ # 公司画布页
+    company/[cik]/ # 公司画布页（/company/CIK##########）
     page.tsx       # 首页
   components/
     TextRoomWorkspace.tsx  # /idea 核心组件

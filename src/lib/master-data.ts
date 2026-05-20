@@ -1,4 +1,5 @@
 import db from "@/lib/prisma";
+import { formatUsdInYi } from "@/lib/currency";
 
 export type QuarterPoint = {
   year: number;
@@ -295,11 +296,7 @@ export function buildHoldingInsights(changeSet: HoldingChangeSet): string[] {
 }
 
 export function formatValueUsd(valueUsd: bigint | null): string {
-  if (valueUsd == null) return "—";
-  const usd = Number(valueUsd);
-  if (usd < 1e6) return `$${usd.toLocaleString()}`;
-  const yi = usd / 1e8;
-  return `$${yi >= 10 ? yi.toFixed(1) : yi.toFixed(2)}亿`;
+  return formatUsdInYi(valueUsd);
 }
 
 export function formatShares(shares: bigint | null): string {

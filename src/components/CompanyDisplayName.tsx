@@ -13,7 +13,7 @@ export function CompanyDisplayName({
   className,
   compact = false,
 }: CompanyDisplayNameProps) {
-  const code = ticker?.trim() ? ticker.trim().toUpperCase() : "—";
+  const code = ticker?.trim() ? ticker.trim().toUpperCase() : null;
   const classes = [
     "company-display",
     compact ? "company-display--compact" : "",
@@ -23,7 +23,7 @@ export function CompanyDisplayName({
   return (
     <span className={classes}>
       <span className="company-display-zh">
-        {zhName}（{code}）
+        {code ? `${zhName}（${code}）` : zhName}
       </span>
       <span className="company-display-en">{enName}</span>
     </span>

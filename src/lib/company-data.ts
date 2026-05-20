@@ -1,4 +1,5 @@
 import db from "@/lib/prisma";
+import { formatUsdInYi } from "@/lib/currency";
 import { Prisma } from "@prisma/client";
 
 export async function getCompanyByCik(cikRaw: string) {
@@ -98,6 +99,23 @@ export async function getCompanyByIdentifier(identifier: string) {
   return getCompanyByTicker(identifier);
 }
 
+export async function getCompanySecurities(entityId: string) {
+  const rows = await db.security.findMany({
+    where: { companyEntityId: entityId },
+    select: {
+      id: true,
+      ticker: true,
+      shareClass: true,
+      titleOfClass: true,
+      exchange: true,
+      isPrimary: true,
+    },
+    orderBy: [{ isPrimary: "desc" }, { ticker: "asc" }],
+  });
+
+  return rows;
+}
+
 async function getEntityFamilyIds(entityId: string) {
   const base = await db.entity.findUnique({
     where: { id: entityId },
@@ -195,33 +213,25 @@ export async function getCompanyFinancials(entityId: string, limit = 8) {
 
 export async function getRecentHolders(entityId: string, limit = 20) {
   const securityScope = await getSecurityIdsForCompany(entityId);
-  const latest = await db.holding.findFirst({
-    where: {
-      OR: [
-        { securityId: { in: securityScope.profileIds } },
-        { securityEntityId: { in: securityScope.legacyEntityIds } },
-      ],
-    },
-    orderBy: { asOfDate: "desc" },
-    select: { asOfDate: true },
-  });
-  if (!latest) return { asOfDate: null, holders: [] as Array<{ id: string; name: string; tribeId: string | null; percent: number | null; valueUsd: bigint | null; sourceYear: number | null; sourceQuarter: number | null }> };
-
   const rows = await db.holding.findMany({
     where: {
       OR: [
         { securityId: { in: securityScope.profileIds } },
         { securityEntityId: { in: securityScope.legacyEntityIds } },
       ],
-      asOfDate: latest.asOfDate,
     },
-    orderBy: { valueUsd: "desc" },
+    orderBy: [
+      { holderEntityId: "asc" },
+      { asOfDate: "desc" },
+      { valueUsd: "desc" },
+    ],
     include: {
       holder: { select: { id: true, canonicalName: true, tribeId: true } },
       source: { select: { periodYear: true, periodQuarter: true } },
     },
-    take: limit,
+    take: 500,
   });
+  if (!rows.length) return { asOfDate: null, holders: [] as Array<{ id: string; name: string; tribeId: string | null; percent: number | null; valueUsd: bigint | null; sourceYear: number | null; sourceQuarter: number | null }> };
 
   const byHolder = new Map<string, {
     id: string;
@@ -231,6 +241,7 @@ export async function getRecentHolders(entityId: string, limit = 20) {
     valueUsd: bigint | null;
     sourceYear: number | null;
     sourceQuarter: number | null;
+    asOfDate: Date | null;
   }>();
 
   for (const h of rows) {
@@ -244,15 +255,36 @@ export async function getRecentHolders(entityId: string, limit = 20) {
         valueUsd: h.valueUsd,
         sourceYear: h.source.periodYear,
         sourceQuarter: h.source.periodQuarter,
+        asOfDate: h.asOfDate,
       });
       continue;
     }
+
+    const prevTime = prev.asOfDate?.getTime() ?? 0;
+    const currentTime = h.asOfDate.getTime();
+    if (currentTime < prevTime) continue;
+
+    if (currentTime > prevTime) {
+      byHolder.set(h.holder.id, {
+        id: h.holder.id,
+        name: h.holder.canonicalName,
+        tribeId: h.holder.tribeId,
+        percent: h.percentOfPortfolio,
+        valueUsd: h.valueUsd,
+        sourceYear: h.source.periodYear,
+        sourceQuarter: h.source.periodQuarter,
+        asOfDate: h.asOfDate,
+      });
+      continue;
+    }
+
     byHolder.set(h.holder.id, {
       ...prev,
       percent: h.percentOfPortfolio ?? prev.percent,
       valueUsd: (prev.valueUsd ?? BigInt(0)) + (h.valueUsd ?? BigInt(0)),
       sourceYear: h.source.periodYear ?? prev.sourceYear,
       sourceQuarter: h.source.periodQuarter ?? prev.sourceQuarter,
+      asOfDate: prev.asOfDate,
     });
   }
 
@@ -261,16 +293,11 @@ export async function getRecentHolders(entityId: string, limit = 20) {
     .slice(0, limit);
 
   return {
-    asOfDate: latest.asOfDate,
+    asOfDate: null,
     holders,
   };
 }
 
 export function formatMoney(v: string | bigint | null) {
-  if (v == null) return "—";
-  const n = typeof v === "bigint" ? Number(v) : Number(v);
-  if (!Number.isFinite(n)) return "—";
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  return `$${n.toLocaleString()}`;
+  return formatUsdInYi(v);
 }
