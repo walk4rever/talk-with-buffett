@@ -13,6 +13,7 @@ import {
   getHoldingsByQuarter,
   getLatestHoldingChangeSet,
   getMasterClassSummary,
+  getPortfolioInsightRecord,
 } from "@/lib/master-data";
 
 export const revalidate = 300; // cache 5 min - holdings/letters update infrequently
@@ -119,6 +120,24 @@ function getHoldingCompanyPath(h: Awaited<ReturnType<typeof getHoldingsByQuarter
   return formatCompanyPathFromCik(h.securityProfile?.company?.cik);
 }
 
+function splitNarrative(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return { lead: "", points: [] as string[] };
+
+  const withEnding = (part: string) =>
+    /[。！？.!?]$/.test(part) ? part : `${part}。`;
+
+  const sentences = normalized
+    .split(/(?<=[。！？])/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return {
+    lead: withEnding(sentences[0] ?? normalized),
+    points: sentences.slice(1).map(withEnding),
+  };
+}
+
 // Hardcoded fallback when DB profile is unavailable
 const FALLBACK_BRIEF: Record<
   string,
@@ -203,8 +222,16 @@ export default async function PersonHubPage({ params }: Props) {
   const influences = profile?.influences;
   const quotes = profile?.quotes;
   const trackRecord = profile?.trackRecord;
-  const insights = buildHoldingInsights(changeSet);
   const latest = changeSet.latest;
+  const portfolioInsight = latest
+    ? await getPortfolioInsightRecord(id, latest.year, latest.quarter)
+    : null;
+  const insights = portfolioInsight?.structured?.items ?? buildHoldingInsights(changeSet);
+  const summaryInsight = insights.find((item) => item.kind === "summary") ?? null;
+  const portfolioInsightNarrative = portfolioInsight?.narrative ?? null;
+  const narrativeParts = portfolioInsightNarrative
+    ? splitNarrative(portfolioInsightNarrative)
+    : { lead: "", points: [] as string[] };
   const latestLabel = latest ? `${latest.year} Q${latest.quarter}` : "暂无数据";
   const baseLabel = changeSet.base ? `${changeSet.base.year} Q${changeSet.base.quarter}` : "无可比季度";
   const fullHoldings = latest
@@ -326,7 +353,7 @@ export default async function PersonHubPage({ params }: Props) {
                   <div className="person-quotes-list">
                     <div className="person-quotes-label">代表性观点</div>
                     {quotes.map((q: string, i: number) => (
-                      <div key={i} className="person-quote-item">"{q}"</div>
+                      <div key={i} className="person-quote-item">&quot;{q}&quot;</div>
                     ))}
                   </div>
                 )}
@@ -458,10 +485,65 @@ export default async function PersonHubPage({ params }: Props) {
                 </div>
 
                 <div className="person-insights">
-                  <h3>持仓洞察</h3>
-                  {insights.length ? insights.map((x) => (
-                    <div key={x} className="person-insight-row">{x}</div>
-                  )) : <p className="person-empty">暂无洞察。</p>}
+                  <h3 className="person-insights-head">持仓洞察</h3>
+                  {summaryInsight || portfolioInsightNarrative ? (
+                    <div className="person-insight-layout">
+                      <div className="person-insight-overview">
+                        <div className="person-insight-section-head">
+                          <span>组合概况</span>
+                          <span>{latestLabel}</span>
+                        </div>
+
+                        {summaryInsight && (
+                          <>
+                            <div className="person-insight-metrics">
+                              {summaryInsight.top5Pct != null && (
+                                <div className="person-insight-metric">
+                                  <span className="person-insight-metric-label">前五集中度</span>
+                                  <strong className="person-insight-metric-value">{summaryInsight.top5Pct.toFixed(1)}%</strong>
+                                </div>
+                              )}
+                              {summaryInsight.holdingCount != null && (
+                                <div className="person-insight-metric">
+                                  <span className="person-insight-metric-label">跟踪持仓</span>
+                                  <strong className="person-insight-metric-value">{summaryInsight.holdingCount}</strong>
+                                </div>
+                              )}
+                              {summaryInsight.totalChanged != null && (
+                                <div className="person-insight-metric">
+                                  <span className="person-insight-metric-label">本季变动</span>
+                                  <strong className="person-insight-metric-value">{summaryInsight.totalChanged}</strong>
+                                </div>
+                              )}
+                            </div>
+
+                            <p className="person-insight-overview-text">{summaryInsight.detail}</p>
+                          </>
+                        )}
+
+                        {portfolioInsightNarrative && (
+                          <div className="person-insight-narrative">
+                            <div className="person-insight-narrative-head">
+                              <span className="person-insight-narrative-kicker">季度点评</span>
+                            </div>
+                            <p className="person-insight-narrative-lead">{narrativeParts.lead}</p>
+                            {narrativeParts.points.length > 0 && (
+                              <div className="person-insight-narrative-list">
+                                {narrativeParts.points.map((point, idx) => (
+                                  <div key={idx} className="person-insight-narrative-item">
+                                    <span className="person-insight-narrative-dot" />
+                                    <p className="person-insight-narrative-text">{point}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="person-empty">暂无洞察。</p>
+                  )}
                 </div>
               </div>
 

@@ -4954,10 +4954,174 @@ body.layout-no-header {
 /* Holdings */
 .person-compare-note { margin: 0.2rem 0 0; font-size: 0.72rem; color: var(--apple-secondary); }
 .person-insights { background: var(--apple-light-gray); border-radius: 13px; padding: 1rem; margin-bottom: 0.85rem; }
-.person-insights h3 { margin: 0 0 0.6rem; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--apple-secondary); font-weight: 600; }
-.person-insight-row { font-size: 0.8125rem; color: var(--apple-body); line-height: 1.55; padding: 0.36rem 0; border-bottom: 1px solid rgba(0,0,0,0.06); word-break: break-word; }
-.person-insight-row:last-child { border-bottom: none; padding-bottom: 0; }
+.person-insights-head { margin: 0 0 0.6rem; font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--apple-secondary); font-weight: 600; }
+
+.person-insight-layout { display: grid; gap: 0.8rem; }
+
+.person-insight-overview {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,0,0,0.05);
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.person-insight-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.7rem;
+  color: var(--apple-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.person-insight-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.person-insight-metric {
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+}
+
+.person-insight-metric-label {
+  display: block;
+  font-size: 0.66rem;
+  color: var(--apple-secondary);
+  margin-bottom: 0.18rem;
+}
+
+.person-insight-metric-value {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  color: var(--apple-near-black);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.person-insight-overview-text {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--apple-body);
+  line-height: 1.62;
+}
+
+.person-insight-overview-text--narrative {
+  margin-top: 0.7rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.person-insight-narrative {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.person-insight-narrative-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.person-insight-narrative-kicker {
+  font-size: 0.67rem;
+  font-weight: 700;
+  color: var(--apple-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.person-insight-narrative-lead {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--apple-near-black);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.person-insight-narrative-list {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.person-insight-narrative-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.person-insight-narrative-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0a84ff, #5ac8fa);
+  margin-top: 0.38rem;
+  box-shadow: 0 0 0 3px rgba(10,132,255,0.08);
+}
+
+.person-insight-narrative-text {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--apple-body);
+  line-height: 1.62;
+}
+
+.person-insight-cards { display: flex; flex-direction: column; gap: 0.4rem; }
+.person-insight-card { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.45rem 0.6rem; border-radius: 8px; font-size: 0.75rem; }
+.person-insight-kind { font-weight: 600; font-size: 0.675rem; white-space: nowrap; padding: 0.1rem 0.4rem; border-radius: 4px; flex-shrink: 0; }
+.person-insight-detail { color: var(--apple-body); line-height: 1.45; }
+
+.person-insight-card--summary .person-insight-kind { background: rgba(0,0,0,0.05); color: var(--apple-secondary); }
+.person-insight-card--new .person-insight-kind { background: rgba(16,185,129,0.1); color: #10b981; }
+.person-insight-card--add .person-insight-kind { background: rgba(0,113,227,0.1); color: var(--apple-blue); }
+.person-insight-card--trim .person-insight-kind { background: rgba(245,158,11,0.1); color: #d97706; }
+.person-insight-card--exit .person-insight-kind { background: rgba(239,68,68,0.1); color: #ef4444; }
 .person-empty { margin: 0.4rem 0 0.6rem; font-size: 0.8125rem; color: var(--apple-secondary); }
+
+@media (max-width: 640px) {
+  .person-insight-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+.person-insights-narrative {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.person-insights-narrative-label {
+  font-size: 0.675rem;
+  font-weight: 600;
+  color: var(--apple-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.person-insights-narrative-text {
+  font-size: 0.8125rem;
+  color: var(--apple-body);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.person-ai-insight { background: linear-gradient(135deg, rgba(0,113,227,0.04), rgba(0,113,227,0.02)); border: 1px solid rgba(0,113,227,0.12); border-radius: 12px; padding: 0.9rem 1rem; margin-bottom: 0.85rem; }
+.person-ai-insight-label { font-size: 0.675rem; font-weight: 600; color: var(--apple-blue); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.45rem; }
+.person-ai-insight-text { font-size: 0.8125rem; color: var(--apple-body); line-height: 1.6; margin: 0; }
 
 /* Pie + legend */
 .person-top10 { display: grid; grid-template-columns: 240px 1fr; gap: 1.5rem; align-items: start; }
@@ -6079,7 +6243,7 @@ body {
 /* Person holdings layout v2 */
 .person-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.9rem;
   align-items: start;
 }
@@ -6768,7 +6932,7 @@ body {
 /* Person holdings layout v2 final override */
 .person-top-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.9rem;
   align-items: start;
 }

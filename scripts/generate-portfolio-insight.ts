@@ -1,0 +1,508 @@
+/**
+ * generate-portfolio-insight.ts
+ *
+ * Generates AI-powered quarterly portfolio insights for each master.
+ * Queries HoldingChangeSet + MasterProfile, builds a prompt, calls
+ * DeepSeek (or configured model), and upserts to PortfolioInsight table.
+ *
+ * Usage:
+ *   tsx scripts/generate-portfolio-insight.ts --master buffett    [--dry-run]
+ *   tsx scripts/generate-portfolio-insight.ts --all                [--dry-run]
+ */
+
+import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+
+const db = new PrismaClient();
+
+const AI_API_KEY = process.env.AI_API_KEY;
+const AI_API_BASE_URL = process.env.AI_API_BASE_URL;
+const AI_MODEL = process.env.AI_MODEL;
+
+// ---------------------------------------------------------------------------
+// CLI helpers
+// ---------------------------------------------------------------------------
+
+function getArg(flag: string): string | undefined {
+  const args = process.argv.slice(2);
+  return args.find((_, i) => args[i - 1] === flag);
+}
+function hasFlag(flag: string): boolean {
+  return process.argv.slice(2).includes(flag);
+}
+
+function parseQuarterToken(token: string): { year: number; quarter: number } {
+  const match = token.match(/^(\d{4})Q([1-4])$/i);
+  if (!match) throw new Error(`Invalid quarter token: "${token}". Use format like 2025Q4.`);
+  return { year: Number(match[1]), quarter: Number(match[2]) };
+}
+
+// ---------------------------------------------------------------------------
+// Utils
+// ---------------------------------------------------------------------------
+
+function formatPct(n: number): string {
+  return `${n.toFixed(2)}%`;
+}
+
+type QuarterPoint = { year: number; quarter: number };
+
+type PortfolioInsightItem = {
+  kind: "summary" | "new" | "add" | "trim" | "exit";
+  label: string;
+  detail: string;
+  ticker?: string;
+  nameZh?: string;
+  deltaPct?: number;
+  percentOfPortfolio?: number;
+  top5Pct?: number;
+  holdingCount?: number;
+  totalChanged?: number;
+};
+
+type PortfolioInsightStructured = {
+  latest: QuarterPoint;
+  base: QuarterPoint | null;
+  summary: {
+    holdingCount: number;
+    top5Pct: number;
+    totalChanged: number;
+    newCount: number;
+    addCount: number;
+    trimCount: number;
+    exitCount: number;
+  };
+  items: PortfolioInsightItem[];
+};
+
+type MasterProfile = {
+  framework?: string[];
+};
+
+type AIResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+};
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+// ---------------------------------------------------------------------------
+// Data fetching
+// ---------------------------------------------------------------------------
+
+async function getAvailableQuarters(tribeId: string) {
+  const sources = await db.extSource.findMany({
+    where: { filer: { is: { tribeId } }, kind: "13f" },
+    select: { periodYear: true, periodQuarter: true },
+    orderBy: [{ periodYear: "desc" }, { periodQuarter: "desc" }],
+  });
+  return sources
+    .filter((s) => s.periodYear != null && s.periodQuarter != null)
+    .map((s) => ({ year: s.periodYear!, quarter: s.periodQuarter! }));
+}
+
+function findBaseQuarter(quarters: QuarterPoint[], latest: QuarterPoint) {
+  const idx = quarters.findIndex((q) => q.year === latest.year && q.quarter === latest.quarter);
+  return idx >= 0 ? quarters[idx + 1] ?? null : null;
+}
+
+async function getHoldingsByQuarter(tribeId: string, year: number, quarter: number) {
+  const rows = await db.holding.findMany({
+    where: {
+      holder: { is: { tribeId } },
+      source: { is: { periodYear: year, periodQuarter: quarter, kind: "13f" } },
+    },
+    include: { security: { select: { ticker: true, canonicalName: true } } },
+    orderBy: { percentOfPortfolio: "desc" },
+  });
+  return rows;
+}
+
+async function buildChangeSet(tribeId: string, targetQuarter?: QuarterPoint) {
+  const quarters = await getAvailableQuarters(tribeId);
+  if (!quarters.length) throw new Error(`No holdings data for ${tribeId}`);
+
+  const latest = targetQuarter
+    ? quarters.find((q) => q.year === targetQuarter.year && q.quarter === targetQuarter.quarter)
+    : quarters[0];
+  if (!latest) {
+    const label = `${targetQuarter!.year}Q${targetQuarter!.quarter}`;
+    throw new Error(`Quarter ${label} not found for ${tribeId}`);
+  }
+
+  const base = findBaseQuarter(quarters, latest);
+  const latestRows = await getHoldingsByQuarter(tribeId, latest.year, latest.quarter);
+  const baseRows = base ? await getHoldingsByQuarter(tribeId, base.year, base.quarter) : [];
+
+  const top = latestRows.slice(0, 10);
+  const keyOf = (r: (typeof latestRows)[number]) => r.securityEntityId;
+  const baseById = new Map(baseRows.map((r) => [keyOf(r), r] as const));
+
+  const adds: Array<{ ticker: string; name: string; nowPct: number; deltaPct: number }> = [];
+  const trims: Array<{ ticker: string; name: string; nowPct: number; deltaPct: number }> = [];
+  const newPositions: Array<{ ticker: string; name: string; nowPct: number }> = [];
+  const exits: Array<{ ticker: string; name: string; prevPct: number }> = [];
+
+  for (const row of latestRows) {
+    const prev = baseById.get(keyOf(row));
+    const nowPct = row.percentOfPortfolio ?? 0;
+    const ticker = row.security.ticker ?? row.security.canonicalName;
+
+    if (!prev) {
+      newPositions.push({ ticker, name: row.security.canonicalName, nowPct });
+      continue;
+    }
+    const prevPct = prev.percentOfPortfolio ?? 0;
+    const delta = nowPct - prevPct;
+    if (delta > 0.08) adds.push({ ticker, name: row.security.canonicalName, nowPct, deltaPct: delta });
+    if (delta < -0.08) trims.push({ ticker, name: row.security.canonicalName, nowPct, deltaPct: delta });
+  }
+
+  for (const row of baseRows) {
+    if (!latestRows.find((r) => keyOf(r) === keyOf(row))) {
+      exits.push({
+        ticker: row.security.ticker ?? row.security.canonicalName,
+        name: row.security.canonicalName,
+        prevPct: row.percentOfPortfolio ?? 0,
+      });
+    }
+  }
+
+  adds.sort((a, b) => b.deltaPct - a.deltaPct);
+  trims.sort((a, b) => a.deltaPct - b.deltaPct);
+  newPositions.sort((a, b) => b.nowPct - a.nowPct);
+  exits.sort((a, b) => b.prevPct - a.prevPct);
+
+  return { latest, base, top, adds: adds.slice(0, 7), trims: trims.slice(0, 7), newPositions: newPositions.slice(0, 7), exits: exits.slice(0, 7) };
+}
+
+function buildHoldingInsights(changeSet: Awaited<ReturnType<typeof buildChangeSet>>): PortfolioInsightItem[] {
+  if (!changeSet.latest || !changeSet.top.length) return [];
+  const totalChanged =
+    changeSet.newPositions.length + changeSet.adds.length + changeSet.trims.length + changeSet.exits.length;
+  const top5 = changeSet.top.slice(0, 5).reduce((sum, h) => sum + (h.percentOfPortfolio ?? 0), 0);
+
+  const items: PortfolioInsightItem[] = [
+    {
+      kind: "summary",
+      label: "组合概况",
+      detail: `前五大持仓合计 ${top5.toFixed(2)}%，组合集中度${top5 >= 60 ? "较高" : "中等"}${totalChanged > 0 ? `，本季${totalChanged}笔变动` : ""}`,
+      top5Pct: top5,
+      holdingCount: changeSet.top.length,
+      totalChanged,
+    },
+  ];
+
+  for (const pos of changeSet.newPositions.slice(0, 4)) {
+    items.push({
+      kind: "new",
+      label: "新进",
+      detail: `${pos.ticker} 仓位 ${pos.nowPct.toFixed(2)}%`,
+      ticker: pos.ticker,
+      nameZh: pos.name,
+      percentOfPortfolio: pos.nowPct,
+    });
+  }
+
+  for (const item of changeSet.adds.slice(0, 4)) {
+    items.push({
+      kind: "add",
+      label: "增持",
+      detail: `${item.ticker} +${item.deltaPct.toFixed(2)}pp → ${item.nowPct.toFixed(2)}%`,
+      ticker: item.ticker,
+      nameZh: item.name,
+      deltaPct: item.deltaPct,
+      percentOfPortfolio: item.nowPct,
+    });
+  }
+
+  for (const item of changeSet.trims.slice(0, 4)) {
+    items.push({
+      kind: "trim",
+      label: "减持",
+      detail: `${item.ticker} ${item.deltaPct.toFixed(2)}pp → ${item.nowPct.toFixed(2)}%`,
+      ticker: item.ticker,
+      nameZh: item.name,
+      deltaPct: item.deltaPct,
+      percentOfPortfolio: item.nowPct,
+    });
+  }
+
+  for (const exit of changeSet.exits.slice(0, 4)) {
+    const ticker = exit.ticker ?? exit.name;
+    items.push({
+      kind: "exit",
+      label: "清仓",
+      detail: `${ticker} 上季仓位 ${exit.prevPct.toFixed(2)}%`,
+      ticker,
+      nameZh: exit.name,
+      percentOfPortfolio: exit.prevPct,
+    });
+  }
+
+  return items;
+}
+
+function buildStructuredInsight(
+  changeSet: Awaited<ReturnType<typeof buildChangeSet>>,
+): PortfolioInsightStructured | null {
+  if (!changeSet.latest || !changeSet.top.length) return null;
+  const items = buildHoldingInsights(changeSet);
+  return {
+    latest: changeSet.latest,
+    base: changeSet.base,
+    summary: {
+      holdingCount: changeSet.top.length,
+      top5Pct: changeSet.top.slice(0, 5).reduce((sum, h) => sum + (h.percentOfPortfolio ?? 0), 0),
+      totalChanged:
+        changeSet.newPositions.length +
+        changeSet.adds.length +
+        changeSet.trims.length +
+        changeSet.exits.length,
+      newCount: changeSet.newPositions.length,
+      addCount: changeSet.adds.length,
+      trimCount: changeSet.trims.length,
+      exitCount: changeSet.exits.length,
+    },
+    items,
+  };
+}
+
+async function getMasterProfile(tribeId: string): Promise<MasterProfile | null> {
+  const entity = await db.entity.findFirst({ where: { tribeId }, select: { id: true } });
+  if (!entity) return null;
+  const row = await db.masterProfile.findUnique({ where: { entityId: entity.id } });
+  return (row?.profile as MasterProfile) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Prompt building
+// ---------------------------------------------------------------------------
+
+function buildPrompt(
+  masterName: string,
+  quarter: string,
+  changeSet: Awaited<ReturnType<typeof buildChangeSet>>,
+  profile: MasterProfile | null,
+): string {
+  const framework = profile?.framework ?? [];
+  const topList = changeSet.top
+    .slice(0, 5)
+    .map((h, i) => `${i + 1}. ${h.security.ticker ?? h.security.canonicalName} (${formatPct(h.percentOfPortfolio ?? 0)})`)
+    .join("；");
+
+  const newList =
+    changeSet.newPositions.length > 0
+      ? changeSet.newPositions.map((p) => `${p.ticker} (${formatPct(p.nowPct)})`).join("、")
+      : "无";
+  const addList =
+    changeSet.adds.length > 0
+      ? changeSet.adds.map((a) => `${a.ticker} +${a.deltaPct.toFixed(2)}pp → ${formatPct(a.nowPct)}`).join("、")
+      : "无";
+  const trimList =
+    changeSet.trims.length > 0
+      ? changeSet.trims.map((t) => `${t.ticker} ${t.deltaPct.toFixed(2)}pp → ${formatPct(t.nowPct)}`).join("、")
+      : "无";
+  const exitList =
+    changeSet.exits.length > 0
+      ? changeSet.exits.map((e) => `${e.ticker}（上季${formatPct(e.prevPct)}）`).join("、")
+      : "无";
+
+  return `作为一位资深价值投资分析师，请基于以下数据，为 **${masterName}** 基金撰写一份 ${quarter} 持仓洞察。用中文输出。300字以内。
+
+**投资框架**：
+${Array.isArray(framework) ? framework.join("；") : "无历史数据"}
+
+**前五大持仓**：
+${topList || "无数据"}
+
+**本季新进**：
+${newList}
+
+**增持**（仓位变化 > 0.08pp）：
+${addList}
+
+**减持**（仓位变化 > 0.08pp）：
+${trimList}
+
+**清仓退出**：
+${exitList}
+
+---
+
+请撰写 3-5 句连贯的持仓洞察，从以下角度分析：
+1. **整体仓位方向**：该季度是进攻还是防御？仓位是集中还是分散？
+2. **行业侧重变化**：科技、消费、金融、能源等行业的增减情况
+3. **风格一致性**：这些操作是否符合其一贯的投资理念？有无值得注意的背离？
+
+输出为纯中文文本段落，不要 markdown 标记，不要标题。语气冷静客观，有数据支撑。`;
+}
+
+// ---------------------------------------------------------------------------
+// AI call
+// ---------------------------------------------------------------------------
+
+async function callAI(prompt: string): Promise<string> {
+  if (!AI_API_KEY || !AI_API_BASE_URL || !AI_MODEL) {
+    throw new Error("Missing AI_API_KEY / AI_API_BASE_URL / AI_MODEL env vars");
+  }
+
+  const res = await fetch(`${AI_API_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${AI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "你是一位资深价值投资分析师，擅长分析13F持仓变化并撰写简洁有力的季度点评。输出为纯中文文本。",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.6,
+      max_tokens: 800,
+      stream: false,
+    }),
+    signal: AbortSignal.timeout(90000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`AI API error ${res.status}: ${errText}`);
+  }
+
+  const data = (await res.json()) as AIResponse;
+  const text: string = data?.choices?.[0]?.message?.content?.trim() ?? "";
+  if (!text) throw new Error("AI returned empty response");
+  return text;
+}
+
+// ---------------------------------------------------------------------------
+// Upsert
+// ---------------------------------------------------------------------------
+
+async function upsertInsight(
+  masterId: string,
+  year: number,
+  quarter: number,
+  structured: PortfolioInsightStructured | null,
+  narrative: string,
+  dryRun: boolean,
+) {
+  if (dryRun) {
+    console.log(`\n[Dry-run] Would upsert for ${masterId} ${year}Q${quarter}:`);
+    console.log(`  structured: ${structured ? `${structured.items.length} items` : "null"}`);
+    console.log(`  narrative: ${narrative.slice(0, 120)}...`);
+    console.log(`  len: ${narrative.length} chars`);
+    return;
+  }
+
+  await db.portfolioInsight.upsert({
+    where: { masterId_year_quarter: { masterId, year, quarter } },
+    update: {
+      structured,
+      narrative,
+      source: AI_MODEL ?? "deepseek",
+      generatedAt: new Date(),
+      version: { increment: 1 },
+    },
+    create: { masterId, year, quarter, structured, narrative, source: AI_MODEL ?? "deepseek" },
+  });
+
+  console.log(`  ✓ Upserted to DB (${narrative.length} chars)`);
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+async function generateFor(masterId: string, dryRun: boolean, targetQuarter?: QuarterPoint) {
+  const nameMap: Record<string, string> = { buffett: "巴菲特", lilu: "李录", duan: "段永平" };
+  const name = nameMap[masterId] ?? masterId;
+
+  console.log(`\n📋 ${name} (${masterId})`);
+
+  // 1. Get quarterly change set
+  let changeSet: Awaited<ReturnType<typeof buildChangeSet>>;
+  try {
+    changeSet = await buildChangeSet(masterId, targetQuarter);
+  } catch (err: unknown) {
+    console.log(`  ⚠️  Skipped: ${getErrorMessage(err)}`);
+    return;
+  }
+
+  if (!changeSet.latest) {
+    console.log("  ⚠️  No holdings data");
+    return;
+  }
+
+  const quarter = `${changeSet.latest.year}Q${changeSet.latest.quarter}`;
+  console.log(`  Quarter: ${quarter} | Top ${changeSet.top.length} holdings`);
+
+  // 2. Get master profile for investment framework
+  const profile = await getMasterProfile(masterId);
+  const structured = buildStructuredInsight(changeSet);
+
+  // 3. Build prompt and call AI
+  const prompt = buildPrompt(name, quarter, changeSet, profile);
+  console.log(`  Prompt: ${prompt.length} chars`);
+
+  try {
+    const narrative = await callAI(prompt);
+    await upsertInsight(
+      masterId,
+      changeSet.latest.year,
+      changeSet.latest.quarter,
+      structured,
+      narrative,
+      dryRun,
+    );
+  } catch (err: unknown) {
+    console.error(`  ❌ AI error: ${getErrorMessage(err)}`);
+  }
+}
+
+async function main() {
+  const dryRun = hasFlag("--dry-run");
+  if (dryRun) console.log("🔍 Dry-run mode\n");
+
+  const master = getArg("--master");
+  const all = hasFlag("--all");
+  const quarterToken = getArg("--quarter");
+  const yearArg = getArg("--year");
+  const quarterArg = getArg("--quarter-num");
+  const targetQuarter = quarterToken
+    ? parseQuarterToken(quarterToken)
+    : yearArg && quarterArg
+      ? { year: Number(yearArg), quarter: Number(quarterArg) }
+      : undefined;
+
+  if (!master && !all) {
+    console.log("Usage:");
+    console.log("  tsx scripts/generate-portfolio-insight.ts --master buffett [--quarter 2025Q4] [--dry-run]");
+    console.log("  tsx scripts/generate-portfolio-insight.ts --all [--quarter 2025Q4] [--dry-run]");
+    process.exit(0);
+  }
+
+  const masters = all ? ["buffett", "lilu", "duan"] : [master!];
+  for (const id of masters) {
+    await generateFor(id, dryRun, targetQuarter);
+  }
+
+  console.log("\n✅ Done.");
+  await db.$disconnect();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

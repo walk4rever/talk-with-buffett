@@ -269,30 +269,129 @@ export async function getLatestHoldingChangeSet(tribeId: string): Promise<Holdin
   };
 }
 
-export function buildHoldingInsights(changeSet: HoldingChangeSet): string[] {
+export type PortfolioInsightItem = {
+  kind: "summary" | "new" | "add" | "trim" | "exit";
+  label: string;
+  detail: string;
+  ticker?: string;
+  nameZh?: string;
+  deltaPct?: number;
+  percentOfPortfolio?: number;
+  top5Pct?: number;
+  holdingCount?: number;
+  totalChanged?: number;
+};
+
+export type PortfolioInsightStructured = {
+  latest: QuarterPoint;
+  base: QuarterPoint | null;
+  summary: {
+    holdingCount: number;
+    top5Pct: number;
+    totalChanged: number;
+    newCount: number;
+    addCount: number;
+    trimCount: number;
+    exitCount: number;
+  };
+  items: PortfolioInsightItem[];
+};
+
+export function buildHoldingInsights(changeSet: HoldingChangeSet): PortfolioInsightItem[] {
   if (!changeSet.latest || !changeSet.top.length) return [];
+  const nowCount = changeSet.top.length >= 10 ? changeSet.top.length : null;
+  const totalChanged =
+    changeSet.newPositions.length + changeSet.adds.length + changeSet.trims.length + changeSet.exits.length;
   const top5 = changeSet.top.slice(0, 5).reduce((sum, h) => sum + (h.percentOfPortfolio ?? 0), 0);
-  const insights = [
-    `前五大持仓合计 ${top5.toFixed(2)}%，组合集中度${top5 >= 60 ? "较高" : "中等"}.`,
+
+  const items: PortfolioInsightItem[] = [
+    {
+      kind: "summary",
+      label: "组合概况",
+      detail: `前五大持仓合计 ${top5.toFixed(2)}%，组合集中度${top5 >= 60 ? "较高" : "中等"}${totalChanged > 0 ? `，本季${totalChanged}笔变动` : ""}`,
+      top5Pct: top5,
+      holdingCount: nowCount ?? undefined,
+      totalChanged,
+    },
   ];
-  if (changeSet.newPositions.length) {
-    const first = changeSet.newPositions[0];
-    insights.push(`本季新进 ${changeSet.newPositions.length} 个标的，最大新进为 ${first.security.ticker ?? first.security.canonicalName}.`);
+
+  for (const pos of changeSet.newPositions.slice(0, 4)) {
+    const ticker = pos.security.ticker ?? pos.security.canonicalName;
+    items.push({
+      kind: "new",
+      label: "新进",
+      detail: `${ticker} 仓位 ${(pos.percentOfPortfolio ?? 0).toFixed(2)}%`,
+      ticker,
+      nameZh: pos.security.canonicalName,
+      percentOfPortfolio: pos.percentOfPortfolio ?? 0,
+    });
   }
-  if (changeSet.adds.length) {
-    const first = changeSet.adds[0];
-    insights.push(`增持幅度最大：${first.row.security.ticker ?? first.row.security.canonicalName}（+${first.delta.toFixed(2)}pp）.`);
+
+  for (const { row, delta } of changeSet.adds.slice(0, 4)) {
+    const ticker = row.security.ticker ?? row.security.canonicalName;
+    items.push({
+      kind: "add",
+      label: "增持",
+      detail: `${ticker} +${delta.toFixed(2)}pp → ${(row.percentOfPortfolio ?? 0).toFixed(2)}%`,
+      ticker,
+      nameZh: row.security.canonicalName,
+      deltaPct: delta,
+      percentOfPortfolio: row.percentOfPortfolio ?? 0,
+    });
   }
-  if (changeSet.trims.length || changeSet.exits.length) {
-    const trimText = changeSet.trims[0]
-      ? `${changeSet.trims[0].row.security.ticker ?? changeSet.trims[0].row.security.canonicalName}（${changeSet.trims[0].delta.toFixed(2)}pp）`
-      : null;
-    const exitText = changeSet.exits[0]
-      ? `${changeSet.exits[0].ticker ?? changeSet.exits[0].name}`
-      : null;
-    insights.push(`减持/退出信号：${[trimText, exitText].filter(Boolean).join("，")}。`);
+
+  for (const { row, delta } of changeSet.trims.slice(0, 4)) {
+    const ticker = row.security.ticker ?? row.security.canonicalName;
+    items.push({
+      kind: "trim",
+      label: "减持",
+      detail: `${ticker} ${delta.toFixed(2)}pp → ${(row.percentOfPortfolio ?? 0).toFixed(2)}%`,
+      ticker,
+      nameZh: row.security.canonicalName,
+      deltaPct: delta,
+      percentOfPortfolio: row.percentOfPortfolio ?? 0,
+    });
   }
-  return insights.slice(0, 4);
+
+  for (const exit of changeSet.exits.slice(0, 4)) {
+    const ticker = exit.ticker ?? exit.name;
+    items.push({
+      kind: "exit",
+      label: "清仓",
+      detail: `${ticker} 上季仓位 ${exit.prevPct.toFixed(2)}%`,
+      ticker,
+      nameZh: exit.name,
+      percentOfPortfolio: exit.prevPct,
+    });
+  }
+
+  return items;
+}
+
+export function buildStructuredPortfolioInsight(
+  changeSet: HoldingChangeSet,
+): PortfolioInsightStructured | null {
+  if (!changeSet.latest || !changeSet.top.length) return null;
+
+  const items = buildHoldingInsights(changeSet);
+  return {
+    latest: changeSet.latest,
+    base: changeSet.base,
+    summary: {
+      holdingCount: changeSet.top.length,
+      top5Pct: changeSet.top.slice(0, 5).reduce((sum, h) => sum + (h.percentOfPortfolio ?? 0), 0),
+      totalChanged:
+        changeSet.newPositions.length +
+        changeSet.adds.length +
+        changeSet.trims.length +
+        changeSet.exits.length,
+      newCount: changeSet.newPositions.length,
+      addCount: changeSet.adds.length,
+      trimCount: changeSet.trims.length,
+      exitCount: changeSet.exits.length,
+    },
+    items,
+  };
 }
 
 export function formatValueUsd(valueUsd: bigint | null): string {
@@ -306,4 +405,41 @@ export function formatShares(shares: bigint | null): string {
   if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
   return n.toLocaleString();
+}
+
+export async function getPortfolioInsight(
+  masterId: string,
+  year: number,
+  quarter: number,
+): Promise<string | null> {
+  const row = await getPortfolioInsightRecord(masterId, year, quarter);
+  return row?.narrative ?? null;
+}
+
+export async function getPortfolioInsightRecord(
+  masterId: string,
+  year: number,
+  quarter: number,
+): Promise<{
+  narrative: string;
+  structured: PortfolioInsightStructured | null;
+  source: string;
+  version: number;
+  generatedAt: Date;
+} | null> {
+  try {
+    const row = await db.portfolioInsight.findUnique({
+      where: { masterId_year_quarter: { masterId, year, quarter } },
+    });
+    if (!row) return null;
+    return {
+      narrative: row.narrative,
+      structured: (row.structured as PortfolioInsightStructured | null) ?? null,
+      source: row.source,
+      version: row.version,
+      generatedAt: row.generatedAt,
+    };
+  } catch {
+    return null;
+  }
 }
