@@ -4872,6 +4872,18 @@ body.layout-no-header {
 .person-timeline-item { font-size: 0.72rem; color: var(--apple-body); padding: 0.25rem 0; border-bottom: 1px solid rgba(0,0,0,0.04); display: flex; gap: 0.5rem; }
 .person-timeline-item:last-child { border-bottom: none; }
 
+/* Timeline v2 — visual connector */
+.person-timeline-v2 { display: flex; flex-direction: column; gap: 0; margin-bottom: 1.5rem; }
+.person-timeline-v2--hero { margin-top: 1rem; margin-bottom: 0; }
+.person-timeline-node { display: flex; gap: 0; min-height: 2.2rem; }
+.person-timeline-marker { display: flex; flex-direction: column; align-items: center; width: 1.5rem; flex-shrink: 0; padding-top: 0.45rem; }
+.person-timeline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--apple-link-light); flex-shrink: 0; }
+.person-timeline-line { width: 1px; flex: 1; background: rgba(0,0,0,0.1); margin-top: 3px; }
+.person-timeline-body { display: flex; gap: 0.5rem; padding: 0.3rem 0 0.3rem 0.5rem; flex: 1; }
+.person-timeline-year { font-size: 0.75rem; font-weight: 600; color: var(--apple-near-black); white-space: nowrap; min-width: 3.2rem; }
+.person-timeline-desc { font-size: 0.75rem; color: var(--apple-body); line-height: 1.45; }
+.person-section-subhead { font-size: 0.75rem; color: var(--apple-secondary); font-weight: 600; margin-bottom: 0.6rem; }
+
 /* Sections */
 .person-section { background: var(--apple-white); border-radius: 18px; padding: 1.5rem; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
 .person-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
@@ -4879,6 +4891,46 @@ body.layout-no-header {
 .person-section-tag { font-size: 0.6875rem; color: var(--apple-secondary); background: var(--apple-light-gray); border-radius: 999px; padding: 0.22rem 0.55rem; }
 .person-view-all { font-size: 0.75rem; color: var(--apple-link-light); text-decoration: none; }
 .person-view-all:hover { text-decoration: underline; }
+
+/* Philosophy principles — moved from hero into 投资风格 */
+.person-philosophy { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+.person-philosophy-item { font-size: 0.8125rem; color: var(--apple-near-black); line-height: 1.5; padding: 0.65rem 0.85rem; background: rgba(0,113,227,0.04); border-radius: 10px; border-left: 3px solid var(--apple-link-light); }
+.person-style-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+
+/* Style grid */
+.person-style-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.person-style-card { background: var(--apple-light-gray); border-radius: 12px; padding: 1rem; }
+.person-style-label { font-size: 0.6875rem; color: var(--apple-secondary); font-weight: 500; margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.3px; }
+.person-style-value { font-size: 0.8125rem; color: var(--apple-near-black); line-height: 1.5; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+/* Flagship cases */
+.person-cases-head { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem; }
+.person-cases-count { font-size: 0.6875rem; color: var(--apple-secondary); }
+.person-cases-grid { display: flex; flex-direction: column; gap: 0; }
+.person-case-card { display: flex; gap: 0; padding: 0.85rem 0; border-bottom: 1px solid rgba(0,0,0,0.06); }
+.person-case-card:last-child { border-bottom: none; padding-bottom: 0; }
+.person-case-card:first-child { padding-top: 0; }
+.person-case-accent { width: 3px; border-radius: 2px; background: var(--apple-link-light); flex-shrink: 0; margin-right: 0.85rem; opacity: 0.25; }
+.person-case-body { flex: 1; min-width: 0; }
+.person-case-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap; }
+.person-case-ticker { font-size: 0.9375rem; font-weight: 700; color: var(--apple-link-light); font-family: "SF Mono", "Menlo", monospace; letter-spacing: -0.3px; }
+.person-case-name { font-size: 0.8125rem; font-weight: 600; color: var(--apple-near-black); }
+.person-case-year { font-size: 0.6875rem; color: var(--apple-secondary); }
+.person-case-badge { font-size: 0.625rem; background: rgba(16,185,129,0.1); color: #10b981; border-radius: 999px; padding: 0.15rem 0.5rem; font-weight: 500; }
+.person-case-thesis { font-size: 0.8125rem; color: var(--apple-body); line-height: 1.55; margin-bottom: 0.2rem; }
+.person-case-outcome { font-size: 0.75rem; color: var(--apple-secondary); }
+
+/* Quotes & influences */
+.person-quotes-block { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(0,0,0,0.06); }
+.person-quotes-label { font-size: 0.75rem; color: var(--apple-secondary); font-weight: 600; margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.3px; }
+.person-influences { margin-bottom: 0; }
+.person-influence-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.person-influence-tag { font-size: 0.75rem; background: rgba(0,113,227,0.06); color: var(--apple-link-light); border-radius: 999px; padding: 0.25rem 0.65rem; font-weight: 500; }
+.person-quotes-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.person-quote-item { font-size: 0.8125rem; color: var(--apple-body); line-height: 1.55; font-style: italic; padding-left: 0.75rem; border-left: 2px solid rgba(0,113,227,0.2); }
+.person-track-record { margin-top: 0.25rem; }
+.person-track-meta { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.8125rem; color: var(--apple-body); }
+.person-track-source { font-size: 0.6875rem; color: var(--apple-secondary); margin-top: 0.35rem; }
 
 /* Master class cards */
 .person-master-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }

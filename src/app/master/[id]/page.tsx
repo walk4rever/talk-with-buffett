@@ -5,6 +5,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { formatCompanyPathFromCik } from "@/lib/cik";
 import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-activity";
 import { getTribeMember } from "@/lib/tribe";
+import { getMasterProfile } from "@/lib/master-profile";
 import {
   buildHoldingInsights,
   formatShares,
@@ -14,7 +15,7 @@ import {
   getMasterClassSummary,
 } from "@/lib/master-data";
 
-export const revalidate = 300; // cache 5 min — holdings/letters update infrequently
+export const revalidate = 300; // cache 5 min - holdings/letters update infrequently
 
 
 interface Props {
@@ -43,15 +44,15 @@ type PieDatum = {
 };
 
 function formatPriceFromValueAndShares(valueUsd: bigint | null, shares: bigint | null) {
-  if (valueUsd == null || shares == null) return "—";
+  if (valueUsd == null || shares == null) return "-";
   const v = Number(valueUsd);
   const s = Number(shares);
-  if (!Number.isFinite(v) || !Number.isFinite(s) || s <= 0) return "—";
+  if (!Number.isFinite(v) || !Number.isFinite(s) || s <= 0) return "-";
   return `$${(v / s).toFixed(2)}`;
 }
 
 function formatSignedPct(diffPct: number | null) {
-  if (diffPct == null || !Number.isFinite(diffPct)) return "—";
+  if (diffPct == null || !Number.isFinite(diffPct)) return "-";
   const sign = diffPct > 0 ? "+" : "";
   return `${sign}${diffPct.toFixed(1)}%`;
 }
@@ -88,14 +89,14 @@ function buildPieSeries(
   const aggregated = Array.from(merged.values())
     .map((x) => {
       const tickerList = [...x.tickers.values()].sort();
-      const code = tickerList.length === 0 ? "—" : tickerList.join(", ");
+      const code = tickerList.length === 0 ? "-" : tickerList.join(", ");
       return { zh: x.zh, en: x.en, code, pct: x.pct, color: x.color };
     })
     .sort((a, b) => b.pct - a.pct);
   const top = aggregated.slice(0, 10);
   const topPct = top.reduce((sum, x) => sum + x.pct, 0);
   const otherPct = Math.max(0, 100 - topPct);
-  return [...top, { zh: "其他", en: "Others", code: "—", pct: otherPct, color: "#e5e7eb" }] as PieDatum[];
+  return [...top, { zh: "其他", en: "Others", code: "-", pct: otherPct, color: "#e5e7eb" }] as PieDatum[];
 }
 
 function getHoldingDisplay(security: {
@@ -104,7 +105,7 @@ function getHoldingDisplay(security: {
   metadata: unknown;
 }) {
   const meta = (security.metadata ?? {}) as { cusip?: string; nameZh?: string; nameEnShort?: string };
-  const code = security.ticker ?? meta.cusip ?? "—";
+  const code = security.ticker ?? meta.cusip ?? "-";
   const en = meta.nameEnShort ?? security.canonicalName;
   const zh = meta.nameZh ?? en;
   return { code, zh, en };
@@ -118,46 +119,65 @@ function getHoldingCompanyPath(h: Awaited<ReturnType<typeof getHoldingsByQuarter
   return formatCompanyPathFromCik(h.securityProfile?.company?.cik);
 }
 
-const INVESTOR_BRIEF: Record<
+// Hardcoded fallback when DB profile is unavailable
+const FALLBACK_BRIEF: Record<
   string,
   { intro: string; framework: string[]; tags: string[]; timeline: string[] }
 > = {
   buffett: {
     intro:
-      "Warren Buffett 是 Berkshire Hathaway 董事长，以长期价值投资和纪律化资本配置闻名。",
+      "沃伦·巴菲特，伯克希尔·哈撒韦董事长，全球价值投资集大成者，以资本配置纪律和长期持有闻名。",
     framework: [
-      "能力圈：只做可理解且可长期跟踪的业务",
-      "护城河：品牌、成本优势、网络效应与定价权",
-      "管理层：资本配置纪律与股东导向",
-      "估值纪律：价格低于内在价值时出手",
+      "能力圈：坚守自己可理解且可长期跟踪的业务边界",
+      "经济护城河：寻找品牌、成本优势、网络效应与定价权",
+      "管理层素质：关注卓越的资本配置纪律与股东导向",
+      "安全边际：要求买入价格比估算的每股内在价值有显著折扣",
     ],
-    tags: ["长期主义", "高ROE", "现金流确定性", "逆向决策"],
+    tags: ["长期主义", "特许经营权", "高ROE", "资本配置"],
     timeline: [
-      "1956：成立 Buffett Partnership",
-      "1965：控制 Berkshire Hathaway",
-      "1970 起：连续发布致股东信",
-      "当前：管理大型公开股票组合与全资业务",
+      "1956：成立巴菲特合伙人公司（Buffett Partnership）",
+      "1965：控制伯克希尔·哈撒韦，将其转型为资本配置旗舰",
+      "1972：收购喜诗糖果，转向「价格合理的高质量企业」",
+      "1988：重仓可口可乐（Coca-Cola），确立经济护城河典范",
+      "2016：大举建仓苹果（Apple），成为第一大重仓股",
     ],
   },
   lilu: {
-    intro: "李录，喜马拉雅资本创始人，长期专注价值投资与能力圈。",
+    intro: "李录，喜马拉雅资本创始人，查理·芒格家族资产管理人，将现代价值投资与中国经济全球化深度结合的实践者。",
     framework: [
-      "能力圈和安全边际并重",
-      "少而精，长期跟踪高质量公司",
-      "重视企业文化与治理质量",
+      "对的生意：寻找能长期产生高自由现金流且可持续增长的公司",
+      "对的人：评估管理层企业家精神、诚信和长期视野",
+      "安全边际：在商业和管理层正确的基础上，追求内在价值的低估",
+      "能力圈：坚守深度研究，追求长期的认知优势",
     ],
-    tags: ["集中持仓", "长期复利", "基本面驱动"],
-    timeline: ["资料建设中"],
+    tags: ["Right Business", "深度研究", "中国机遇", "第一性原理"],
+    timeline: [
+      "1993：在哥伦比亚大学听巴菲特演讲，启发价值投资之路",
+      "1996：创纪录获得哥大经济学、法学(JD)、商学(MBA)三学位",
+      "1997：创立喜马拉雅资本（Himalaya Capital）",
+      "2003：结识查理·芒格，受托管理其家族资产",
+      "2008：向伯克希尔推荐并促成比亚迪（BYD）的重仓投资",
+      "2020：出版《文明、现代化、价值投资与中国》",
+    ],
   },
   duan: {
-    intro: "段永平，H&H International Investment，长期投资实践者。",
+    intro: "段永平，步步高创始人，著名企业家、投资家，以「本分」、「商业模式优先」和重仓苹果、腾讯闻名。",
     framework: [
-      "商业模式优先，追求简单可验证",
-      "管理层与企业文化是核心筛选",
-      "以长期回报而非短期波动为导向",
+      "商业模式优先：好的模式容易赚钱，有很强用户黏性与高壁垒",
+      "本分文化：不做不对的事，保持平常心，克制盲目扩张",
+      "懂即是简单：对商业模式和确定性有近乎常识性的把握",
+      "估值即现金流折现：若不能一眼看出便宜，那就是不够便宜",
     ],
-    tags: ["商业模式", "管理层质量", "长期主义"],
-    timeline: ["资料建设中"],
+    tags: ["本分", "商业模式优先", "不为清单", "懂即是简单"],
+    timeline: [
+      "1989：创立「小霸王」品牌，打造电子学习机与游戏机帝国",
+      "1995：创立步步高，后分化出 OPPO、vivo 等知名品牌",
+      "2001：移居美国并退居幕后，自学价值投资",
+      "2002：低位重仓网易，持股超 6%，后获超百倍回报",
+      "2006：标得巴菲特慈善午餐，携黄峥一同前往",
+      "2011：大举建仓苹果公司，成为其第一大重仓股",
+      "2018：建仓并持续买入腾讯，公开分享对微信生态的理解",
+    ],
   },
 };
 
@@ -166,12 +186,23 @@ export default async function PersonHubPage({ params }: Props) {
   const member = getTribeMember(id);
   if (!member) notFound();
 
-  const [masterClass, changeSet] = await Promise.all([
+  const [masterClass, changeSet, profileResult] = await Promise.all([
     getMasterClassSummary(id),
     getLatestHoldingChangeSet(id),
+    getMasterProfile(id),
   ]);
 
-  const brief = INVESTOR_BRIEF[id] ?? INVESTOR_BRIEF.buffett;
+  const fallback = FALLBACK_BRIEF[id] ?? FALLBACK_BRIEF.buffett;
+  const profile = profileResult?.profile;
+  const intro = profile?.intro ?? fallback.intro;
+  const framework = profile?.framework ?? fallback.framework;
+  const tags = profile?.tags ?? fallback.tags;
+  const timeline = profile?.timeline ?? fallback.timeline;
+  const style = profile?.style;
+  const flagshipCases = profile?.flagshipCases;
+  const influences = profile?.influences;
+  const quotes = profile?.quotes;
+  const trackRecord = profile?.trackRecord;
   const insights = buildHoldingInsights(changeSet);
   const latest = changeSet.latest;
   const latestLabel = latest ? `${latest.year} Q${latest.quarter}` : "暂无数据";
@@ -203,25 +234,154 @@ export default async function PersonHubPage({ params }: Props) {
               <p className="person-eyebrow">Investor Profile</p>
               <h1 className="person-name">{member.nameZh}</h1>
               <p className="person-firm">{member.firm}</p>
-              <p className="person-intro">{brief.intro}</p>
-              <div className="person-framework">
-                {brief.framework.map((line) => (
-                  <div key={line} className="person-framework-item">{line}</div>
-                ))}
-              </div>
-              <div className="person-tags">
-                {brief.tags.map((tag) => (
-                  <span key={tag} className="person-tag">{tag}</span>
-                ))}
-              </div>
-              <div className="person-timeline">
-                {brief.timeline.map((line) => (
-                  <span key={line} className="person-timeline-item">{line}</span>
-                ))}
-              </div>
+              <p className="person-intro">{intro}</p>
+              {timeline.length > 0 && (
+                <div className="person-timeline-v2 person-timeline-v2--hero">
+                  {timeline.map((line: string, i: number) => {
+                    const sepIdx = Math.max(line.indexOf("："), line.indexOf(":"), line.indexOf("-"));
+                    const year = sepIdx > -1 ? line.slice(0, sepIdx) : "";
+                    const desc = sepIdx > -1 ? line.slice(sepIdx + 1) : line;
+                    return (
+                      <div key={i} className="person-timeline-node">
+                        <div className="person-timeline-marker">
+                          <div className="person-timeline-dot" />
+                          {i < timeline.length - 1 && <div className="person-timeline-line" />}
+                        </div>
+                        <div className="person-timeline-body">
+                          {year && <span className="person-timeline-year">{year}</span>}
+                          <span className="person-timeline-desc">{desc}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </section>
+
+        <section className="person-section">
+            <div className="person-section-head">
+              <h2 className="person-section-title">投资理念</h2>
+            </div>
+
+            <div className="person-style-tags">
+              {tags.map((tag: string) => (
+                <span key={tag} className="person-tag">{tag}</span>
+              ))}
+            </div>
+
+            <div className="person-philosophy">
+              {framework.map((line: string) => (
+                <div key={line} className="person-philosophy-item">{line}</div>
+              ))}
+            </div>
+
+            {style && (
+            <div className="person-style-grid">
+              <div className="person-style-card">
+                <div className="person-style-label">组合集中度</div>
+                <div className="person-style-value">{style.concentration}</div>
+              </div>
+              <div className="person-style-card">
+                <div className="person-style-label">持仓数量</div>
+                <div className="person-style-value">{style.holdingCount}</div>
+              </div>
+              <div className="person-style-card">
+                <div className="person-style-label">重仓行业</div>
+                <div className="person-style-value">
+                  {style.sectorFocus?.map((s: string) => (
+                    <span key={s} className="person-section-tag">{s}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="person-style-card">
+                <div className="person-style-label">换手特征</div>
+                <div className="person-style-value">{style.turnover}</div>
+              </div>
+              <div className="person-style-card">
+                <div className="person-style-label">持有周期</div>
+                <div className="person-style-value">{style.avgHoldingPeriod}</div>
+              </div>
+              <div className="person-style-card">
+                <div className="person-style-label">杠杆使用</div>
+                <div className="person-style-value">{style.leverageUsage}</div>
+              </div>
+            </div>
+            )}
+
+            {(influences && influences.length > 0 || quotes && quotes.length > 0 || trackRecord) && (
+              <div className="person-quotes-block">
+                {influences && influences.length > 0 && (
+                  <div className="person-influences">
+                    <div className="person-quotes-label">受谁影响</div>
+                    <div className="person-influence-list">
+                      {influences.map((inf: string) => (
+                        <span key={inf} className="person-influence-tag">{inf}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {quotes && quotes.length > 0 && (
+                  <div className="person-quotes-list">
+                    <div className="person-quotes-label">代表性观点</div>
+                    {quotes.map((q: string, i: number) => (
+                      <div key={i} className="person-quote-item">"{q}"</div>
+                    ))}
+                  </div>
+                )}
+                {trackRecord && (
+                  <div className="person-track-record">
+                    <div className="person-quotes-label">历史业绩</div>
+                    <div className="person-track-meta">
+                      {trackRecord.startYear && (
+                        <span>管理起始：{trackRecord.startYear}年</span>
+                      )}
+                      {trackRecord.cagr && (
+                        <span>年化回报：{trackRecord.cagr}</span>
+                      )}
+                      {trackRecord.benchmarkComparison && (
+                        <span>基准对比：{trackRecord.benchmarkComparison}</span>
+                      )}
+                    </div>
+                    <div className="person-track-source">{trackRecord.sourceNote}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+        {flagshipCases && flagshipCases.length > 0 && (
+          <section className="person-section">
+            <div className="person-section-head">
+              <h2 className="person-section-title">关键案例</h2>
+            </div>
+
+            <>
+              <div className="person-cases-head">
+                <span className="person-section-subhead">重点持仓案例</span>
+                <span className="person-cases-count">{flagshipCases.length} 个案例</span>
+              </div>
+              <div className="person-cases-grid">
+                {flagshipCases.map((c, i) => (
+                  <div key={`${c.ticker}-${i}`} className="person-case-card">
+                    <div className="person-case-accent" />
+                    <div className="person-case-body">
+                      <div className="person-case-header">
+                        <span className="person-case-ticker">{c.ticker}</span>
+                        <span className="person-case-name">{c.nameZh}</span>
+                        <span className="person-case-year">{c.entryYear}年建仓</span>
+                        {c.stillHolding && <span className="person-case-badge">持仓中</span>}
+                      </div>
+                      <div className="person-case-thesis">{c.thesis}</div>
+                      <div className="person-case-outcome">{c.outcome}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          </section>
+        )}
 
         <section className="person-section">
           <div className="person-section-head">
@@ -244,7 +404,7 @@ export default async function PersonHubPage({ params }: Props) {
                   <span>{item.range}</span>
                 </div>
                 <div className="person-master-latest">
-                  最近：{item.latest ?? "—"}
+                  最近:{item.latest ?? "-"}
                 </div>
               </Link>
             ))}
@@ -254,8 +414,8 @@ export default async function PersonHubPage({ params }: Props) {
         <section className="person-section">
           <div className="person-section-head">
             <div>
-              <h2 className="person-section-title">最新持仓（{latestLabel}）</h2>
-              <p className="person-compare-note">对比基准：{baseLabel}</p>
+              <h2 className="person-section-title">最新持仓({latestLabel})</h2>
+              <p className="person-compare-note">对比基准:{baseLabel}</p>
             </div>
             {latest ? (
               <Link href={`/master/${id}/holdings`} className="person-view-all">
@@ -276,7 +436,7 @@ export default async function PersonHubPage({ params }: Props) {
                               <CompanyDisplayName
                                 zhName={seg.zh}
                                 enName={seg.en}
-                                ticker={seg.code === "—" ? null : seg.code}
+                                ticker={seg.code === "-" ? null : seg.code}
                                 compact
                               />
                             </span>
@@ -307,7 +467,7 @@ export default async function PersonHubPage({ params }: Props) {
 
               <div className="person-holdings-full">
                 <div className="person-section-head">
-                  <h2 className="person-section-title">持仓明细（{latestLabel}）</h2>
+                  <h2 className="person-section-title">持仓明细({latestLabel})</h2>
                 </div>
                 <div className="holdings-table-wrap holdings-table-wrap--fit person-holdings-table-wrap">
                   <table className="holdings-table holdings-table--fit person-holdings-table">
@@ -319,7 +479,7 @@ export default async function PersonHubPage({ params }: Props) {
                         <th className="holdings-th">近期动作 Recent Activity</th>
                         <th className="holdings-th holdings-th--num">持股 Shares</th>
                         <th className="holdings-th holdings-th--num">申报价 Reported Price*</th>
-                        <th className="holdings-th holdings-th--num">市值（亿） Value</th>
+                        <th className="holdings-th holdings-th--num">市值(亿) Value</th>
                         <th className="holdings-th holdings-th--num">现价 Current Price</th>
                         <th className="holdings-th holdings-th--num">较申报价 +/- Reported Price</th>
                         <th className="holdings-th holdings-th--num">52周低点 52 Week Low</th>
@@ -365,30 +525,30 @@ export default async function PersonHubPage({ params }: Props) {
                               </span>
                             </td>
                             <td className="holdings-td holdings-td--num">
-                              {h.percentOfPortfolio != null ? `${h.percentOfPortfolio.toFixed(2)}%` : "—"}
+                              {h.percentOfPortfolio != null ? `${h.percentOfPortfolio.toFixed(2)}%` : "-"}
                             </td>
                             <td className="holdings-td">
                               {activity === "New" ? (
                                 <span className="holdings-activity-new">New</span>
                               ) : activity === "Added" ? (
                                 <span className="holdings-activity-delta holdings-activity-delta--up">
-                                  ↑ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "—"}
+                                  ↑ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "-"}
                                 </span>
                               ) : activity === "Reduced" ? (
                                 <span className="holdings-activity-delta holdings-activity-delta--down">
-                                  ↓ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "—"}
+                                  ↓ {shareDeltaPct != null ? formatSignedPct(shareDeltaPct) : "-"}
                                 </span>
                               ) : (
-                                <span className="holdings-activity-delta">—</span>
+                                <span className="holdings-activity-delta">-</span>
                               )}
                             </td>
                             <td className="holdings-td holdings-td--num">{formatShares(h.shares)}</td>
                             <td className="holdings-td holdings-td--num">{formatPriceFromValueAndShares(h.valueUsd, h.shares)}</td>
                             <td className="holdings-td holdings-td--num">{formatValueUsd(h.valueUsd)}</td>
-                            <td className="holdings-td holdings-td--num">—</td>
-                            <td className="holdings-td holdings-td--num">—</td>
-                            <td className="holdings-td holdings-td--num">—</td>
-                            <td className="holdings-td holdings-td--num">—</td>
+                            <td className="holdings-td holdings-td--num">-</td>
+                            <td className="holdings-td holdings-td--num">-</td>
+                            <td className="holdings-td holdings-td--num">-</td>
+                            <td className="holdings-td holdings-td--num">-</td>
                           </tr>
                         );
                       })}
@@ -425,10 +585,10 @@ export default async function PersonHubPage({ params }: Props) {
                             <td className="holdings-td holdings-td--num">{formatShares(h.shares)}</td>
                             <td className="holdings-td holdings-td--num">{formatPriceFromValueAndShares(h.valueUsd, h.shares)}</td>
                             <td className="holdings-td holdings-td--num">{formatValueUsd(h.valueUsd)}</td>
-                            <td className="holdings-td holdings-td--num">—</td>
-                            <td className="holdings-td holdings-td--num">—</td>
-                            <td className="holdings-td holdings-td--num">—</td>
-                            <td className="holdings-td holdings-td--num">—</td>
+                            <td className="holdings-td holdings-td--num">-</td>
+                            <td className="holdings-td holdings-td--num">-</td>
+                            <td className="holdings-td holdings-td--num">-</td>
+                            <td className="holdings-td holdings-td--num">-</td>
                           </tr>
                         );
                       })}

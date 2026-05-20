@@ -1,6 +1,6 @@
 {
   "name": "buffett-tribe",
-  "version": "0.34.18",
+  "version": "0.34.19",
   "private": true,
   "type": "module",
   "scripts": {
@@ -38,6 +38,8 @@
     "sync:company-name-map:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/sync-company-name-map.ts --dry-run",
     "backfill:names": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-names.ts",
     "backfill:names:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-names.ts --dry-run",
+    "generate:master-profile": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/generate-master-profile.ts",
+    "generate:master-profile:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/generate-master-profile.ts --dry-run",
     "check:db": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/check-db.ts",
     "neo4j:smoke": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-smoke-test.ts",
     "neo4j:schema:v2": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-schema-v2.ts",
