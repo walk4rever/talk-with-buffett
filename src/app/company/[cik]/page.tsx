@@ -5,6 +5,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { getTribeMember } from "@/lib/tribe";
 import {
   formatMoney,
+  getCompanyAnalysis,
   getCompanyByCik,
   getCompanyFinancials,
   getCompanySecurities,
@@ -430,10 +431,11 @@ export default async function CompanyPage({ params }: Props) {
   const company = await getCompanyByCik(rawCik.trim());
   if (!company) notFound();
 
-  const [financials, holders, securities] = await Promise.all([
+  const [financials, holders, securities, analysis] = await Promise.all([
     getCompanyFinancials(company.id, 5),
     getRecentHolders(company.id, 30),
     getCompanySecurities(company.id),
+    getCompanyAnalysis(company.id),
   ]);
 
   const listedSecurities = securities.length
@@ -512,16 +514,20 @@ export default async function CompanyPage({ params }: Props) {
     },
     { label: "摊薄每股收益", value: latest?.items.EPSDiluted ?? "—", hint: latestYear ? `EPS Diluted · FY ${latestYear}` : "EPS Diluted" },
   ];
-  const moat = getMoatMock(company.canonicalName, company.ticker);
-  const companyNarrative = buildCompanyNarrative({
-    companyName: company.canonicalName,
-    ticker: company.ticker,
-    sector: company.sector ?? null,
-    industry: typeof meta.industry === "string" ? meta.industry : null,
-    exchange: typeof meta.exchange === "string" ? meta.exchange : null,
-    latestYear,
-    revenue: rev,
-  });
+  const moat: MoatMock = analysis?.moat
+    ? (analysis.moat as unknown as MoatMock)
+    : getMoatMock(company.canonicalName, company.ticker);
+  const companyNarrative: CompanyNarrative = analysis?.narrative
+    ? (analysis.narrative as unknown as CompanyNarrative)
+    : buildCompanyNarrative({
+        companyName: company.canonicalName,
+        ticker: company.ticker,
+        sector: company.sector ?? null,
+        industry: typeof meta.industry === "string" ? meta.industry : null,
+        exchange: typeof meta.exchange === "string" ? meta.exchange : null,
+        latestYear,
+        revenue: rev,
+      });
   const strongestDimensions = [...moat.dimensions]
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);

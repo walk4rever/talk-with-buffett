@@ -301,3 +301,11 @@ export async function getRecentHolders(entityId: string, limit = 20) {
 export function formatMoney(v: string | bigint | null) {
   return formatUsdInYi(v);
 }
+
+export async function getCompanyAnalysis(entityId: string) {
+  const row = await db.companyAnalysis.findUnique({
+    where: { entityId },
+    select: { narrative: true, moat: true, source: true, version: true },
+  });
+  return row ?? null;
+}
