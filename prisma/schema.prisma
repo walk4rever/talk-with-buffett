@@ -194,6 +194,7 @@ model Entity {
   extSourcesAsFiler  ExtSource[]
   relationsAsSrc     EntityRelation[] @relation("RelationSrc")
   relationsAsDst     EntityRelation[] @relation("RelationDst")
+  analyses           CompanyAnalysis[]
 
   @@index([type])
   @@index([ticker])
@@ -336,4 +337,17 @@ model CompanyNameMap {
 
   @@unique([keyType, key])
   @@index([keyType, ticker])
+}
+
+model CompanyAnalysis {
+  id        String   @id @default(cuid())
+  entityId  String   @unique
+  narrative Json     // { overview: {title, content}, business: {title, content} }
+  moat      Json     // { summary: {type, strength, durability, allocation, thesis}, dimensions: [...], notes: [...] }
+  source    String   @default("claude")
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
 }
