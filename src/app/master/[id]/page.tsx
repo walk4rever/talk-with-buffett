@@ -7,7 +7,6 @@ import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-acti
 import { getTribeMember } from "@/lib/tribe";
 import { getMasterProfile } from "@/lib/master-profile";
 import {
-  buildHoldingInsights,
   formatShares,
   formatValueUsd,
   getHoldingsByQuarter,
@@ -226,7 +225,7 @@ export default async function PersonHubPage({ params }: Props) {
   const portfolioInsight = latest
     ? await getPortfolioInsightRecord(id, latest.year, latest.quarter)
     : null;
-  const insights = portfolioInsight?.structured?.items ?? buildHoldingInsights(changeSet);
+  const insights = portfolioInsight?.structured?.items ?? [];
   const summaryInsight = insights.find((item) => item.kind === "summary") ?? null;
   const portfolioInsightNarrative = portfolioInsight?.narrative ?? null;
   const narrativeParts = portfolioInsightNarrative

@@ -117,10 +117,21 @@ async function getHoldingsByQuarter(tribeId: string, year: number, quarter: numb
       holder: { is: { tribeId } },
       source: { is: { periodYear: year, periodQuarter: quarter, kind: "13f" } },
     },
-    include: { security: { select: { ticker: true, canonicalName: true } } },
+    include: { security: { select: { ticker: true, canonicalName: true, metadata: true } } },
     orderBy: { percentOfPortfolio: "desc" },
   });
   return rows;
+}
+
+function getSecurityNameParts(security: { ticker: string | null; canonicalName: string; metadata: unknown }) {
+  const meta = (security.metadata ?? {}) as { nameZh?: string; nameEnShort?: string };
+  const ticker = security.ticker ?? null;
+  const nameZh = meta.nameZh?.trim() || meta.nameEnShort?.trim() || security.canonicalName;
+  return { ticker, nameZh };
+}
+
+function formatDisplayName(nameZh: string, ticker: string | null) {
+  return ticker ? `${nameZh}（${ticker}）` : nameZh;
 }
 
 async function buildChangeSet(tribeId: string, targetQuarter?: QuarterPoint) {
@@ -143,31 +154,32 @@ async function buildChangeSet(tribeId: string, targetQuarter?: QuarterPoint) {
   const keyOf = (r: (typeof latestRows)[number]) => r.securityEntityId;
   const baseById = new Map(baseRows.map((r) => [keyOf(r), r] as const));
 
-  const adds: Array<{ ticker: string; name: string; nowPct: number; deltaPct: number }> = [];
-  const trims: Array<{ ticker: string; name: string; nowPct: number; deltaPct: number }> = [];
-  const newPositions: Array<{ ticker: string; name: string; nowPct: number }> = [];
-  const exits: Array<{ ticker: string; name: string; prevPct: number }> = [];
+  const adds: Array<{ ticker: string | null; nameZh: string; nowPct: number; deltaPct: number }> = [];
+  const trims: Array<{ ticker: string | null; nameZh: string; nowPct: number; deltaPct: number }> = [];
+  const newPositions: Array<{ ticker: string | null; nameZh: string; nowPct: number }> = [];
+  const exits: Array<{ ticker: string | null; nameZh: string; prevPct: number }> = [];
 
   for (const row of latestRows) {
     const prev = baseById.get(keyOf(row));
     const nowPct = row.percentOfPortfolio ?? 0;
-    const ticker = row.security.ticker ?? row.security.canonicalName;
+    const { ticker, nameZh } = getSecurityNameParts(row.security);
 
     if (!prev) {
-      newPositions.push({ ticker, name: row.security.canonicalName, nowPct });
+      newPositions.push({ ticker, nameZh, nowPct });
       continue;
     }
     const prevPct = prev.percentOfPortfolio ?? 0;
     const delta = nowPct - prevPct;
-    if (delta > 0.08) adds.push({ ticker, name: row.security.canonicalName, nowPct, deltaPct: delta });
-    if (delta < -0.08) trims.push({ ticker, name: row.security.canonicalName, nowPct, deltaPct: delta });
+    if (delta > 0.08) adds.push({ ticker, nameZh, nowPct, deltaPct: delta });
+    if (delta < -0.08) trims.push({ ticker, nameZh, nowPct, deltaPct: delta });
   }
 
   for (const row of baseRows) {
     if (!latestRows.find((r) => keyOf(r) === keyOf(row))) {
+      const { ticker, nameZh } = getSecurityNameParts(row.security);
       exits.push({
-        ticker: row.security.ticker ?? row.security.canonicalName,
-        name: row.security.canonicalName,
+        ticker,
+        nameZh,
         prevPct: row.percentOfPortfolio ?? 0,
       });
     }
@@ -199,48 +211,51 @@ function buildHoldingInsights(changeSet: Awaited<ReturnType<typeof buildChangeSe
   ];
 
   for (const pos of changeSet.newPositions.slice(0, 4)) {
+    const displayName = formatDisplayName(pos.nameZh, pos.ticker);
     items.push({
       kind: "new",
       label: "新进",
-      detail: `${pos.ticker} 仓位 ${pos.nowPct.toFixed(2)}%`,
-      ticker: pos.ticker,
-      nameZh: pos.name,
+      detail: `${displayName} 仓位 ${pos.nowPct.toFixed(2)}%`,
+      ticker: pos.ticker ?? undefined,
+      nameZh: pos.nameZh,
       percentOfPortfolio: pos.nowPct,
     });
   }
 
   for (const item of changeSet.adds.slice(0, 4)) {
+    const displayName = formatDisplayName(item.nameZh, item.ticker);
     items.push({
       kind: "add",
       label: "增持",
-      detail: `${item.ticker} +${item.deltaPct.toFixed(2)}pp → ${item.nowPct.toFixed(2)}%`,
-      ticker: item.ticker,
-      nameZh: item.name,
+      detail: `${displayName} +${item.deltaPct.toFixed(2)}pp → ${item.nowPct.toFixed(2)}%`,
+      ticker: item.ticker ?? undefined,
+      nameZh: item.nameZh,
       deltaPct: item.deltaPct,
       percentOfPortfolio: item.nowPct,
     });
   }
 
   for (const item of changeSet.trims.slice(0, 4)) {
+    const displayName = formatDisplayName(item.nameZh, item.ticker);
     items.push({
       kind: "trim",
       label: "减持",
-      detail: `${item.ticker} ${item.deltaPct.toFixed(2)}pp → ${item.nowPct.toFixed(2)}%`,
-      ticker: item.ticker,
-      nameZh: item.name,
+      detail: `${displayName} ${item.deltaPct.toFixed(2)}pp → ${item.nowPct.toFixed(2)}%`,
+      ticker: item.ticker ?? undefined,
+      nameZh: item.nameZh,
       deltaPct: item.deltaPct,
       percentOfPortfolio: item.nowPct,
     });
   }
 
   for (const exit of changeSet.exits.slice(0, 4)) {
-    const ticker = exit.ticker ?? exit.name;
+    const displayName = formatDisplayName(exit.nameZh, exit.ticker);
     items.push({
       kind: "exit",
       label: "清仓",
-      detail: `${ticker} 上季仓位 ${exit.prevPct.toFixed(2)}%`,
-      ticker,
-      nameZh: exit.name,
+      detail: `${displayName} 上季仓位 ${exit.prevPct.toFixed(2)}%`,
+      ticker: exit.ticker ?? undefined,
+      nameZh: exit.nameZh,
       percentOfPortfolio: exit.prevPct,
     });
   }
@@ -293,24 +308,27 @@ function buildPrompt(
   const framework = profile?.framework ?? [];
   const topList = changeSet.top
     .slice(0, 5)
-    .map((h, i) => `${i + 1}. ${h.security.ticker ?? h.security.canonicalName} (${formatPct(h.percentOfPortfolio ?? 0)})`)
+    .map((h, i) => {
+      const { ticker, nameZh } = getSecurityNameParts(h.security);
+      return `${i + 1}. ${formatDisplayName(nameZh, ticker)} (${formatPct(h.percentOfPortfolio ?? 0)})`;
+    })
     .join("；");
 
   const newList =
     changeSet.newPositions.length > 0
-      ? changeSet.newPositions.map((p) => `${p.ticker} (${formatPct(p.nowPct)})`).join("、")
+      ? changeSet.newPositions.map((p) => `${formatDisplayName(p.nameZh, p.ticker)} (${formatPct(p.nowPct)})`).join("、")
       : "无";
   const addList =
     changeSet.adds.length > 0
-      ? changeSet.adds.map((a) => `${a.ticker} +${a.deltaPct.toFixed(2)}pp → ${formatPct(a.nowPct)}`).join("、")
+      ? changeSet.adds.map((a) => `${formatDisplayName(a.nameZh, a.ticker)} +${a.deltaPct.toFixed(2)}pp → ${formatPct(a.nowPct)}`).join("、")
       : "无";
   const trimList =
     changeSet.trims.length > 0
-      ? changeSet.trims.map((t) => `${t.ticker} ${t.deltaPct.toFixed(2)}pp → ${formatPct(t.nowPct)}`).join("、")
+      ? changeSet.trims.map((t) => `${formatDisplayName(t.nameZh, t.ticker)} ${t.deltaPct.toFixed(2)}pp → ${formatPct(t.nowPct)}`).join("、")
       : "无";
   const exitList =
     changeSet.exits.length > 0
-      ? changeSet.exits.map((e) => `${e.ticker}（上季${formatPct(e.prevPct)}）`).join("、")
+      ? changeSet.exits.map((e) => `${formatDisplayName(e.nameZh, e.ticker)}（上季${formatPct(e.prevPct)}）`).join("、")
       : "无";
 
   return `作为一位资深价值投资分析师，请基于以下数据，为 **${masterName}** 基金撰写一份 ${quarter} 持仓洞察。用中文输出。300字以内。
