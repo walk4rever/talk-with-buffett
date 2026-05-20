@@ -4650,12 +4650,15 @@ body.layout-no-header {
   font-weight: 600;
   color: inherit;
   line-height: 1.25;
+  min-width: 0;
 }
 
 .company-display-en {
   font-size: 0.72rem;
   color: var(--apple-secondary);
   line-height: 1.2;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .company-display--compact .company-display-zh {
@@ -5083,8 +5086,8 @@ body.layout-no-header {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(150px, 0.52fr) minmax(380px, 1.18fr) minmax(300px, 0.98fr);
-  gap: 0.9rem;
+  grid-template-columns: minmax(150px, 0.56fr) minmax(380px, 1.30fr) minmax(220px, 0.55fr);
+  gap: 0.65rem;
   align-items: start;
 }
 
@@ -5170,7 +5173,7 @@ body.layout-no-header {
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(255, 255, 255, 0.78);
   border-radius: 12px;
-  padding: 0.9rem 0.95rem;
+  padding: 0.75rem 0.8rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -5184,8 +5187,8 @@ body.layout-no-header {
 
 .company-profile-row {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  gap: 0.6rem;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 0.45rem;
   align-items: start;
 }
 

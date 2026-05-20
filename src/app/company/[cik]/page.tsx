@@ -460,6 +460,8 @@ export default async function CompanyPage({ params }: Props) {
   const meta = normalizeMeta(company.metadata);
   const zhName =
     (typeof meta.nameZh === "string" && meta.nameZh.trim()) ? meta.nameZh.trim() : company.canonicalName;
+  const enNameShort =
+    (typeof meta.nameEnShort === "string" && meta.nameEnShort.trim()) ? meta.nameEnShort.trim() : company.canonicalName;
   const latestYear = latest?.year ?? null;
   const displayYears = latestYear
     ? Array.from({ length: 5 }, (_, index) => latestYear - index)
@@ -549,7 +551,7 @@ export default async function CompanyPage({ params }: Props) {
               <h1 className="company-name">
                 <CompanyDisplayName
                   zhName={zhName}
-                  enName={company.canonicalName}
+                  enName={enNameShort}
                   className="company-display--hero"
                 />
               </h1>
