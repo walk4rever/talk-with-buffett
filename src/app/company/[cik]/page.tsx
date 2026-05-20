@@ -21,7 +21,6 @@ type YearItems = { year: number; items: Record<string, string> };
 type MoatDimension = {
   key: string;
   zhLabel: string;
-  shortLabel: string;
   enLabel: string;
   score: number;
   verdict: string;
@@ -38,6 +37,17 @@ type MoatMock = {
   };
   dimensions: MoatDimension[];
   notes: Array<{ label: string; enLabel: string; value: string }>;
+};
+
+type CompanyNarrative = {
+  overview: {
+    title: string;
+    content: string;
+  };
+  business: {
+    title: string;
+    content: string;
+  };
 };
 
 type RadarPoint = {
@@ -141,6 +151,56 @@ function buildRadarPolygon(points: RadarPoint[], values: number[], maxValue: num
     .join(" ");
 }
 
+function circledIndex(index: number) {
+  return String.fromCodePoint(9312 + index);
+}
+
+function buildCompanyNarrative(params: {
+  companyName: string;
+  ticker: string | null;
+  sector: string | null;
+  industry: string | null;
+  exchange: string | null;
+  latestYear: number | null;
+  revenue: number | null;
+}): CompanyNarrative {
+  const { companyName, ticker, sector, industry, exchange, latestYear, revenue } = params;
+  const code = ticker?.toUpperCase() ?? null;
+
+  if (code === "AAPL") {
+    return {
+      overview: {
+        title: "公司基本信息",
+        content: `苹果是一家在 ${exchange ?? "美国"} 上市的全球消费科技公司，定位于高端消费电子与数字生态平台，业务覆盖硬件、软件与互联网服务，核心市场遍布北美、欧洲与亚洲主要消费市场。`,
+      },
+      business: {
+        title: "主打产品、服务与营收结构",
+        content: `核心收入仍由 iPhone 驱动，同时通过 Mac、iPad、Apple Watch、AirPods 与服务业务构建软硬件一体化生态。最近一个完整财年（FY ${latestYear ?? "—"}）营收约 ${formatMoney(revenue == null ? null : String(revenue))}，商业模式的关键在于设备销售、服务订阅与高频复购。`,
+      },
+    };
+  }
+
+  const marketText = exchange ? `在 ${exchange} 上市的` : "公开上市的";
+  const sectorText = sector?.trim() || industry?.trim() || "行业";
+  const industryText = industry?.trim() && industry?.trim() !== sector?.trim()
+    ? `，细分方向为 ${industry.trim()}`
+    : "";
+  const revenueText = latestYear && revenue != null
+    ? `最近一个完整财年（FY ${latestYear}）营收约 ${formatMoney(String(revenue))}。`
+    : "最近完整财年的收入结构仍待补充。";
+
+  return {
+    overview: {
+      title: "公司基本信息",
+      content: `${companyName} 是一家${marketText}${sectorText}公司${industryText}。当前页面以 SEC 档案和结构化财报为基础，重点关注其行业位置、主营业务与长期竞争优势。`,
+    },
+    business: {
+      title: "主打产品、服务与营收结构",
+      content: `${companyName} 的主营产品与服务结构仍需继续补充；当前可先结合 10-K 财报和行业属性理解其收入来源、核心产品线与增长引擎。${revenueText}`,
+    },
+  };
+}
+
 function getMoatMock(companyName: string, ticker: string | null): MoatMock {
   const code = ticker?.toUpperCase() ?? null;
 
@@ -157,7 +217,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "regulatory",
           zhLabel: "监管与准入壁垒",
-          shortLabel: "准入",
           enLabel: "Regulatory / Access Barrier",
           score: 3,
           verdict: "消费电子不是典型牌照行业，但全球标准、供应链认证与平台规则构成一定隐性准入门槛。",
@@ -166,7 +225,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "scale",
           zhLabel: "规模与经营壁垒",
-          shortLabel: "规模",
           enLabel: "Scale / Operating Barrier",
           score: 8,
           verdict: "全球经营规模、现金储备和供应链组织能力构成显著经营壁垒。",
@@ -175,7 +233,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "product",
           zhLabel: "技术与产品壁垒",
-          shortLabel: "产品",
           enLabel: "Technology / Product Edge",
           score: 9,
           verdict: "硬件、芯片、系统与工业设计协同，形成长期产品差异化。",
@@ -184,7 +241,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "cost",
           zhLabel: "成本优势",
-          shortLabel: "成本",
           enLabel: "Cost Advantage",
           score: 5,
           verdict: "并非最低成本生产者，但供应链规模和议价能力明显领先。",
@@ -193,7 +249,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "distribution",
           zhLabel: "渠道与分销控制",
-          shortLabel: "分销",
           enLabel: "Distribution Power",
           score: 7,
           verdict: "直营零售与全球运营商渠道并存，触达深度强。",
@@ -202,7 +257,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "brand",
           zhLabel: "品牌与心智",
-          shortLabel: "品牌",
           enLabel: "Brand Power",
           score: 10,
           verdict: "高端消费电子中品牌溢价最强之一，具备持续提价能力。",
@@ -211,7 +265,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "experience",
           zhLabel: "用户体验与黏性",
-          shortLabel: "体验",
           enLabel: "Experience / Stickiness",
           score: 9,
           verdict: "跨设备体验顺滑，日常高频使用带来稳定复购。",
@@ -220,7 +273,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "network",
           zhLabel: "网络效应",
-          shortLabel: "网络",
           enLabel: "Network Effect",
           score: 8,
           verdict: "开发者、配件和服务生态形成弱到中等平台效应。",
@@ -229,7 +281,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "switching",
           zhLabel: "转换成本",
-          shortLabel: "替换",
           enLabel: "Switching Cost",
           score: 9,
           verdict: "用户迁移到其他平台时，设备、数据与习惯成本都很高。",
@@ -238,7 +289,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
         {
           key: "allocation",
           zhLabel: "资本配置强",
-          shortLabel: "配置",
           enLabel: "Capital Allocation",
           score: 8,
           verdict: "现金流极强，回购纪律与股东回报机制成熟。",
@@ -277,7 +327,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "regulatory",
         zhLabel: "监管与准入壁垒",
-        shortLabel: "准入",
         enLabel: "Regulatory / Access Barrier",
         score: 3,
         verdict: "已有一定行业门槛，但是否长期有效还需核实。",
@@ -286,7 +335,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "scale",
         zhLabel: "规模与经营壁垒",
-        shortLabel: "规模",
         enLabel: "Scale / Operating Barrier",
         score: 4,
         verdict: "经营规模是否能压制竞争，需要结合固定成本结构和密度优势判断。",
@@ -295,7 +343,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "product",
         zhLabel: "技术与产品壁垒",
-        shortLabel: "产品",
         enLabel: "Technology / Product Edge",
         score: 4,
         verdict: "可能具备一定产品差异化，但还不能确认可持续性。",
@@ -304,7 +351,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "cost",
         zhLabel: "成本优势",
-        shortLabel: "成本",
         enLabel: "Cost Advantage",
         score: 4,
         verdict: "成本优势是否真实存在，需用行业对比验证。",
@@ -313,7 +359,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "distribution",
         zhLabel: "渠道与分销控制",
-        shortLabel: "分销",
         enLabel: "Distribution Power",
         score: 4,
         verdict: "渠道是否构成壁垒，取决于控制力而不是覆盖面本身。",
@@ -322,7 +367,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "brand",
         zhLabel: "品牌与心智",
-        shortLabel: "品牌",
         enLabel: "Brand Power",
         score: 4,
         verdict: "品牌强弱需要结合溢价能力和复购率判断。",
@@ -331,7 +375,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "experience",
         zhLabel: "用户体验与黏性",
-        shortLabel: "体验",
         enLabel: "Experience / Stickiness",
         score: 4,
         verdict: "用户体验是否转化为高复购和高留存仍需验证。",
@@ -340,7 +383,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "network",
         zhLabel: "网络效应",
-        shortLabel: "网络",
         enLabel: "Network Effect",
         score: 2,
         verdict: "暂未确认存在显著的平台或数据反馈效应。",
@@ -349,7 +391,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "switching",
         zhLabel: "转换成本",
-        shortLabel: "替换",
         enLabel: "Switching Cost",
         score: 4,
         verdict: "客户是否难以离开，是判断护城河强度的关键。",
@@ -358,7 +399,6 @@ function getMoatMock(companyName: string, ticker: string | null): MoatMock {
       {
         key: "allocation",
         zhLabel: "资本配置强",
-        shortLabel: "配置",
         enLabel: "Capital Allocation",
         score: 4,
         verdict: "资本配置能力会显著影响长期复利质量，但不应只看分红回购。",
@@ -430,20 +470,26 @@ export default async function CompanyPage({ params }: Props) {
       ? ratio(rev, getValue(financials, priorYear, "Revenue"))
       : null;
   const profileFacts = [
-    { label: "CIK", value: company.cik ?? "—" },
+    { label: "CIK", subLabel: "CIK", value: company.cik ?? "—" },
     {
-      label: "Sector / Industry",
-      value: [
-        company.sector?.trim() || null,
-        (typeof meta.industry === "string" && meta.industry.trim()) ? meta.industry.trim() : null,
-      ].filter((value): value is string => Boolean(value)).join(" · ") || "—",
+      label: "行业",
+      subLabel: "Sector",
+      value: company.sector?.trim() || "—",
     },
     {
-      label: "Exchange / Securities",
-      value: [
-        (typeof meta.exchange === "string" && meta.exchange.trim()) ? meta.exchange.trim() : null,
-        listedSecurities.filter((label) => label !== "—").join(" / ") || null,
-      ].filter((value): value is string => Boolean(value)).join(" · ") || "—",
+      label: "细分",
+      subLabel: "Industry",
+      value: (typeof meta.industry === "string" && meta.industry.trim()) ? meta.industry.trim() : "—",
+    },
+    {
+      label: "交易所",
+      subLabel: "Exchange",
+      value: (typeof meta.exchange === "string" && meta.exchange.trim()) ? meta.exchange.trim() : "—",
+    },
+    {
+      label: "证券代码",
+      subLabel: "Securities",
+      value: listedSecurities.filter((label) => label !== "—").join(" / ") || "—",
     },
   ];
 
@@ -465,6 +511,15 @@ export default async function CompanyPage({ params }: Props) {
     { label: "摊薄每股收益", value: latest?.items.EPSDiluted ?? "—", hint: latestYear ? `EPS Diluted · FY ${latestYear}` : "EPS Diluted" },
   ];
   const moat = getMoatMock(company.canonicalName, company.ticker);
+  const companyNarrative = buildCompanyNarrative({
+    companyName: company.canonicalName,
+    ticker: company.ticker,
+    sector: company.sector ?? null,
+    industry: typeof meta.industry === "string" ? meta.industry : null,
+    exchange: typeof meta.exchange === "string" ? meta.exchange : null,
+    latestYear,
+    revenue: rev,
+  });
   const strongestDimensions = [...moat.dimensions]
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
@@ -499,11 +554,24 @@ export default async function CompanyPage({ params }: Props) {
                 />
               </h1>
             </div>
+            <div className="company-intro-band">
+              <div className="company-narrative-block">
+                <h3>{companyNarrative.overview.title}</h3>
+                <p className="company-intro">{companyNarrative.overview.content}</p>
+              </div>
+              <div className="company-narrative-block">
+                <h3>{companyNarrative.business.title}</h3>
+                <p className="company-intro">{companyNarrative.business.content}</p>
+              </div>
+            </div>
             <aside className="company-profile-card" aria-label="Company profile">
               <dl className="company-profile-grid">
                 {profileFacts.map((fact) => (
                   <div key={fact.label} className="company-profile-row">
-                    <dt>{fact.label}</dt>
+                    <dt>
+                      <span className="company-profile-label">{fact.label}</span>
+                      <span className="company-profile-sub">{fact.subLabel}</span>
+                    </dt>
                     <dd>{fact.value}</dd>
                   </div>
                 ))}
@@ -629,8 +697,8 @@ export default async function CompanyPage({ params }: Props) {
                 {radarPoints.map((point, index) => (
                   <g key={`${moat.dimensions[index].key}-label`}>
                     <text x={point.labelX} y={point.labelY} textAnchor={point.anchor} className="company-radar-label">
-                      <tspan className="company-radar-index">{index + 1}.</tspan>
-                      <tspan dx="3">{moat.dimensions[index].shortLabel}</tspan>
+                      <tspan className="company-radar-index">{circledIndex(index)}</tspan>
+                      <tspan dx="3">{moat.dimensions[index].zhLabel}</tspan>
                     </text>
                   </g>
                 ))}
@@ -670,7 +738,7 @@ export default async function CompanyPage({ params }: Props) {
                     {strongestDimensions.map((dimension) => (
                       <li key={dimension.key}>
                         <span>
-                          <span className="company-value-index">{moat.dimensions.findIndex((item) => item.key === dimension.key) + 1}.</span>
+                          <span className="company-value-index">{circledIndex(moat.dimensions.findIndex((item) => item.key === dimension.key))}</span>
                           {" "}
                           {dimension.zhLabel}
                         </span>
@@ -686,7 +754,7 @@ export default async function CompanyPage({ params }: Props) {
                     {weakestDimensions.map((dimension) => (
                       <li key={dimension.key}>
                         <span>
-                          <span className="company-value-index">{moat.dimensions.findIndex((item) => item.key === dimension.key) + 1}.</span>
+                          <span className="company-value-index">{circledIndex(moat.dimensions.findIndex((item) => item.key === dimension.key))}</span>
                           {" "}
                           {dimension.zhLabel}
                         </span>
@@ -705,7 +773,7 @@ export default async function CompanyPage({ params }: Props) {
                 <div className="company-value-row-head">
                   <div>
                     <h3>
-                      <span className="company-value-index">{moat.dimensions.findIndex((item) => item.key === dimension.key) + 1}.</span>
+                      <span className="company-value-index">{circledIndex(moat.dimensions.findIndex((item) => item.key === dimension.key))}</span>
                       {" "}
                       {dimension.zhLabel}
                     </h3>
@@ -736,7 +804,6 @@ export default async function CompanyPage({ params }: Props) {
         <section className="company-section">
           <div className="company-section-head">
             <h2>大师持仓（13F）</h2>
-            <span>{holders.holders.length ? "按各大师最新一期" : "暂无数据"}</span>
           </div>
           {holders.holders.length ? (
             <div className="company-holders">

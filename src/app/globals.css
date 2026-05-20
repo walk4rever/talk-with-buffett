@@ -5083,13 +5083,17 @@ body.layout-no-header {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.92fr);
-  gap: 1.2rem;
+  grid-template-columns: minmax(150px, 0.52fr) minmax(380px, 1.18fr) minmax(300px, 0.98fr);
+  gap: 0.9rem;
   align-items: start;
 }
 
 .company-hero-copy {
   min-width: 0;
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .company-hero::after {
@@ -5120,6 +5124,32 @@ body.layout-no-header {
   color: var(--company-text);
 }
 
+.company-intro {
+  max-width: 72ch;
+  margin: 0;
+  color: #475569;
+  font-size: 0.9rem;
+  line-height: 1.68;
+}
+
+.company-intro-band {
+  min-width: 0;
+  align-self: center;
+  padding: 0.15rem 0;
+  justify-self: start;
+  margin-left: -2rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.company-narrative-block h3 {
+  margin: 0 0 0.32rem;
+  font-size: 0.82rem;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .company-display--hero {
   display: inline-flex;
   gap: 0.28rem;
@@ -5136,6 +5166,7 @@ body.layout-no-header {
 }
 
 .company-profile-card {
+  align-self: center;
   border: 1px solid rgba(148, 163, 184, 0.22);
   background: rgba(255, 255, 255, 0.78);
   border-radius: 12px;
@@ -5160,10 +5191,22 @@ body.layout-no-header {
 
 .company-profile-row dt {
   margin: 0;
+}
+
+.company-profile-label {
+  display: block;
   font-size: 0.72rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.company-profile-sub {
+  display: block;
+  margin-top: 0.08rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .company-profile-row dd {
@@ -5315,7 +5358,7 @@ body.layout-no-header {
   width: 100%;
   height: auto;
   overflow: visible;
-  max-width: 336px;
+  max-width: 352px;
   margin: 0 auto;
   display: block;
 }
@@ -5342,7 +5385,7 @@ body.layout-no-header {
 }
 
 .company-radar-label {
-  font-size: 10px;
+  font-size: 9px;
   fill: #334155;
 }
 

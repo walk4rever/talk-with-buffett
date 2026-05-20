@@ -13,22 +13,20 @@
 import { PrismaClient } from "@prisma/client";
 import { issuerKey, normalizeEnglishName } from "../src/lib/company-name-map";
 import { translateCompanyNameToZh, upsertNameMapEntries } from "./lib/company-name-zh";
+import {
+  fetchSecSubmissions,
+  mapSectorFromSic,
+  pickCompanyProfile,
+  pickRecentAnnualFilings,
+  type SecCompanyProfile,
+} from "./lib/sec-company-profile";
 
 const db = new PrismaClient();
 
-const EDGAR = "https://data.sec.gov";
 const SEC_WWW = "https://www.sec.gov";
 const HEADERS = {
   "User-Agent": "buffett-tribe research walkklaw@gmail.com",
   Accept: "application/json, text/xml, */*",
-};
-
-type FilingMeta = {
-  accession: string;
-  filedAt: string;
-  reportDate: string;
-  primaryDocument: string;
-  form: string;
 };
 
 type QuarterFact = {
@@ -152,41 +150,9 @@ async function getTickerCikMap() {
   return map;
 }
 
-async function getRecentAnnualFilings(cik: string): Promise<FilingMeta[]> {
-  const padded = cik.padStart(10, "0");
-  const res = await fetch(`${EDGAR}/submissions/CIK${padded}.json`, { headers: HEADERS });
-  if (!res.ok) throw new Error(`Submissions fetch failed for CIK ${cik}`);
-  const data = (await res.json()) as {
-    filings: {
-      recent: {
-        form: string[];
-        filingDate: string[];
-        reportDate: string[];
-        accessionNumber: string[];
-        primaryDocument: string[];
-      };
-    };
-  };
-
-  const recent = data.filings.recent;
-  const filings: FilingMeta[] = [];
-  for (let i = 0; i < recent.form.length; i++) {
-    const form = recent.form[i];
-    if (!ANNUAL_FORMS.has(form)) continue;
-    filings.push({
-      accession: recent.accessionNumber[i],
-      filedAt: recent.filingDate[i],
-      reportDate: recent.reportDate[i],
-      primaryDocument: recent.primaryDocument[i],
-      form,
-    });
-  }
-  return filings;
-}
-
 async function getCompanyFacts(cik: string) {
   const padded = cik.padStart(10, "0");
-  const res = await fetch(`${EDGAR}/api/xbrl/companyfacts/CIK${padded}.json`, { headers: HEADERS });
+  const res = await fetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${padded}.json`, { headers: HEADERS });
   if (!res.ok) throw new Error(`CompanyFacts fetch failed for CIK ${cik}`);
   return res.json() as Promise<{
     facts?: {
@@ -250,10 +216,10 @@ function decimalFromNumber(value: number) {
   return value.toString();
 }
 
-async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
+async function upsertCompanyEntity(cik: string, ticker: string, title: string, profile: SecCompanyProfile) {
   const byCik = await db.entity.findFirst({
     where: { cik },
-    select: { id: true, metadata: true, type: true, cik: true },
+    select: { id: true, metadata: true, type: true, cik: true, sector: true },
   });
   const cikOwnedByCompany = byCik?.type === "company";
   const byTicker = byCik
@@ -264,14 +230,14 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
           type: "company",
           ticker: { equals: ticker, mode: "insensitive" },
         },
-        select: { id: true, metadata: true, cik: true },
+        select: { id: true, metadata: true, cik: true, sector: true },
       })
     : await db.entity.findFirst({
       where: {
         type: "company",
         ticker: { equals: ticker, mode: "insensitive" },
       },
-      select: { id: true, metadata: true, cik: true },
+      select: { id: true, metadata: true, cik: true, sector: true },
     });
 
   const target = cikOwnedByCompany ? byCik : byTicker;
@@ -308,7 +274,16 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
     importedBy: "import-10k-xbrl",
     nameZh,
     nameEnShort,
+    industry: profile.sicDescription,
+    exchange: profile.exchanges[0] ?? null,
+    exchanges: profile.exchanges,
+    sic: profile.sic,
+    secCategory: profile.category,
+    fiscalYearEnd: profile.fiscalYearEnd,
+    stateOfIncorporation: profile.stateOfIncorporation,
+    stateOfIncorporationDescription: profile.stateOfIncorporationDescription,
   };
+  const sector = mapSectorFromSic(profile.sic, profile.sicDescription) ?? target?.sector ?? null;
 
   if (target) {
     const canSetCik = byCik == null || (byCik.type === "company" && byCik.id === target.id);
@@ -318,6 +293,7 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
         canonicalName: title,
         cik: canSetCik ? cik : target.cik,
         ticker,
+        sector,
         metadata: {
           ...nextMeta,
           ...(canSetCik ? {} : { secCik: cik }),
@@ -335,6 +311,7 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
       canonicalName: title,
       cik: createCik,
       ticker,
+      sector,
       metadata: {
         ...nextMeta,
         ...(createCik ? {} : { secCik: cik }),
@@ -346,7 +323,13 @@ async function upsertCompanyEntity(cik: string, ticker: string, title: string) {
 async function upsertExtSource(
   entityId: string,
   cik: string,
-  filing: FilingMeta,
+  filing: {
+    accession: string;
+    filedAt: string;
+    reportDate: string;
+    primaryDocument: string;
+    form: string;
+  },
 ) {
   const year = new Date(filing.reportDate).getUTCFullYear();
   const quarter = Math.ceil((new Date(filing.reportDate).getUTCMonth() + 1) / 3);
@@ -399,10 +382,12 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
   const { cik, title } = resolved;
   console.log(`Ticker ${ticker} -> CIK ${cik} (${title})`);
 
-  const companyEntity = await upsertCompanyEntity(cik, ticker, title);
-  const [filings, facts] = await Promise.all([
-    getRecentAnnualFilings(cik),
+  const submissions = await fetchSecSubmissions(cik);
+  const profile = pickCompanyProfile(submissions);
+  const companyEntity = await upsertCompanyEntity(cik, ticker, title, profile);
+  const [facts, filings] = await Promise.all([
     getCompanyFacts(cik),
+    Promise.resolve(pickRecentAnnualFilings(submissions)),
   ]);
 
   const targetFilings = filings
