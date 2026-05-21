@@ -1,6 +1,6 @@
 {
   "name": "buffett-tribe",
-  "version": "0.34.22",
+  "version": "0.35.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -44,6 +44,9 @@
     "generate:master-profile:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/generate-master-profile.ts --dry-run",
     "generate:portfolio-insight": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/generate-portfolio-insight.ts",
     "generate:portfolio-insight:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/generate-portfolio-insight.ts --dry-run",
+    "check:latest-holdings:coverage": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/check-latest-holdings-company-coverage.ts",
+    "check:latest-holdings:coverage:json": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/check-latest-holdings-company-coverage.ts --json",
+    "fix:latest-holdings:coverage": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/fix-latest-holdings-company-coverage.ts",
     "check:db": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/check-db.ts",
     "neo4j:smoke": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-smoke-test.ts",
     "neo4j:schema:v2": "node --env-file=.env.local ./node_modules/.bin/ts-node --esm --experimentalSpecifierResolution=node scripts/neo4j-schema-v2.ts",

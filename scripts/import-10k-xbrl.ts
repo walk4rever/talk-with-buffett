@@ -14,10 +14,10 @@ import { PrismaClient } from "@prisma/client";
 import { issuerKey, normalizeEnglishName } from "../src/lib/company-name-map";
 import { translateCompanyNameToZh, upsertNameMapEntries } from "./lib/company-name-zh";
 import {
+  fetchAllAnnualFilings,
   fetchSecSubmissions,
   mapSectorFromSic,
   pickCompanyProfile,
-  pickRecentAnnualFilings,
   type SecCompanyProfile,
 } from "./lib/sec-company-profile";
 
@@ -38,11 +38,32 @@ type QuarterFact = {
   fp?: string;
 };
 
+type InlineXbrlContext = {
+  id: string;
+  periodType: "instant" | "duration";
+  instant?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+type InlineXbrlFact = {
+  name: string;
+  contextRef: string;
+  unitRef: string | null;
+  value: number | null;
+};
+
+type InlineXbrlDocument = {
+  contexts: Map<string, InlineXbrlContext>;
+  facts: InlineXbrlFact[];
+};
+
 type LineItemConfig = {
   key: string;
   tagsUsGaap: string[];
   tagsIfrs: string[];
   unitCandidates: string[];
+  periodType: "instant" | "duration";
 };
 
 const LINE_ITEMS: LineItemConfig[] = [
@@ -51,40 +72,70 @@ const LINE_ITEMS: LineItemConfig[] = [
     tagsUsGaap: ["RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet", "Revenues"],
     tagsIfrs: ["Revenue"],
     unitCandidates: ["USD"],
+    periodType: "duration",
   },
-  { key: "GrossProfit", tagsUsGaap: ["GrossProfit"], tagsIfrs: ["GrossProfit"], unitCandidates: ["USD"] },
+  {
+    key: "GrossProfit",
+    tagsUsGaap: ["GrossProfit"],
+    tagsIfrs: ["GrossProfit"],
+    unitCandidates: ["USD"],
+    periodType: "duration",
+  },
   {
     key: "OperatingIncome",
     tagsUsGaap: ["OperatingIncomeLoss"],
     tagsIfrs: ["ProfitLossFromOperatingActivities"],
     unitCandidates: ["USD"],
+    periodType: "duration",
   },
-  { key: "NetIncome", tagsUsGaap: ["NetIncomeLoss"], tagsIfrs: ["ProfitLoss"], unitCandidates: ["USD"] },
+  {
+    key: "NetIncome",
+    tagsUsGaap: ["NetIncomeLoss"],
+    tagsIfrs: ["ProfitLoss"],
+    unitCandidates: ["USD"],
+    periodType: "duration",
+  },
   {
     key: "OperatingCashFlow",
     tagsUsGaap: ["NetCashProvidedByUsedInOperatingActivities"],
     tagsIfrs: ["CashFlowsFromUsedInOperatingActivities"],
     unitCandidates: ["USD"],
+    periodType: "duration",
   },
-  { key: "TotalAssets", tagsUsGaap: ["Assets"], tagsIfrs: ["Assets"], unitCandidates: ["USD"] },
-  { key: "TotalLiabilities", tagsUsGaap: ["Liabilities"], tagsIfrs: ["Liabilities"], unitCandidates: ["USD"] },
+  {
+    key: "TotalAssets",
+    tagsUsGaap: ["Assets"],
+    tagsIfrs: ["Assets"],
+    unitCandidates: ["USD"],
+    periodType: "instant",
+  },
+  {
+    key: "TotalLiabilities",
+    tagsUsGaap: ["Liabilities"],
+    tagsIfrs: ["Liabilities"],
+    unitCandidates: ["USD"],
+    periodType: "instant",
+  },
   {
     key: "ShareholdersEquity",
     tagsUsGaap: ["StockholdersEquity"],
     tagsIfrs: ["EquityAttributableToOwnersOfParent", "Equity"],
     unitCandidates: ["USD"],
+    periodType: "instant",
   },
   {
     key: "EPSBasic",
     tagsUsGaap: ["EarningsPerShareBasic"],
     tagsIfrs: ["BasicEarningsLossPerShare"],
     unitCandidates: ["USD/shares", "USD-per-shares", "pure"],
+    periodType: "duration",
   },
   {
     key: "EPSDiluted",
     tagsUsGaap: ["EarningsPerShareDiluted"],
     tagsIfrs: ["DilutedEarningsLossPerShare"],
     unitCandidates: ["USD/shares", "USD-per-shares", "pure"],
+    periodType: "duration",
   },
 ];
 
@@ -209,6 +260,138 @@ function findBestFactValue(
   if (!candidates.length) return null;
   candidates.sort((a, b) => (a.filed < b.filed ? 1 : -1));
   return candidates[0].val;
+}
+
+async function fetchFilingHtml(cik: string, filing: { accession: string; primaryDocument: string }) {
+  const accnoPath = filing.accession.replace(/-/g, "");
+  const res = await fetch(
+    `https://www.sec.gov/Archives/edgar/data/${cik}/${accnoPath}/${filing.primaryDocument}`,
+    { headers: HEADERS },
+  );
+  if (!res.ok) {
+    throw new Error(`Filing HTML fetch failed for ${filing.accession}: ${res.status}`);
+  }
+  return res.text();
+}
+
+function parseAttrMap(source: string) {
+  const attrs = new Map<string, string>();
+  const attrRe = /([A-Za-z_:][\w:.-]*)="([^"]*)"/g;
+  let match: RegExpExecArray | null;
+  while ((match = attrRe.exec(source))) {
+    attrs.set(match[1], match[2]);
+  }
+  return attrs;
+}
+
+function normalizeInlineUnitRef(unitRef: string | null) {
+  if (!unitRef) return null;
+  const trimmed = unitRef.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase() === "pure") return "pure";
+  const perShare = trimmed.match(/^([A-Za-z]{3})perShare$/i);
+  if (perShare) return `${perShare[1].toUpperCase()}/shares`;
+  const slashShare = trimmed.match(/^([A-Za-z]{3})\/shares$/i);
+  if (slashShare) return `${slashShare[1].toUpperCase()}/shares`;
+  return trimmed.toUpperCase();
+}
+
+function parseInlineXbrlDocument(html: string): InlineXbrlDocument {
+  const contexts = new Map<string, InlineXbrlContext>();
+  const contextRe = /<xbrli:context\b([^>]*)>([\s\S]*?)<\/xbrli:context>/gi;
+  let contextMatch: RegExpExecArray | null;
+
+  while ((contextMatch = contextRe.exec(html))) {
+    const attrs = parseAttrMap(contextMatch[1]);
+    const id = attrs.get("id");
+    if (!id) continue;
+
+    const body = contextMatch[2];
+    const instantMatch = body.match(/<xbrli:instant>\s*([^<]+?)\s*<\/xbrli:instant>/i);
+    const startMatch = body.match(/<xbrli:startDate>\s*([^<]+?)\s*<\/xbrli:startDate>/i);
+    const endMatch = body.match(/<xbrli:endDate>\s*([^<]+?)\s*<\/xbrli:endDate>/i);
+
+    if (instantMatch?.[1]) {
+      contexts.set(id, {
+        id,
+        periodType: "instant",
+        instant: instantMatch[1].trim(),
+      });
+    } else if (startMatch?.[1] && endMatch?.[1]) {
+      contexts.set(id, {
+        id,
+        periodType: "duration",
+        startDate: startMatch[1].trim(),
+        endDate: endMatch[1].trim(),
+      });
+    }
+  }
+
+  const facts: InlineXbrlFact[] = [];
+  const factRe = /<ix:nonFraction\b([^>]*)>([\s\S]*?)<\/ix:nonFraction>/gi;
+  let factMatch: RegExpExecArray | null;
+
+  while ((factMatch = factRe.exec(html))) {
+    const attrs = parseAttrMap(factMatch[1]);
+    const name = attrs.get("name");
+    const contextRef = attrs.get("contextRef");
+    if (!name || !contextRef) continue;
+
+    const text = factMatch[2].replace(/<[^>]+>/g, " ").replace(/&nbsp;|&#160;/gi, " ").trim();
+    const normalized = text.replace(/,/g, "").replace(/\s+/g, "");
+    const raw = normalized.replace(/[()]/g, "");
+    const unitRef = normalizeInlineUnitRef(attrs.get("unitRef") ?? null);
+    if (!raw || raw === "-" || raw === "—") {
+      facts.push({ name, contextRef, unitRef, value: null });
+      continue;
+    }
+
+    const scaleRaw = attrs.get("scale");
+    const scale = scaleRaw ? Number.parseInt(scaleRaw, 10) : 0;
+    const sign = attrs.get("sign");
+    const negative = sign === "-" || normalized.startsWith("(") && normalized.endsWith(")");
+    const numeric = Number.parseFloat(raw.replace(/^[+-]/, ""));
+    if (!Number.isFinite(numeric)) {
+      facts.push({ name, contextRef, unitRef, value: null });
+      continue;
+    }
+
+    const value = numeric * Math.pow(10, Number.isFinite(scale) ? scale : 0);
+    facts.push({ name, contextRef, unitRef, value: negative ? -value : value });
+  }
+
+  return { contexts, facts };
+}
+
+function pickInlineFactWithUnit(
+  doc: InlineXbrlDocument,
+  tagsUsGaap: string[],
+  tagsIfrs: string[],
+  reportDate: string,
+  periodType: "instant" | "duration",
+  unitCandidates: string[],
+) {
+  const wantedUnits = new Set(unitCandidates.map((unit) => unit.trim().toUpperCase()));
+  const candidates: Array<{ unitRank: number; value: number; unit: string | null }> = [];
+
+  for (const fact of doc.facts) {
+    const tag = fact.name.includes(":") ? fact.name.split(":").at(-1) ?? fact.name : fact.name;
+    if (!tagsUsGaap.includes(tag) && !tagsIfrs.includes(tag)) continue;
+    if (fact.value == null) continue;
+
+    const context = doc.contexts.get(fact.contextRef);
+    if (!context || context.periodType !== periodType) continue;
+    if (periodType === "instant" && context.instant !== reportDate) continue;
+    if (periodType === "duration" && context.endDate !== reportDate) continue;
+
+    const unit = fact.unitRef?.toUpperCase() ?? null;
+    const unitRank = unit && wantedUnits.size && wantedUnits.has(unit) ? 0 : 1;
+    candidates.push({ unitRank, value: fact.value, unit: fact.unitRef });
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.unitRank - b.unitRank);
+  return candidates[0];
 }
 
 function decimalFromNumber(value: number) {
@@ -387,7 +570,7 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
   const companyEntity = await upsertCompanyEntity(cik, ticker, title, profile);
   const [facts, filings] = await Promise.all([
     getCompanyFacts(cik),
-    Promise.resolve(pickRecentAnnualFilings(submissions)),
+    fetchAllAnnualFilings(cik),
   ]);
 
   const targetFilings = filings
@@ -402,17 +585,40 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
 
   for (const filing of targetFilings) {
     const extSource = await upsertExtSource(companyEntity.id, cik, filing);
+    let inlineDoc: InlineXbrlDocument | null = null;
     let upserted = 0;
     let missing = 0;
+    let fallbackUsed = 0;
 
     for (const item of LINE_ITEMS) {
-      const value = findBestFactValue(
+      const companyFactsValue = findBestFactValue(
         facts,
         item.tagsUsGaap,
         item.tagsIfrs,
         item.unitCandidates,
         filing.reportDate,
       );
+
+      let value = companyFactsValue;
+      let unit = item.unitCandidates[0];
+
+      if (value == null) {
+        inlineDoc ??= parseInlineXbrlDocument(await fetchFilingHtml(cik, filing));
+        const inlineFact = pickInlineFactWithUnit(
+          inlineDoc,
+          item.tagsUsGaap,
+          item.tagsIfrs,
+          filing.reportDate,
+          item.periodType,
+          item.unitCandidates,
+        );
+        if (inlineFact) {
+          value = inlineFact.value;
+          unit = inlineFact.unit ? normalizeInlineUnitRef(inlineFact.unit) ?? unit : unit;
+          fallbackUsed++;
+        }
+      }
+
       if (value == null) {
         missing++;
         continue;
@@ -434,19 +640,19 @@ async function import10kForTicker(ticker: string, fromYear: number, toYear: numb
           periodType: "FY",
           lineItem: item.key,
           value: decimalFromNumber(value),
-          unit: item.unitCandidates[0],
+          unit,
         },
         update: {
           sourceId: extSource.id,
           value: decimalFromNumber(value),
-          unit: item.unitCandidates[0],
+          unit,
         },
       });
       upserted++;
     }
 
     console.log(
-      `  ${filing.reportDate} (${filing.accession}) -> upserted ${upserted}, missing ${missing}`,
+      `  ${filing.reportDate} (${filing.accession}) -> upserted ${upserted}, missing ${missing}, fallback ${fallbackUsed}`,
     );
   }
 }

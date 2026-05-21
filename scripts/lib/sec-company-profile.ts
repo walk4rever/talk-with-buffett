@@ -13,6 +13,13 @@ type SubmissionRecent = {
   primaryDocument: string[];
 };
 
+type SubmissionFileRef = {
+  name: string;
+  filingCount?: number;
+  filingFrom?: string;
+  filingTo?: string;
+};
+
 type SubmissionPayload = {
   name?: string;
   tickers?: string[];
@@ -25,6 +32,7 @@ type SubmissionPayload = {
   stateOfIncorporationDescription?: string;
   filings?: {
     recent: SubmissionRecent;
+    files?: SubmissionFileRef[];
   };
 };
 
@@ -99,6 +107,12 @@ export async function fetchSecSubmissions(cik: string) {
   return res.json() as Promise<SubmissionPayload>;
 }
 
+export async function fetchSecSubmissionFile(name: string) {
+  const res = await fetch(`${EDGAR}/submissions/${name}`, { headers: HEADERS });
+  if (!res.ok) throw new Error(`Submission file fetch failed: ${name}`);
+  return res.json() as Promise<SubmissionRecent>;
+}
+
 export function pickCompanyProfile(data: SubmissionPayload): SecCompanyProfile {
   return {
     name: firstNonEmpty(data.name),
@@ -117,6 +131,10 @@ export function pickRecentAnnualFilings(data: SubmissionPayload): SecRecentFilin
   const recent = data.filings?.recent;
   if (!recent) return [];
 
+  return pickAnnualFilingsFromRecent(recent);
+}
+
+export function pickAnnualFilingsFromRecent(recent: SubmissionRecent): SecRecentFiling[] {
   const filings: SecRecentFiling[] = [];
   for (let i = 0; i < recent.form.length; i++) {
     const form = recent.form[i];
@@ -130,4 +148,22 @@ export function pickRecentAnnualFilings(data: SubmissionPayload): SecRecentFilin
     });
   }
   return filings;
+}
+
+export async function fetchAllAnnualFilings(cik: string) {
+  const root = await fetchSecSubmissions(cik);
+  const filings = pickRecentAnnualFilings(root);
+  const fileRefs = root.filings?.files ?? [];
+
+  for (const ref of fileRefs) {
+    const payload = await fetchSecSubmissionFile(ref.name);
+    filings.push(...pickAnnualFilingsFromRecent(payload));
+  }
+
+  const deduped = new Map<string, SecRecentFiling>();
+  for (const filing of filings) {
+    deduped.set(filing.accession, filing);
+  }
+
+  return [...deduped.values()].sort((a, b) => (a.reportDate < b.reportDate ? 1 : -1));
 }

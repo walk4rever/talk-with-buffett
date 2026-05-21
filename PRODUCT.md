@@ -2,7 +2,7 @@
 
 # 巴菲特部落 · Buffett Tribe — 产品设计文档
 
-> 最后更新：2026-05-14（v0.36.0）
+> 最后更新：2026-05-21（v0.35.0）
 
 ---
 
@@ -45,6 +45,8 @@
 Canvas 的数据来自两个渠道：
 - 结构化事实层（财务数据，来自 EDGAR / 市场数据 API）
 - 对话沉淀层（Company Brain，随用户对话写回积累）
+
+当前公司页已经接通真实数据源与批处理入库流程，不再是纯 Mock 页面。
 
 ### /idea — 对话研究室
 
@@ -98,7 +100,7 @@ Apple HIG 精简风格：
 
 | 层 | 选型 |
 |----|------|
-| 前端 | Next.js 15 App Router · TypeScript · React |
+| 前端 | Next.js 16 App Router · TypeScript · React |
 | 样式 | 手写 CSS（globals.css），无 Tailwind |
 | 数据库 | PostgreSQL via Prisma (Supabase) |
 | AI | Claude API（对话 + 分析生成） |
@@ -123,15 +125,100 @@ Apple HIG 精简风格：
 
 ---
 
-## 当前实现状态（v0.36.0）
+## 当前实现状态（v0.35.0）
 
 | 功能 | 状态 |
 |------|------|
 | /master 大师页面 | ✅ 已上线 |
 | /idea 对话界面 | ✅ 已上线 |
-| Company Canvas（6 Tab UI） | ✅ 已实现（Mock 数据） |
-| Canvas 实时生成（RAG → AI） | 🔲 待开发 |
-| Company Brain 写回 | 🔲 待开发 |
-| /company/[cik] 公司页 | 🔲 待开发 |
-| Fact Fetch Pipeline | 🔲 待开发 |
-| 持仓数据实时更新 | 🔲 待开发 |
+| /company/[cik] 公司页 | ✅ 已上线 |
+| Company Canvas（6 Tab UI） | ✅ 已实现 |
+| Company Analysis 批量入库 | ✅ 已实现 |
+| Canvas 实时生成（RAG → AI） | 🟡 部分实现，仍在迭代 |
+| Company Brain 写回 | 🟡 部分实现 |
+| Fact Fetch Pipeline | 🟡 已有批处理脚本，持续补齐 |
+| 持仓数据更新 | 🟡 以季度批处理为主 |
+
+---
+
+## 数据与脚本
+
+脚本现在比较多，按职责分组如下。日常维护优先走这些命令，而不是直接改库。
+
+### 导入
+
+- `npm run import:13f` / `npm run import:13f:range`：导入 13F 持仓
+- `npm run import:10k`：按 ticker / 年份导入 10-K、20-F 财务数据
+- `npm run import:10k:from13f`：从 13F 持仓反推需要补齐的公司财务
+- `npm run pipeline:13f` / `npm run pipeline:10k`：完整流水线封装
+
+### 回填与修复
+
+- `npm run backfill:security:company-links`：把 security 重新挂到正确 company
+- `npm run backfill:security:table`：修正 security 表历史数据
+- `npm run backfill:company:profiles`：补公司 profile 元数据
+- `npm run backfill:names`：补中文名 / 英文短名
+- `npm run sync:company-name-map`：让 `company_name_map` 跟实体数据对齐
+- `npm run cleanup:duplicate-companies`：清理重复 company 实体
+- `npm run generate:master-profile`：补大师主页 profile
+- `npm run generate:portfolio-insight`：生成持仓洞察
+
+### 巡检
+
+- `npm run check:security:integrity`：检查 security 关联完整性
+- `npm run check:financial:integrity`：检查财务数据完整性
+- `npm run check:latest-holdings:coverage`：检查三位投资者最新季持仓公司的 5 年财务与 analysis 覆盖
+- `npm run check:latest-holdings:coverage:json`：机器可读 JSON 输出
+- `npm run check:db`：数据库健康检查
+- `scripts/check-all-company-financials.ts`：全量公司财务巡检
+
+### 自动补齐
+
+- `npm run fix:latest-holdings:coverage`：按巡检结果自动补齐缺口
+- `scripts/run-company-analysis.ts`：批量生成并入库 company analysis
+- `scripts/import-10k-xbrl.ts`：现在支持 `companyfacts + filing-level inline XBRL fallback`
+
+### 实验与基准
+
+- `scripts/eval-*.ts`：检索与 MVP 评测
+- `scripts/neo4j-*.ts`：图谱抽取、导入、演练
+- `scripts/bench-live-asr-*.ts` / `scripts/test-volc-asr.mjs`：语音链路实验
+
+### 维护原则
+
+- 先跑巡检，再跑修复，最后才考虑手工改库
+- 只要能写成脚本，就不要在数据库里临时补
+- 新脚本优先挂到 `package.json`，避免隐蔽入口继续增加
+
+---
+
+## 运维速查表
+
+### 最常用
+
+- `npm run import:13f`
+- `npm run import:10k -- --ticker TME --from 2025 --to 2025`
+- `npm run check:latest-holdings:coverage`
+- `npm run fix:latest-holdings:coverage`
+- `node --env-file=.env.local ./node_modules/.bin/tsx scripts/run-company-analysis.ts --all`
+
+### 数据修复
+
+- `npm run backfill:security:company-links`
+- `npm run sync:company-name-map`
+- `npm run cleanup:duplicate-companies`
+- `npm run backfill:company:profiles`
+- `npm run backfill:names`
+
+### 巡检
+
+- `npm run check:security:integrity`
+- `npm run check:financial:integrity`
+- `npm run check:db`
+- `scripts/check-all-company-financials.ts`
+
+### 规则
+
+- 先查缺口，再补数据，再做手工修正
+- 12F / 10-K / analysis 的批处理都优先脚本化
+- 数据源优先级：`companyfacts` -> filing-level inline XBRL -> 手工修复
