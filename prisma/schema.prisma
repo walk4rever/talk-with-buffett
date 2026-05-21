@@ -382,3 +382,14 @@ model PortfolioInsight {
   @@unique([masterId, year, quarter])
   @@index([masterId])
 }
+
+model HomeSignalSnapshot {
+  id             String   @id @default(cuid())
+  scope          String   @unique
+  sourceQuarter  String?
+  payload        Json
+  version        Int      @default(1)
+  generatedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

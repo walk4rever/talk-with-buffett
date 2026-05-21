@@ -3,65 +3,28 @@ import { formatCompanyPathFromCik } from "@/lib/cik";
 import { SiteNav } from "@/components/SiteNav";
 import { HeroSearch } from "@/components/HeroSearch";
 import { formatAumForHome, TRIBE_MEMBERS } from "@/lib/tribe";
+import { getLatestHomeSignalCards } from "@/lib/home-signals";
 import { getAvailableQuarters, getMasterClassSummary } from "@/lib/master-data";
 
 export const dynamic = "force-dynamic";
 
-const SIGNALS = [
-  {
-    type: "consensus" as const,
-    tag: "★ 共识持仓",
-    ticker: "BAC",
-    cik: "70858",
-    tickerLabel: "美国银行（BAC）",
-    company: "Bank of America",
-    body: "巴菲特持有14年，李录独立建仓，均列前3重仓",
-    chips: [
-      { label: "Buffett 10.4%", style: { background: "#fdf2f2", color: "#8b0000" } },
-      { label: "李录 16.1%", style: { background: "#eff6ff", color: "#1d4ed8" } },
-    ],
-  },
-  {
-    type: "new" as const,
-    tag: "↑ 新动作",
-    ticker: "OXY",
-    cik: "797468",
-    tickerLabel: "西方石油（OXY）",
-    company: "Occidental Petroleum",
-    body: "巴菲特本季继续增持，持仓占比突破28%，接近收购门槛",
-    chips: [
-      { label: "Buffett 28.2% ↑", style: { background: "#fdf2f2", color: "#8b0000" } },
-    ],
-  },
-  {
-    type: "divergent" as const,
-    tag: "⇅ 各有判断",
-    ticker: "AAPL",
-    cik: "320193",
-    tickerLabel: "苹果（AAPL）",
-    company: "Apple",
-    body: "巴菲特连续4季减持至5.2亿股；段永平仍视为核心持仓",
-    chips: [
-      { label: "Buffett ↓减持", style: { background: "#fef2f2", color: "#c53030" } },
-      { label: "段永平 持有", style: { background: "#f0fdf4", color: "#2f855a" } },
-    ],
-  },
-];
-
 export default async function Home() {
-  const memberStates = await Promise.all(
-    TRIBE_MEMBERS.map(async (m) => {
-      const [quarters, classes] = await Promise.all([
-        getAvailableQuarters(m.id),
-        getMasterClassSummary(m.id),
-      ]);
-      return {
-        id: m.id,
-        latestQuarter: quarters[0] ?? null,
-        hasLibrary: classes.some((c) => c.count > 0),
-      };
-    })
-  );
+  const [signals, memberStates] = await Promise.all([
+    getLatestHomeSignalCards(),
+    Promise.all(
+      TRIBE_MEMBERS.map(async (m) => {
+        const [quarters, classes] = await Promise.all([
+          getAvailableQuarters(m.id),
+          getMasterClassSummary(m.id),
+        ]);
+        return {
+          id: m.id,
+          latestQuarter: quarters[0] ?? null,
+          hasLibrary: classes.some((c) => c.count > 0),
+        };
+      })
+    ),
+  ]);
 
   const stateMap = new Map(memberStates.map((s) => [s.id, s]));
 
@@ -72,7 +35,7 @@ export default async function Home() {
       {/* Signals */}
       <section className="home-signals">
         <div className="home-signals-in">
-          {SIGNALS.map((s) => (
+          {signals.map((s) => (
             <div key={s.ticker} className={`home-sig home-sig--${s.type}`}>
               <span className="home-sig-tag">{s.tag}</span>
               <Link href={formatCompanyPathFromCik(s.cik) ?? "#"} className="home-sig-ticker">

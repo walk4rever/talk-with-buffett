@@ -2,7 +2,7 @@
 
 # 巴菲特部落 · Buffett Tribe — 产品设计文档
 
-> 最后更新：2026-05-21（v0.35.2）
+> 最后更新：2026-05-21（v0.35.3）
 
 ---
 
@@ -125,7 +125,7 @@ Apple HIG 精简风格：
 
 ---
 
-## 当前实现状态（v0.35.2）
+## 当前实现状态（v0.35.3）
 
 | 功能 | 状态 |
 |------|------|
@@ -162,6 +162,7 @@ Apple HIG 精简风格：
 - `npm run cleanup:duplicate-companies`：清理重复 company 实体
 - `npm run generate:master-profile`：补大师主页 profile
 - `npm run generate:portfolio-insight`：生成持仓洞察
+- `npm run generate:home-signals`：生成首页 3 条信号快照
 
 ### 巡检
 
@@ -200,6 +201,7 @@ Apple HIG 精简风格：
 - `npm run import:10k -- --ticker TME --from 2025 --to 2025`
 - `npm run check:latest-holdings:coverage`
 - `npm run fix:latest-holdings:coverage`
+- `npm run generate:home-signals`
 - `node --env-file=.env.local ./node_modules/.bin/tsx scripts/run-company-analysis.ts --all`
 
 ### 数据修复
@@ -222,3 +224,4 @@ Apple HIG 精简风格：
 - 先查缺口，再补数据，再做手工修正
 - 12F / 10-K / analysis 的批处理都优先脚本化
 - 数据源优先级：`companyfacts` -> filing-level inline XBRL -> 手工修复
+- 首页信号由脚本产出快照，页面只读快照，不在页面里现算

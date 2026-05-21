@@ -4021,6 +4021,8 @@ body.layout-no-header {
   padding: 1.25rem 1.375rem;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   transition: box-shadow 0.2s;
   cursor: pointer;
 }
@@ -4041,6 +4043,9 @@ body.layout-no-header {
 .home-sig--consensus::before { background: rgba(255, 214, 10, 0.8); }
 .home-sig--new::before        { background: var(--apple-blue); }
 .home-sig--divergent::before  { background: linear-gradient(90deg, #30d158, #ff453a); }
+.home-sig--add::before        { background: linear-gradient(90deg, #34d399, #3b82f6); }
+.home-sig--trim::before       { background: linear-gradient(90deg, #f97316, #ef4444); }
+.home-sig--fallback::before   { background: rgba(148, 163, 184, 0.78); }
 
 .home-sig-tag {
   font-size: 0.625rem;
@@ -4084,13 +4089,15 @@ body.layout-no-header {
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.47;
   letter-spacing: -0.224px;
+  flex: 1;
 }
 
 .home-sig-chips {
   display: flex;
   gap: 0.375rem;
   flex-wrap: wrap;
-  margin-top: 0.75rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
 }
 
 .home-sig-chip {
