@@ -156,6 +156,20 @@ function circledIndex(index: number) {
   return String.fromCodePoint(9312 + index);
 }
 
+function formatPriceFromValueAndShares(valueUsd: bigint | null, shares: bigint | null) {
+  if (valueUsd == null || shares == null) return "—";
+  const v = Number(valueUsd);
+  const s = Number(shares);
+  if (!Number.isFinite(v) || !Number.isFinite(s) || s <= 0) return "—";
+  return `$${(v / s).toFixed(2)}`;
+}
+
+function formatSignedPct(diffPct: number | null) {
+  if (diffPct == null || !Number.isFinite(diffPct)) return "—";
+  const sign = diffPct > 0 ? "+" : "";
+  return `${sign}${diffPct.toFixed(1)}%`;
+}
+
 function buildCompanyNarrative(params: {
   companyName: string;
   ticker: string | null;
@@ -441,6 +455,7 @@ export default async function CompanyPage({ params }: Props) {
   const listedSecurities = securities.length
     ? securities.map(formatSecurityLabel)
     : [company.ticker ?? "—"];
+  const stockLabel = listedSecurities[0] ?? company.ticker ?? company.canonicalName;
 
   const latest = financials[0];
   const fiveYearsAgo = financials[4];
@@ -814,37 +829,73 @@ export default async function CompanyPage({ params }: Props) {
             <h2>大师持仓（13F）</h2>
           </div>
           {holders.holders.length ? (
-            <div className="company-holders">
-              <div className="company-holder-row company-holder-head">
-                <span>机构 Holder</span>
-                <span>仓位 Weight</span>
-                <span>市值（亿） Value</span>
-                <span>申报期 Report</span>
+            <>
+              <div className="company-holders-table-wrap">
+                <table className="company-holders-table">
+                  <thead>
+                    <tr>
+                      <th>机构 Holder</th>
+                      <th>股票 Stock</th>
+                      <th>仓位 % of Portfolio</th>
+                      <th>近期动作 Recent Activity</th>
+                      <th>持股 Shares</th>
+                      <th>申报价 Reported Price*</th>
+                      <th>市值（亿） Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holders.holders.map((h) => {
+                      const member = h.tribeId ? getTribeMember(h.tribeId) : null;
+                      const holderName = member?.nameZh ?? h.name;
+                      return (
+                        <tr key={h.id}>
+                          <td className="company-holders-holder">
+                            {h.tribeId ? (
+                              <Link href={`/master/${h.tribeId}`} className="company-holder-link company-holder-link--name">
+                                <strong>{holderName}</strong>
+                              </Link>
+                            ) : (
+                              <strong>{holderName}</strong>
+                            )}
+                            <span className="company-holder-fund">{h.name}</span>
+                          </td>
+                          <td className="company-holders-stock">
+                            <strong>{stockLabel}</strong>
+                            <span>{company.canonicalName}</span>
+                          </td>
+                          <td className="company-holders-num">
+                            {h.percent != null ? `${h.percent.toFixed(2)}%` : "—"}
+                          </td>
+                          <td className="company-holders-activity">
+                            {h.activity === "New" ? (
+                              <span className="holdings-activity-new">New</span>
+                            ) : h.activity === "Added" ? (
+                              <span className="holdings-activity-delta holdings-activity-delta--up">
+                                ↑ {formatSignedPct(h.shareDeltaPct)}
+                              </span>
+                            ) : h.activity === "Reduced" ? (
+                              <span className="holdings-activity-delta holdings-activity-delta--down">
+                                ↓ {formatSignedPct(h.shareDeltaPct)}
+                              </span>
+                            ) : (
+                              <span className="holdings-activity-delta">—</span>
+                            )}
+                          </td>
+                          <td className="company-holders-num">
+                            {h.shares != null ? h.shares.toLocaleString() : "—"}
+                          </td>
+                          <td className="company-holders-num">
+                            {formatPriceFromValueAndShares(h.valueUsd, h.shares)}
+                          </td>
+                          <td className="company-holders-num">{formatMoney(h.valueUsd)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              {holders.holders.map((h) => (
-                (() => {
-                  const member = h.tribeId ? getTribeMember(h.tribeId) : null;
-                  const holderName = member?.nameZh ?? h.name;
-                  return (
-                    <div key={h.id} className="company-holder-row">
-                      <div>
-                        {h.tribeId ? (
-                          <Link href={`/master/${h.tribeId}`} className="company-holder-link company-holder-link--name">
-                            <strong>{holderName}</strong>
-                          </Link>
-                        ) : (
-                          <strong>{holderName}</strong>
-                        )}
-                        <span className="company-holder-fund">{h.name}</span>
-                      </div>
-                      <span>{h.percent != null ? `${h.percent.toFixed(2)}%` : "—"}</span>
-                      <span>{formatMoney(h.valueUsd)}</span>
-                      <span>{h.sourceYear && h.sourceQuarter ? `${h.sourceYear} Q${h.sourceQuarter}` : "—"}</span>
-                    </div>
-                  );
-                })()
-              ))}
-            </div>
+              <p className="company-holders-note">* Reported Price = 市值 ÷ 持股数，按申报日折算。</p>
+            </>
           ) : (
             <p className="company-empty">暂无该公司的持仓记录。</p>
           )}

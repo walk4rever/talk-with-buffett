@@ -3891,6 +3891,7 @@ body.layout-no-header {
   background: var(--apple-light-gray);
   color: var(--apple-near-black);
   min-height: 100vh;
+  overflow-x: clip;
 }
 
 /* ── Nav — Apple dark glass ── */
@@ -4495,6 +4496,24 @@ body.layout-no-header {
 
   .home-hero {
     padding: 3.5rem 1.25rem 3rem;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .hero-input-wrap {
+    border-radius: 12px;
+  }
+
+  .hero-input {
+    padding: 0.9rem 3.25rem 0.9rem 1rem;
+    font-size: 0.92rem;
+  }
+
+  .hero-input-btn {
+    right: 0.3rem;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
   }
 
   .home-hero-brand {
@@ -5274,12 +5293,16 @@ body.layout-no-header {
     radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.12), transparent 34%),
     radial-gradient(circle at 100% 100%, rgba(148, 163, 184, 0.14), transparent 40%),
     var(--company-bg);
+  overflow-x: clip;
 }
 
 .company-wrap {
   max-width: 1120px;
   margin: 0 auto;
   padding: 2.2rem 1.5rem 5rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   display: grid;
   gap: 1rem;
 }
@@ -5309,6 +5332,7 @@ body.layout-no-header {
 
 .company-hero-copy {
   min-width: 0;
+  max-width: 100%;
   align-self: center;
   display: flex;
   flex-direction: column;
@@ -5341,6 +5365,11 @@ body.layout-no-header {
   line-height: 1.08;
   letter-spacing: -0.02em;
   color: var(--company-text);
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: balance;
 }
 
 .company-intro {
@@ -5370,18 +5399,27 @@ body.layout-no-header {
 }
 
 .company-display--hero {
-  display: inline-flex;
-  gap: 0.28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .company-display--hero .company-display-zh {
   font-size: inherit;
   line-height: 1.05;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .company-display--hero .company-display-en {
   font-size: clamp(0.9rem, 1.8vw, 1.02rem);
   color: var(--company-text-secondary);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .company-profile-card {
@@ -5937,6 +5975,81 @@ body.layout-no-header {
   font-size: 0.82rem;
 }
 
+.company-holders-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--company-border);
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+
+.company-holders-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.company-holders-table thead th {
+  padding: 0.7rem 0.75rem;
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  background: #eef2f7;
+  border-bottom: 1px solid var(--company-border);
+  white-space: nowrap;
+}
+
+.company-holders-table tbody td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  font-size: 0.78rem;
+  vertical-align: middle;
+}
+
+.company-holders-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.company-holders-holder strong,
+.company-holders-stock strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.company-holders-holder {
+  min-width: 0;
+}
+
+.company-holders-stock span,
+.company-holders-holder .company-holder-fund {
+  display: block;
+  margin-top: 0.12rem;
+  color: #64748b;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.company-holders-num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.company-holders-activity {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.company-holders-note {
+  margin: 0.5rem 0 0;
+  color: var(--company-text-secondary);
+  font-size: 0.72rem;
+}
+
 @media (max-width: 900px) {
   .company-hero-main {
     grid-template-columns: 1fr;
@@ -5961,29 +6074,93 @@ body.layout-no-header {
 
 @media (max-width: 640px) {
   .company-wrap {
-    padding: 1.25rem 0.9rem 3rem;
+    padding: 1rem 0.8rem 2.5rem;
   }
 
   .company-hero,
   .company-section {
-    padding: 0.9rem;
+    padding: 0.82rem;
+  }
+
+  .company-hero-main {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .company-hero-copy {
+    align-self: start;
+  }
+
+  .company-intro-band {
+    margin-left: 0;
+    gap: 0.7rem;
+    width: 100%;
   }
 
   .company-name {
-    font-size: 1.55rem;
+    font-size: 1.45rem;
   }
 
   .company-profile-card {
-    padding: 0.8rem 0.82rem;
+    padding: 0.75rem 0.78rem;
   }
 
   .company-profile-row {
-    grid-template-columns: 92px minmax(0, 1fr);
-    gap: 0.5rem;
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 0.45rem;
   }
 
   .company-facts div {
-    grid-template-columns: 104px 1fr;
+    grid-template-columns: 94px 1fr;
+  }
+
+  .company-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .company-split {
+    grid-template-columns: 1fr;
+  }
+
+  .company-value-layout,
+  .company-moat-summary-grid,
+  .company-value-highlights,
+  .company-value-table,
+  .company-moat-notes {
+    grid-template-columns: 1fr;
+  }
+
+  .company-value-row-head,
+  .company-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .company-value-row-score {
+    text-align: left;
+  }
+
+  .company-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .company-table th,
+  .company-table td {
+    padding: 0.42rem 0.28rem;
+    font-size: 0.62rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+  }
+
+  .company-table th:first-child,
+  .company-table td:first-child {
+    width: 28%;
+  }
+
+  .company-table th {
+    position: static;
   }
 
   .company-holder-row {
@@ -5992,6 +6169,64 @@ body.layout-no-header {
 
   .company-holder-row span:last-child {
     display: none;
+  }
+
+  .company-holders-table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .company-holders-table thead th {
+    padding: 0.48rem 0.3rem;
+    font-size: 0.6rem;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .company-holders-table tbody td {
+    padding: 0.52rem 0.3rem;
+    font-size: 0.66rem;
+    vertical-align: top;
+  }
+
+  .company-holders-table th:nth-child(1),
+  .company-holders-table td:nth-child(1) {
+    width: 22%;
+  }
+
+  .company-holders-table th:nth-child(2),
+  .company-holders-table td:nth-child(2) {
+    width: 16%;
+  }
+
+  .company-holders-table th:nth-child(3),
+  .company-holders-table td:nth-child(3),
+  .company-holders-table th:nth-child(4),
+  .company-holders-table td:nth-child(4),
+  .company-holders-table th:nth-child(5),
+  .company-holders-table td:nth-child(5),
+  .company-holders-table th:nth-child(6),
+  .company-holders-table td:nth-child(6),
+  .company-holders-table th:nth-child(7),
+  .company-holders-table td:nth-child(7) {
+    width: 12.4%;
+  }
+
+  .company-holders-holder strong,
+  .company-holders-stock strong {
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .company-holders-stock span,
+  .company-holders-holder .company-holder-fund {
+    font-size: 0.6rem;
+    line-height: 1.25;
+  }
+
+  .company-holders-num,
+  .company-holders-activity {
+    white-space: normal;
   }
 }
 
@@ -6580,12 +6815,22 @@ body {
   position: relative;
   max-width: 560px;
   width: 100%;
+  border: 1px solid var(--graphite-border);
+  border-radius: 14px;
+  background: var(--graphite-surface);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .hero-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.95rem 3.7rem 0.95rem 1.15rem;
-  border-radius: 14px;
+  border: 0;
+  border-radius: 0;
   font-size: 0.95rem;
+  box-shadow: none;
 }
 
 .hero-input-btn {

@@ -65,3 +65,19 @@ export const TRIBE_MEMBERS: TribeMember[] = [
 export function getTribeMember(id: string): TribeMember | null {
   return TRIBE_MEMBERS.find((m) => m.id === id) ?? null;
 }
+
+export function formatAumForHome(aum: string | undefined): string | null {
+  if (!aum) return null;
+  const compact = aum.replace(/\s+/g, "");
+  const match = compact.match(/^\$?([\d.]+)([BTM])$/i);
+  if (!match) return aum;
+
+  const value = Number.parseFloat(match[1] ?? "");
+  if (!Number.isFinite(value)) return aum;
+
+  const unit = (match[2] ?? "").toUpperCase();
+  const yiMultiplier = unit === "T" ? 10000 : unit === "B" ? 10 : unit === "M" ? 0.01 : 1;
+  const yiValue = value * yiMultiplier;
+  const text = Number.isInteger(yiValue) ? String(yiValue) : yiValue.toFixed(1).replace(/\.0$/, "");
+  return `$${text}亿`;
+}

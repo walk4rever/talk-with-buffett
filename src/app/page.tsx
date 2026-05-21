@@ -2,7 +2,7 @@ import Link from "next/link";
 import { formatCompanyPathFromCik } from "@/lib/cik";
 import { SiteNav } from "@/components/SiteNav";
 import { HeroSearch } from "@/components/HeroSearch";
-import { TRIBE_MEMBERS } from "@/lib/tribe";
+import { formatAumForHome, TRIBE_MEMBERS } from "@/lib/tribe";
 import { getAvailableQuarters, getMasterClassSummary } from "@/lib/master-data";
 
 export const dynamic = "force-dynamic";
@@ -123,7 +123,7 @@ export default async function Home() {
                         <div className="home-member-name">{m.nameZh}</div>
                         <div className="home-member-firm">{m.firm}</div>
                       </div>
-                      {m.aum && <span className="home-member-aum">{m.aum}</span>}
+                      {m.aum && <span className="home-member-aum">{formatAumForHome(m.aum) ?? m.aum}</span>}
                     </div>
                   </Link>
                   <div className="home-member-links">

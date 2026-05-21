@@ -1,5 +1,6 @@
 import db from "@/lib/prisma";
 import { formatUsdInYi } from "@/lib/currency";
+import { computeHoldingActivity, computeShareDeltaPct } from "@/lib/holding-activity";
 import { normalizeTicker } from "@/lib/ticker";
 import { Prisma } from "@prisma/client";
 
@@ -242,64 +243,133 @@ export async function getRecentHolders(entityId: string, limit = 20) {
     },
     take: 500,
   });
-  if (!rows.length) return { asOfDate: null, holders: [] as Array<{ id: string; name: string; tribeId: string | null; percent: number | null; valueUsd: bigint | null; sourceYear: number | null; sourceQuarter: number | null }> };
+  if (!rows.length) {
+    return {
+      asOfDate: null,
+      holders: [] as Array<{
+        id: string;
+        name: string;
+        tribeId: string | null;
+        percent: number | null;
+        valueUsd: bigint | null;
+        shares: bigint | null;
+        sourceYear: number | null;
+        sourceQuarter: number | null;
+        asOfDate: Date | null;
+        activity: "New" | "Added" | "Reduced" | "Unchanged";
+        shareDeltaPct: number | null;
+      }>,
+    };
+  }
 
-  const byHolder = new Map<string, {
+  type Row = (typeof rows)[number];
+  type HolderState = {
     id: string;
     name: string;
     tribeId: string | null;
-    percent: number | null;
-    valueUsd: bigint | null;
-    sourceYear: number | null;
-    sourceQuarter: number | null;
-    asOfDate: Date | null;
-  }>();
+    current: {
+      asOfDate: Date | null;
+      percent: number | null;
+      valueUsd: bigint | null;
+      shares: bigint | null;
+      sourceYear: number | null;
+      sourceQuarter: number | null;
+    };
+    previous: {
+      asOfDate: Date | null;
+      percent: number | null;
+      valueUsd: bigint | null;
+      shares: bigint | null;
+      sourceYear: number | null;
+      sourceQuarter: number | null;
+    } | null;
+  };
 
-  for (const h of rows) {
-    const prev = byHolder.get(h.holder.id);
-    if (!prev) {
-      byHolder.set(h.holder.id, {
-        id: h.holder.id,
-        name: h.holder.canonicalName,
-        tribeId: h.holder.tribeId,
-        percent: h.percentOfPortfolio,
-        valueUsd: h.valueUsd,
-        sourceYear: h.source.periodYear,
-        sourceQuarter: h.source.periodQuarter,
-        asOfDate: h.asOfDate,
+  const byHolder = new Map<string, HolderState>();
+
+  const addToBucket = (
+    bucket: {
+      asOfDate: Date | null;
+      percent: number | null;
+      valueUsd: bigint | null;
+      shares: bigint | null;
+      sourceYear: number | null;
+      sourceQuarter: number | null;
+    },
+    row: Row,
+  ) => {
+    bucket.percent = (bucket.percent ?? 0) + (row.percentOfPortfolio ?? 0);
+    bucket.valueUsd = (bucket.valueUsd ?? BigInt(0)) + (row.valueUsd ?? BigInt(0));
+    bucket.shares = (bucket.shares ?? BigInt(0)) + (row.shares ?? BigInt(0));
+    bucket.sourceYear = row.source.periodYear ?? bucket.sourceYear;
+    bucket.sourceQuarter = row.source.periodQuarter ?? bucket.sourceQuarter;
+  };
+
+  for (const row of rows) {
+    const key = row.holder.id;
+    const state = byHolder.get(key);
+    if (!state) {
+      byHolder.set(key, {
+        id: row.holder.id,
+        name: row.holder.canonicalName,
+        tribeId: row.holder.tribeId,
+        current: {
+          asOfDate: row.asOfDate,
+          percent: row.percentOfPortfolio,
+          valueUsd: row.valueUsd,
+          shares: row.shares,
+          sourceYear: row.source.periodYear,
+          sourceQuarter: row.source.periodQuarter,
+        },
+        previous: null,
       });
       continue;
     }
 
-    const prevTime = prev.asOfDate?.getTime() ?? 0;
-    const currentTime = h.asOfDate.getTime();
-    if (currentTime < prevTime) continue;
+    const currentTime = state.current.asOfDate?.getTime() ?? 0;
+    const currentRowTime = row.asOfDate.getTime();
+    const previousTime = state.previous?.asOfDate?.getTime() ?? null;
 
-    if (currentTime > prevTime) {
-      byHolder.set(h.holder.id, {
-        id: h.holder.id,
-        name: h.holder.canonicalName,
-        tribeId: h.holder.tribeId,
-        percent: h.percentOfPortfolio,
-        valueUsd: h.valueUsd,
-        sourceYear: h.source.periodYear,
-        sourceQuarter: h.source.periodQuarter,
-        asOfDate: h.asOfDate,
-      });
+    if (currentRowTime === currentTime) {
+      addToBucket(state.current, row);
       continue;
     }
 
-    byHolder.set(h.holder.id, {
-      ...prev,
-      percent: h.percentOfPortfolio ?? prev.percent,
-      valueUsd: (prev.valueUsd ?? BigInt(0)) + (h.valueUsd ?? BigInt(0)),
-      sourceYear: h.source.periodYear ?? prev.sourceYear,
-      sourceQuarter: h.source.periodQuarter ?? prev.sourceQuarter,
-      asOfDate: prev.asOfDate,
-    });
+    if (previousTime == null) {
+      state.previous = {
+        asOfDate: row.asOfDate,
+        percent: row.percentOfPortfolio,
+        valueUsd: row.valueUsd,
+        shares: row.shares,
+        sourceYear: row.source.periodYear,
+        sourceQuarter: row.source.periodQuarter,
+      };
+      continue;
+    }
+
+    if (currentRowTime === previousTime && state.previous) {
+      addToBucket(state.previous, row);
+    }
   }
 
   const holders = [...byHolder.values()]
+    .map((state) => {
+      const shareDeltaPct = computeShareDeltaPct(state.previous?.shares, state.current.shares);
+      const activity = computeHoldingActivity(Boolean(state.previous), Boolean(state.previous), shareDeltaPct);
+      return {
+        id: state.id,
+        name: state.name,
+        tribeId: state.tribeId,
+        percent: state.current.percent,
+        valueUsd: state.current.valueUsd,
+        shares: state.current.shares,
+        sourceYear: state.current.sourceYear,
+        sourceQuarter: state.current.sourceQuarter,
+        asOfDate: state.current.asOfDate,
+        activity,
+        shareDeltaPct,
+      };
+    })
     .sort((a, b) => Number(b.valueUsd ?? BigInt(0)) - Number(a.valueUsd ?? BigInt(0)))
     .slice(0, limit);
 
