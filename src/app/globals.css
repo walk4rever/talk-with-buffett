@@ -5369,7 +5369,6 @@ body.layout-no-header {
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
-  text-wrap: balance;
 }
 
 .company-intro {
@@ -5385,7 +5384,7 @@ body.layout-no-header {
   align-self: center;
   padding: 0.15rem 0;
   justify-self: start;
-  margin-left: -2rem;
+  margin-left: 0;
   display: grid;
   gap: 0.9rem;
 }
