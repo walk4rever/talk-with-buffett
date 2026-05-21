@@ -355,7 +355,9 @@ export async function getRecentHolders(entityId: string, limit = 20) {
   const holders = [...byHolder.values()]
     .map((state) => {
       const shareDeltaPct = computeShareDeltaPct(state.previous?.shares, state.current.shares);
-      const activity = computeHoldingActivity(Boolean(state.previous), Boolean(state.previous), shareDeltaPct);
+      const activity = state.previous
+        ? computeHoldingActivity(true, true, shareDeltaPct)
+        : "New";
       return {
         id: state.id,
         name: state.name,
