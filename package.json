@@ -1,6 +1,6 @@
 {
   "name": "buffett-tribe",
-  "version": "0.34.21",
+  "version": "0.34.22",
   "private": true,
   "type": "module",
   "scripts": {
@@ -28,6 +28,8 @@
     "migrate:person:master:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/migrate-person-to-master.ts --dry-run",
     "backfill:security:company-links": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-security-company-links.ts",
     "backfill:security:company-links:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-security-company-links.ts --dry-run",
+    "cleanup:duplicate-companies": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/cleanup-duplicate-company-entities.ts",
+    "cleanup:duplicate-companies:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/cleanup-duplicate-company-entities.ts --dry-run",
     "backfill:company:profiles": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-company-profiles.ts",
     "backfill:company:profiles:dry": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/backfill-company-profiles.ts --dry-run",
     "check:security:integrity": "node --env-file=.env.local ./node_modules/.bin/tsx scripts/check-security-integrity.ts",

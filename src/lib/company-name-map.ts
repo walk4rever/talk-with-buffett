@@ -1,3 +1,5 @@
+import { normalizeTicker } from "@/lib/ticker";
+
 export function normalizeEnglishName(name: string): string {
   return name
     .replace(/\b(INC|CORP|CORPORATION|CO|COMPANY|HOLDINGS|HLDGS|GROUP|PLC|LTD|LLC|CL A|CL B|COM|SER [A-Z])\b\.?/gi, "")
@@ -21,7 +23,7 @@ export function resolveCompanyNamesFromMaps(input: {
   existingNameZh?: string | null;
   maps: NameMapCaches;
 }) {
-  const normalizedTicker = input.ticker?.toUpperCase() ?? null;
+  const normalizedTicker = normalizeTicker(input.ticker);
   const key = issuerKey(input.canonicalName);
   const ticker = normalizedTicker ?? input.maps.tickerByIssuer.get(key) ?? null;
   const nameEnShort = normalizeEnglishName(input.canonicalName);

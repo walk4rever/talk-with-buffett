@@ -10,34 +10,42 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { issuerKey } from "../src/lib/company-name-map";
+import { normalizeTicker } from "../src/lib/ticker";
 
 const db = new PrismaClient();
 const dryRun = process.argv.includes("--dry-run");
 
 async function main() {
   const companies = await db.entity.findMany({
-    where: { type: "company" },
-    select: { ticker: true, canonicalName: true, metadata: true },
+    where: { type: { in: ["company", "master"] } },
+    select: { ticker: true, canonicalName: true, metadata: true, type: true, cik: true },
+  });
+  companies.sort((a, b) => {
+    const score = (x: (typeof companies)[number]) =>
+      (x.type === "master" ? 120 : 0) + (x.cik ? 100 : 0);
+    return score(b) - score(a);
   });
   const tickerRows = companies
     .filter((c) => c.ticker)
     .map((c) => {
       const meta = (c.metadata as Record<string, unknown> | null) ?? {};
       const nameZh = typeof meta.nameZh === "string" ? meta.nameZh : null;
+      const ticker = normalizeTicker(c.ticker);
+      if (!ticker) return null;
       return {
         keyType: "ticker",
-        key: c.ticker!.toUpperCase(),
+        key: ticker,
         nameZh,
-        ticker: c.ticker!.toUpperCase(),
+        ticker,
         source: "entity.company",
       };
     })
-    .filter((r): r is { keyType: string; key: string; nameZh: string; ticker: string; source: string } => Boolean(r.nameZh));
+    .filter((r): r is { keyType: string; key: string; nameZh: string; ticker: string; source: string } => Boolean(r?.nameZh));
 
   const issuerRows = companies.map((c) => {
     const meta = (c.metadata as Record<string, unknown> | null) ?? {};
     const nameZh = typeof meta.nameZh === "string" ? meta.nameZh : null;
-    const ticker = c.ticker?.toUpperCase() ?? null;
+    const ticker = normalizeTicker(c.ticker);
     return {
       keyType: "issuer",
       key: issuerKey(c.canonicalName),

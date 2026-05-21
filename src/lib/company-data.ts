@@ -1,5 +1,6 @@
 import db from "@/lib/prisma";
 import { formatUsdInYi } from "@/lib/currency";
+import { normalizeTicker } from "@/lib/ticker";
 import { Prisma } from "@prisma/client";
 
 export async function getCompanyByCik(cikRaw: string) {
@@ -10,6 +11,7 @@ export async function getCompanyByCik(cikRaw: string) {
     where: { cik },
     select: {
       id: true,
+      type: true,
       canonicalName: true,
       ticker: true,
       cik: true,
@@ -21,10 +23,11 @@ export async function getCompanyByCik(cikRaw: string) {
 }
 
 export async function getCompanyByTicker(ticker: string) {
-  const normalizedTicker = ticker.toUpperCase();
+  const normalizedTicker = normalizeTicker(ticker);
+  if (!normalizedTicker) return null;
   const rows = await db.entity.findMany({
     where: {
-      type: "company",
+      type: { in: ["company", "master"] },
       ticker: {
         equals: normalizedTicker,
         mode: "insensitive",
@@ -32,6 +35,7 @@ export async function getCompanyByTicker(ticker: string) {
     },
     select: {
       id: true,
+      type: true,
       canonicalName: true,
       ticker: true,
       cik: true,
@@ -75,6 +79,7 @@ export async function getCompanyByTicker(ticker: string) {
 
   const best = [...rows].sort((a, b) => {
     const score = (x: (typeof rows)[number]) =>
+      (x.type === "master" ? 120 : 0) +
       (x.cik ? 100 : 0) +
       (x._count.financials > 0 ? 50 : 0) +
       (x._count.holdingsAsSecurity > 0 ? 30 : 0);
@@ -119,24 +124,30 @@ export async function getCompanySecurities(entityId: string) {
 async function getEntityFamilyIds(entityId: string) {
   const base = await db.entity.findUnique({
     where: { id: entityId },
-    select: { id: true, ticker: true },
+    select: { id: true, ticker: true, type: true, cik: true },
   });
   if (!base) return [entityId];
   if (!base.ticker) return [entityId];
 
   const siblings = await db.entity.findMany({
     where: {
-      type: "company",
+      type: { in: ["company", "master"] },
       ticker: {
-        equals: base.ticker,
+        equals: normalizeTicker(base.ticker) ?? base.ticker,
         mode: "insensitive",
       },
     },
-    select: { id: true },
+    select: { id: true, type: true, cik: true },
   });
 
   if (!siblings.length) return [entityId];
-  return siblings.map((s) => s.id);
+  return siblings
+    .sort((a, b) => {
+      const score = (x: (typeof siblings)[number]) =>
+        (x.type === "master" ? 120 : 0) + (x.cik ? 100 : 0);
+      return score(b) - score(a);
+    })
+    .map((s) => s.id);
 }
 
 async function getSecurityIdsForCompany(entityId: string) {
@@ -147,7 +158,7 @@ async function getSecurityIdsForCompany(entityId: string) {
   if (!base) return { profileIds: [] as string[], legacyEntityIds: [entityId] };
 
   const familyCompanyIds = await getEntityFamilyIds(entityId);
-  const ticker = base.ticker?.toUpperCase() ?? null;
+  const ticker = normalizeTicker(base.ticker);
 
   const securityProfiles = await db.security.findMany({
     where: {

@@ -17,6 +17,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { issuerKey, normalizeEnglishName } from "../src/lib/company-name-map";
+import { normalizeTicker } from "../src/lib/ticker";
 
 const db = new PrismaClient();
 const dryRun = process.argv.includes("--dry-run");
@@ -26,13 +27,6 @@ const SEC_WWW = "https://www.sec.gov";
 const HEADERS = {
   "User-Agent": "buffett-tribe research walkklaw@gmail.com",
   Accept: "application/json, text/xml, */*",
-};
-
-const TICKER_ALIASES: Record<string, string> = {
-  "BRK.B": "BRK-B",
-  "BRK.A": "BRK-A",
-  LLIVE: "LLYVK",
-  YY: "JOYY",
 };
 
 // High-confidence CUSIP overrides for known dual-class / naming edge cases.
@@ -45,11 +39,6 @@ const CUSIP_TICKER_OVERRIDES: Record<string, string> = {
   "530909100": "LLYVA", // Liberty Live Series A
   "530909308": "LLYVK", // Liberty Live Series C
 };
-
-function normalizeTicker(ticker: string): string {
-  const raw = ticker.trim().toUpperCase();
-  return TICKER_ALIASES[raw] ?? raw;
-}
 
 function normalizeCusip(raw: string): string {
   const compact = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -92,6 +81,10 @@ function asObj(v: unknown): Record<string, unknown> {
   return v as Record<string, unknown>;
 }
 
+function scoreCompanyCandidate(input: { type?: string; cik?: string | null }) {
+  return (input.type === "master" ? 120 : 0) + (input.cik ? 100 : 0);
+}
+
 async function getTickerCikMap() {
   const res = await fetch(`${SEC_WWW}/files/company_tickers.json`, { headers: HEADERS });
   if (!res.ok) throw new Error(`Ticker map fetch failed: ${res.status}`);
@@ -117,27 +110,39 @@ async function main() {
   const tickerByCusip = new Map<string, string>();
   for (const row of nameMapRows) {
     if (row.keyType === "ticker") {
-      if (row.nameZh) zhByTicker.set(row.key.toUpperCase(), row.nameZh);
+      const ticker = normalizeTicker(row.key);
+      if (row.nameZh && ticker) zhByTicker.set(ticker, row.nameZh);
       continue;
     }
     if (row.keyType === "cusip") {
-      if (row.ticker) tickerByCusip.set(row.key.toUpperCase(), row.ticker.toUpperCase());
+      const ticker = normalizeTicker(row.ticker);
+      if (ticker) tickerByCusip.set(row.key.toUpperCase(), ticker);
       continue;
     }
-    if (row.ticker) tickerByIssuer.set(row.key, row.ticker.toUpperCase());
+    const ticker = normalizeTicker(row.ticker);
+    if (ticker) tickerByIssuer.set(row.key, ticker);
   }
 
   const companies = await db.entity.findMany({
-    where: { type: "company" },
-    select: { id: true, ticker: true, cik: true, canonicalName: true },
+    where: { type: { in: ["company", "master"] } },
+    select: { id: true, ticker: true, cik: true, canonicalName: true, type: true },
   });
-  const companyByTicker = new Map<string, { id: string; cik: string | null }>();
+  const companyByTicker = new Map<string, { id: string; cik: string | null; type: string }>();
   const companyByIssuer = new Map<string, string>();
   const companyById = new Set<string>();
+  const companyMetaById = new Map<string, { cik: string | null; type: string }>();
+  companies.sort((a, b) => {
+    return scoreCompanyCandidate(b) - scoreCompanyCandidate(a);
+  });
   for (const c of companies) {
     companyById.add(c.id);
-    if (c.ticker) companyByTicker.set(c.ticker.toUpperCase(), { id: c.id, cik: c.cik ?? null });
-    companyByIssuer.set(issuerKey(c.canonicalName), c.id);
+    companyMetaById.set(c.id, { cik: c.cik ?? null, type: c.type });
+    const ticker = normalizeTicker(c.ticker);
+    if (ticker && !companyByTicker.has(ticker)) {
+      companyByTicker.set(ticker, { id: c.id, cik: c.cik ?? null, type: c.type });
+    }
+    const key = issuerKey(c.canonicalName);
+    if (!companyByIssuer.has(key)) companyByIssuer.set(key, c.id);
   }
 
   const rows = await db.security.findMany({
@@ -181,18 +186,23 @@ async function main() {
 
     const resolvedTicker = rawTickerCandidates.length ? normalizeTicker(rawTickerCandidates[0]) : null;
 
-    let companyId: string | null = null;
+    const candidateCompanyIds: string[] = [];
     if (existingCompanyId && companyById.has(existingCompanyId)) {
-      companyId = existingCompanyId;
+      candidateCompanyIds.push(existingCompanyId);
     }
+    if (resolvedTicker) {
+      const byTicker = companyByTicker.get(resolvedTicker)?.id ?? null;
+      if (byTicker) candidateCompanyIds.push(byTicker);
+    }
+    const byIssuer = companyByIssuer.get(issuerK) ?? null;
+    if (byIssuer) candidateCompanyIds.push(byIssuer);
 
-    if (!companyId && resolvedTicker) {
-      companyId = companyByTicker.get(resolvedTicker)?.id ?? null;
-    }
-
-    if (!companyId) {
-      companyId = companyByIssuer.get(issuerK) ?? null;
-    }
+    let companyId =
+      [...new Set(candidateCompanyIds)].sort((a, b) => {
+        const left = companyMetaById.get(a) ?? {};
+        const right = companyMetaById.get(b) ?? {};
+        return scoreCompanyCandidate(right) - scoreCompanyCandidate(left);
+      })[0] ?? null;
 
     if (!companyId && resolvedTicker) {
       const secRef = tickerMap.get(resolvedTicker);
@@ -225,7 +235,8 @@ async function main() {
           });
           companyId = created.id;
           companyById.add(created.id);
-          companyByTicker.set(resolvedTicker, { id: created.id, cik: secRef.cik });
+          companyMetaById.set(created.id, { cik: secRef.cik, type: "company" });
+          companyByTicker.set(resolvedTicker, { id: created.id, cik: secRef.cik, type: "company" });
           createdCompany++;
         }
       }

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { normalizeTicker } from "../src/lib/ticker";
 
 const db = new PrismaClient();
 
@@ -26,9 +27,10 @@ async function findCompanies(query?: string) {
   const byTicker = await db.entity.findFirst({
     where: {
       type: { in: ["company", "master"] },
-      ticker: { equals: query, mode: "insensitive" }
+      ticker: { equals: normalizeTicker(query) ?? query, mode: "insensitive" }
     },
     select: { id: true, canonicalName: true, ticker: true, cik: true, sector: true, metadata: true },
+    orderBy: [{ type: "desc" }, { updatedAt: "desc" }],
   });
   if (byTicker) return [byTicker];
 

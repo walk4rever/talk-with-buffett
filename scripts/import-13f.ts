@@ -7,6 +7,7 @@
 import { PrismaClient } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
 import { issuerKey, resolveCompanyNamesFromMaps } from "../src/lib/company-name-map";
+import { normalizeTicker } from "../src/lib/ticker";
 import { translateCompanyNameToZh, upsertNameMapEntries } from "./lib/company-name-zh";
 
 const db = new PrismaClient();
@@ -316,11 +317,17 @@ async function seedEntityCache() {
   }
 
   const companies = await db.entity.findMany({
-    where: { type: "company", ticker: { not: null } },
-    select: { id: true, ticker: true },
+    where: { type: { in: ["company", "master"] }, ticker: { not: null } },
+    select: { id: true, ticker: true, type: true, cik: true },
+  });
+  companies.sort((a, b) => {
+    const score = (x: (typeof companies)[number]) =>
+      (x.type === "master" ? 120 : 0) + (x.cik ? 100 : 0);
+    return score(b) - score(a);
   });
   for (const c of companies) {
-    if (c.ticker) companyByTickerCache.set(c.ticker.toUpperCase(), c.id);
+    const ticker = normalizeTicker(c.ticker);
+    if (ticker && !companyByTickerCache.has(ticker)) companyByTickerCache.set(ticker, c.id);
   }
 
   const securityRows = await db.security.findMany({
@@ -338,12 +345,15 @@ async function seedEntityCache() {
   });
   for (const row of dbMaps) {
     if (row.keyType === "ticker") {
-      if (row.nameZh) zhByTickerDb.set(row.key.toUpperCase(), row.nameZh);
+      const ticker = normalizeTicker(row.key);
+      if (row.nameZh && ticker) zhByTickerDb.set(ticker, row.nameZh);
     } else if (row.keyType === "cusip") {
-      if (row.ticker) tickerByCusipDb.set(row.key.toUpperCase(), row.ticker.toUpperCase());
+      const ticker = normalizeTicker(row.ticker);
+      if (ticker) tickerByCusipDb.set(row.key.toUpperCase(), ticker);
     } else {
       if (row.nameZh) zhByIssuerDb.set(row.key, row.nameZh);
-      if (row.ticker) tickerByIssuerDb.set(row.key, row.ticker.toUpperCase());
+      const ticker = normalizeTicker(row.ticker);
+      if (ticker) tickerByIssuerDb.set(row.key, ticker);
     }
   }
   console.log(`  Name map cache seeded: ${dbMaps.length} rows`);
@@ -368,7 +378,7 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<SecuritySnap
     ...baseResolved,
     ticker: resolveTickerWithCusipOverride(entry.cusip, baseResolved.ticker),
   };
-  const maybeCompanyId = (resolved.ticker ? companyByTickerCache.get(resolved.ticker.toUpperCase()) : undefined) ?? null;
+  const maybeCompanyId = (resolved.ticker ? companyByTickerCache.get(resolved.ticker) : undefined) ?? null;
 
   const cached = entityByCusip.get(entry.cusip);
   if (cached) {
@@ -386,7 +396,7 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<SecuritySnap
           titleOfClass: entry.titleOfClass,
           nameZh: names.nameZh,
           nameEnShort: names.nameEnShort,
-          companyEntityId: typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
+          companyEntityId: maybeCompanyId ?? (typeof meta.companyEntityId === "string" ? meta.companyEntityId : null),
         };
         await db.entity.update({
           where: { id: cached.id },
@@ -431,7 +441,7 @@ async function upsertSecurityEntity(entry: InfoTableEntry): Promise<SecuritySnap
       titleOfClass: entry.titleOfClass,
       nameZh: names.nameZh,
       nameEnShort: names.nameEnShort,
-      companyEntityId: typeof meta.companyEntityId === "string" ? meta.companyEntityId : maybeCompanyId,
+      companyEntityId: maybeCompanyId ?? (typeof meta.companyEntityId === "string" ? meta.companyEntityId : null),
     };
 
     await db.entity.update({
